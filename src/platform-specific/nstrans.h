@@ -10,6 +10,10 @@
 #define nst_taken ns_taken
 #endif
 
+#ifndef __CC65__
+#define __fastcall__
+#endif
+
 uint8_t nst_open(const char *host, uint16_t port);  /* 1: the stream is on */
 void nst_close(void);                               /* stream off (goodbye first) */
 void __fastcall__ nst_put(uint8_t c);

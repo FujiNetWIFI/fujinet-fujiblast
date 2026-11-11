@@ -10,6 +10,10 @@
 #include "plat.h"
 #include "sound.h"
 
+#ifndef KEY_END_NAME
+#define KEY_END_NAME "RETURN"   /* (the PC's key says ENTER) */
+#endif
+
 void title(void)
 {
     uint8_t n, x;
@@ -20,6 +24,9 @@ void title(void)
     centre(8, "FOR FUJINET", 0, 20);
     centre(18, "PRESS FIRE", 0, 40);
     centre(21, "BOMBS, BLOCKS AND BLASTS FOR 2-4", 0, 40);
+#ifdef QUIT_HINT
+    centre(23, QUIT_HINT, 0, 40);       /* (a platform that can quit) */
+#endif
     gfx_show();
     snd_music(MUS_TITLE);
     for (;;) {
@@ -31,6 +38,10 @@ void title(void)
         }
         if (ev_btn || ev_key == KEY_RETURN)
             break;
+#ifdef QUIT_HINT
+        if (ev_key == KEY_ESC)
+            plat_quit();
+#endif
     }
     snd_stop();
     spr_hide_all();
@@ -44,7 +55,7 @@ void name_entry(void)
     gfx_row(6, ROW_BIG, PAL_MENU);
     centre(6, "WHAT IS YOUR NAME?", 0, 20);
     gfx_row(10, ROW_BIG, PAL_MENU);
-    centre(14, "LETTERS AND DIGITS, THEN RETURN", 0, 40);
+    centre(14, "LETTERS AND DIGITS, THEN " KEY_END_NAME, 0, 40);
     gfx_show();
     my_name[0] = 0;
     for (;;) {

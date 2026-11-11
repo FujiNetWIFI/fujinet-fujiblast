@@ -1,0 +1,23 @@
+# the PCjr (128K): memory with FUJINET.SYS in, then join and play
+wait 60
+peek plat_mem 8
+peek plat_pcjr 2
+snap title
+key 13
+wait 400
+snap room
+wait 500
+snap play1
+hold l
+wait 60
+hold u
+wait 60
+press
+hold none
+wait 200
+snap play2
+peek plat_drawn 2
+peek plat_late 2
+peek frame_count 2
+peek fb_cnt 4
+peek fb_ovr 1

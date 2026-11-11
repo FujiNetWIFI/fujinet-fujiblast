@@ -1,0 +1,7 @@
+wait 200
+snap title
+wait 30
+snap title2
+key 13
+wait 60
+snap name

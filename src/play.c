@@ -25,6 +25,11 @@ static uint16_t sent_t, bump_t;
 static uint8_t hud_timer, hud_alive, hud_wins[SEATS], stats[5], last_phase;
 static uint8_t scan;                    /* drawn[] has holes: compare all the tiles */
 
+#ifndef MOVE_EVERY
+#define MOVE_EVERY 3            /* jiffies between our moves, at least (a slow
+                                 * link sends fewer) */
+#endif
+
 static uint8_t is_flame(uint8_t t)
 {
     return t >= T_FLAME_C && t <= T_FLAME_D;
@@ -146,22 +151,34 @@ void play_state(void)
             mov_on[m] = 0;
         }
     /* (the scan is the slow part of a state: skipped when only players moved) */
+#define TILE_CHECK \
+            want = MAPT(t); \
+            if (t == pend_tile) \
+                want = T_BOMB; \
+            if (drawn[t] != want) { \
+                if (want == T_FLAME_C && drawn[t] != NONE && !is_flame(drawn[t])) \
+                    boom = 1; \
+                if (want == T_DUD && drawn[t] == T_BOMB) \
+                    snd_play(SND_FIZZLE); \
+                drawn[t] = want; \
+                gfx_tile(c, r, want); \
+            }
+#ifdef PLAT_MAP_NEXT
+    /* the platform finds the tiles that differ (an 8088's repe cmpsb) */
+    if (scan || net_map || pend_tile != NONE)
+        for (t = 0; (t = map_next(st + OFF_MAP, drawn, t)) < TILES; ++t) {
+            r = t / ARENA_W;
+            c = t - r * ARENA_W;
+            TILE_CHECK
+        }
+#else
     t = 0;
     if (scan || net_map || pend_tile != NONE)
     for (r = 0; r < ARENA_H; ++r)
         for (c = 0; c < ARENA_W; ++c, ++t) {
-            want = MAPT(t);
-            if (t == pend_tile)
-                want = T_BOMB;
-            if (drawn[t] != want) {
-                if (want == T_FLAME_C && drawn[t] != NONE && !is_flame(drawn[t]))
-                    boom = 1;
-                if (want == T_DUD && drawn[t] == T_BOMB)
-                    snd_play(SND_FIZZLE);
-                drawn[t] = want;
-                gfx_tile(c, r, want);
-            }
+            TILE_CHECK
         }
+#endif
     scan = net_map = 0;
     if (boom)
         snd_play(SND_BOOM);
@@ -275,7 +292,7 @@ void play_frame(void)
             }
         }
         d = mv_dir | (moved ? P_DIR_MOVING : 0);
-        if ((mv_x != sent_x || mv_y != sent_y || d != sent_d) && frame_count - sent_t >= 3 ||
+        if ((mv_x != sent_x || mv_y != sent_y || d != sent_d) && frame_count - sent_t >= MOVE_EVERY ||
             frame_count - sent_t >= 60) {
             sent_x = mv_x;
             sent_y = mv_y;

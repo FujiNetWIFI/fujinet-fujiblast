@@ -1,0 +1,22 @@
+# the arena on the canned state: seat 0 walks right, then down; an
+# explosion in the top lane every 4 s
+test 1
+wait 150
+snap arena
+peek plat_drawn 2
+peek plat_late 2
+hold r
+wait 40
+snap walk-right
+peek mv_x 2
+hold d
+wait 40
+snap walk-down
+peek mv_x 2
+hold none
+wait 120
+snap blast
+peek plat_drawn 2
+peek plat_late 2
+peek frame_count 2
+stack

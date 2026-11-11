@@ -2,6 +2,7 @@
 #
 #   make atari                     r2r/atari/fujiblst.atr (48K Atari 400/800, XL/XE)
 #   make apple2                    r2r/apple2/fujiblst.po (128K //e, //c, IIgs; double hi-res)
+#   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -12,7 +13,7 @@
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
 
 PRODUCT = fujiblst
-PLATFORMS = atari apple2
+PLATFORMS = atari apple2 msdos
 
 SRC_DIRS = src src/%PLATFORM% gen/%PLATFORM%
 EXTRA_INCLUDE = src src/platform-specific gen
@@ -68,10 +69,40 @@ build/a2loader.bin: tools/a2loader/loader.s tools/a2loader/loader.cfg
 	ca65 -o build/a2loader.o tools/a2loader/loader.s
 	ld65 -C tools/a2loader/loader.cfg -o $@ build/a2loader.o
 
-.PHONY: gen-atari gen-apple2 server proto FORCE
+# ---- MS-DOS (an IBM PC, XT, PCjr or compatible: CGA, 128K) -----------------
+# Open Watcom, small model, from defoogi unless installed (tools/dos/ow).
+# CGA's 320x200 4-colour mode, its palette set through the BIOS
+# (src/msdos/gfx.c). The link to the server is FUJINET.SYS's serial port,
+# driven by interrupt (src/msdos/fbport.c); fujinet-lib (5.1.0's msdos
+# release, small model) opens it and reads the appkeys. FUJIBLST.EXE runs
+# from AUTOEXEC.BAT on its disk, as the lobby starts it.
+ifeq ($(PLATFORM),msdos)
+  CC_OW2 = $(CURDIR)/tools/dos/ow wcc
+  AS_OW2 = $(CURDIR)/tools/dos/ow wasm
+  AR_OW2 = $(CURDIR)/tools/dos/ow wlib
+  LD_OW2 = $(CURDIR)/tools/dos/ow wlink OPTION quiet
+  EXTRA_INCLUDE += gen/msdos
+endif
+# (-ad names the object in the .d without its directory: -adt names it)
+OPT ?= -os -oi -ol
+CFLAGS_EXTRA_MSDOS += -zq -ms $(OPT) -s -zp1 -adt=$@ -DQUIT_HINT='"ESC: LOBBY"' -DKEY_END_NAME='"ENTER"' \
+                      -DPLAT_MAP_NEXT -DMOVE_EVERY=6
+ifeq ($(STATS),1)               # plays by itself, writes A:\STATS.TXT (tools/dosrig/86box.sh)
+  CFLAGS_EXTRA_MSDOS += -DSTATS
+  ASFLAGS_EXTRA_MSDOS += -dSTATS
+endif
+LDFLAGS_EXTRA_MSDOS += OPTION map=build/fujiblst-msdos.map OPTION stack=2048
+ASFLAGS_EXTRA_MSDOS += -zq -0
+
+msdos/disk-post::
+	printf '@ECHO OFF\r\nFUJIBLST\r\n' > build/autoexec.bat
+	mcopy -o -i $(DISK) build/autoexec.bat "::AUTOEXEC.BAT"
+
+.PHONY: gen-atari gen-apple2 gen-msdos server proto FORCE
 
 r2r/atari/$(PRODUCT): gen-atari
 r2r/apple2/$(PRODUCT): gen-apple2
+r2r/msdos/$(PRODUCT): gen-msdos
 
 gen-atari: gen/config.h gen/atari/gfxdata.s
 
@@ -89,6 +120,12 @@ gen-apple2: gen/config.h gen/apple2/gfxdata.s
 gen/apple2/gfxdata.s: tools/mkgfx_apple2.py tools/artlayout.py tools/png.py gfx/dhgr/tiles.png gfx/dhgr/sprites.png gfx/dhgr/logo.png gfx/dhgr/wall.png gfx/dhgr/font3.png gfx/dhgr/font5.png
 	@mkdir -p gen/apple2
 	$(PYTHON) tools/mkgfx_apple2.py gen/apple2
+
+gen-msdos: gen/config.h gen/msdos/gfxdata.c
+
+gen/msdos/gfxdata.c: tools/mkgfx_cga.py tools/artlayout.py tools/png.py gfx/cga/tiles.png gfx/cga/sprites.png gfx/cga/logo.png gfx/cga/cells.png gfx/namco.bin
+	@mkdir -p gen/msdos
+	$(PYTHON) tools/mkgfx_cga.py gen/msdos
 
 gen/atari/gfxdata.s: tools/mkgfx_atari.py tools/artlayout.py tools/png.py gfx/tiles.png gfx/glyphs.png gfx/logo.png gfx/sprites.png
 	@mkdir -p gen/atari

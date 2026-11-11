@@ -37,6 +37,13 @@ void gfx_tile(uint8_t c, uint8_t r, uint8_t tile);
 void gfx_bomb_at(uint8_t hx, uint8_t hy, uint8_t dud);      /* half-tile steps */
 void gfx_stat(uint8_t i, uint8_t n);            /* 0 fire, 1 bombs, 2 speed, 3 kick, 4 glove; n 0 hides 3, 4 */
 void gfx_round(uint8_t round);
+#ifdef PLAT_MAP_NEXT
+/* The first tile from `from` on where map and drawn differ, or TILES. */
+uint8_t map_next(const uint8_t *map, const uint8_t *drawn, uint8_t from);
+#ifdef __WATCOMC__
+#pragma aux map_next "*_" parm [si] [di] [dx] value [al] modify [ax cx dx si di es]
+#endif
+#endif
 
 /* Sprites: n 0-3, in seat's colour. spr_arena takes arena units; spr_at
  * the screen's own (x 0-159, y 0-199). big: twice the size. */

@@ -1,0 +1,9 @@
+# an instruction trace of live play (tools/dossim/trace.py counts it)
+wait 120
+key 13
+wait 900
+hold r
+wait 30
+trace trace.log
+wait 120
+trace off

@@ -1,0 +1,5 @@
+test 2
+wait 120
+snap scene2
+wait 20
+snap scene2b

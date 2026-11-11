@@ -1,0 +1,27 @@
+# boot, the title, join (the room from the lobby's appkey), play a round
+wait 120
+snap title
+key 13
+wait 300
+snap room
+peek fb_cnt 4
+wait 400
+snap play1
+hold r
+wait 60
+hold d
+wait 60
+press
+hold u
+wait 60
+hold none
+wait 120
+snap play2
+peek plat_drawn 2
+peek plat_late 2
+peek frame_count 2
+peek fb_cnt 4
+peek fb_ovr 1
+wait 600
+snap play3
+peek fb_cnt 4

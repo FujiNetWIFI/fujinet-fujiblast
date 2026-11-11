@@ -1,0 +1,6 @@
+# a profile of live play: join, then sample CS:IP each frame
+wait 120
+key 13
+wait 700
+hold r
+pc 1500
