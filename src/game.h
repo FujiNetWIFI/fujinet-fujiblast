@@ -13,12 +13,15 @@
 
 /* the last whole state */
 extern uint8_t st[STATE_SIZE];
-#define PL(s, f)  st[OFF_PLAYERS + (s) * PLAYER_SIZE + (f)]
+/* (by table, not s * PLAYER_SIZE or 1 << s: cc65 multiplies and shifts in
+ * 16 bits, and these run for every seat every frame) */
+extern const uint8_t seat_off[SEATS], seat_bit[SEATS];     /* net.c */
+#define PL(s, f)  st[(uint8_t)(OFF_PLAYERS + seat_off[s] + (f))]
 #define MAPT(t)   st[OFF_MAP + (t)]
 #define NAME(s)   ((const char *)st + OFF_NAMES + (s) * NAME_LEN)
-#define SEATED(s) (st[OFF_SEATED] & (1 << (s)))
-#define ALIVE(s)  (st[OFF_ALIVE] & (1 << (s)))
-#define INPLAY(s) (st[OFF_INPLAY] & (1 << (s)))
+#define SEATED(s) (st[OFF_SEATED] & seat_bit[s])
+#define ALIVE(s)  (st[OFF_ALIVE] & seat_bit[s])
+#define INPLAY(s) (st[OFF_INPLAY] & seat_bit[s])
 
 extern char my_name[NAME_LEN + 1];
 extern char srv_host[61];
@@ -31,6 +34,7 @@ enum { NET_NONE, NET_STATE, NET_ERROR, NET_LOST };
 #define MAX_TABLES 8
 extern uint8_t tables[MAX_TABLES][TABLE_REC];
 extern uint8_t net_err, net_heard;
+extern uint8_t net_map;             /* the map changed since play_state looked */
 uint8_t net_open(void);
 void net_hello(void);
 uint8_t net_poll(void);
@@ -51,10 +55,16 @@ void play_enter(void);
 void play_state(void);              /* a new state came */
 void play_frame(void);
 
-/* screens.c */
+/* menus.c */
 void title(void);
 void name_entry(void);
 uint8_t table_list(void);           /* 1: srv_table picked */
+
+/* screens.c */
+extern uint8_t prev_dir;            /* the stick, last frame */
+void tick(void);                    /* a frame: wait, input, M for sound */
+uint8_t pressed(uint8_t bit);       /* the stick pushed this frame (not held) */
+void centre(uint8_t row, const char *s, uint8_t colour, uint8_t width);
 void message(const char *a, const char *b, uint8_t frames);
 void wait_enter(void);
 void wait_state(void);

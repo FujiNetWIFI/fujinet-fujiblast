@@ -22,11 +22,27 @@ uint8_t st[STATE_SIZE];
 static uint8_t stage[STATE_SIZE];
 uint8_t tables[MAX_TABLES][TABLE_REC];
 uint8_t net_err, net_heard;
+uint8_t net_map;                /* a commit since play_state looked changed the map */
+static uint8_t stage_map;       /* a patch to the staged state touched the map */
 
 static uint8_t link, joined, seq, credited, resync_hold, resync_owed;
 static uint8_t table_n, table_have;
-static uint16_t quiet;
+static uint16_t quiet;          /* passes since a frame came */
+static uint16_t q_ping;         /* the same, mod PING_EVERY and ASK_AGAIN (no */
+static uint8_t q_ask;           /* division in a pass: cc65's is slow) */
+
+const uint8_t seat_off[SEATS] = { 0, PLAYER_SIZE, 2 * PLAYER_SIZE, 3 * PLAYER_SIZE };
+const uint8_t seat_bit[SEATS] = { 1, 2, 4, 8 };
 static uint8_t raw[24];
+
+/* a + b, mod 255, with no division (256 is 1, mod 255) */
+static uint8_t add255(uint8_t a, uint8_t b)
+{
+    a += b;
+    if (a < b)
+        ++a;
+    return a == 255 ? 0 : a;
+}
 
 /* A frame: COBS of type, payload, Fletcher-16; then 0. */
 static void send(uint8_t type, const uint8_t *p, uint8_t n)
@@ -36,8 +52,8 @@ static void send(uint8_t type, const uint8_t *p, uint8_t n)
     memcpy(raw + 1, p, n);
     ++n;
     for (i = 0; i < n; ++i) {
-        s1 = (uint8_t)(((uint16_t)s1 + raw[i]) % 255);
-        s2 = (uint8_t)(((uint16_t)s2 + s1) % 255);
+        s1 = add255(s1, raw[i]);
+        s2 = add255(s2, s1);
     }
     raw[n++] = s1;
     raw[n++] = s2;
@@ -74,7 +90,7 @@ uint8_t net_open(void)
         return 1;
     joined = 0;
     credited = 0;
-    quiet = 0;
+    quiet = q_ping = q_ask = 0;
     link = nst_open(srv_host, srv_port);
     return link;
 }
@@ -94,7 +110,7 @@ void net_hello(void)
     joined = 1;
     net_heard = 0;
     net_err = 0;
-    quiet = 0;
+    quiet = q_ping = q_ask = 0;
     resync_owed = 0;
     memset(stage, 0, sizeof(stage));
     hello_frame();
@@ -120,7 +136,7 @@ uint8_t net_poll(void)
     else if (resync_owed)
         resync();
     while ((n = nst_frame()) != 0) {
-        quiet = 0;
+        quiet = q_ping = q_ask = 0;
         if (n == 255) {
             resync();
             continue;
@@ -134,11 +150,15 @@ uint8_t net_poll(void)
                 if (p + len > n || off + len > STATE_SIZE)
                     break;
                 memcpy(stage + off, nst_buf + p, len);
+                if (off < OFF_MAP + TILES && off + len > OFF_MAP)
+                    stage_map = 1;
             }
             break;
         case CS_COMMIT:
             if (joined) {
                 memcpy(st, stage, STATE_SIZE);
+                net_map |= stage_map;
+                stage_map = 0;
                 net_heard = 1;
                 r = NET_STATE;
             }
@@ -160,12 +180,17 @@ uint8_t net_poll(void)
         send_credit();
     if (nst_garbled())
         resync();
-    if (++quiet % PING_EVERY == 0) {
+    ++quiet;
+    if (++q_ping == PING_EVERY) {
+        q_ping = 0;
         send_credit();
         send(SC_PING, 0, 0);
     }
-    if (joined && !net_heard && quiet % ASK_AGAIN == 0)
-        hello_frame();
+    if (++q_ask == ASK_AGAIN) {
+        q_ask = 0;
+        if (joined && !net_heard)
+            hello_frame();
+    }
     if (quiet > DEAD_AFTER) {
         drop();
         return NET_LOST;

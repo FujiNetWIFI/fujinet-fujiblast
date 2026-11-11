@@ -23,6 +23,7 @@ static uint8_t disp_x[SEATS], disp_y[SEATS], die_t[SEATS], was_alive;
 static uint8_t my_warp, sent_x, sent_y, sent_d, pend_left;
 static uint16_t sent_t, bump_t;
 static uint8_t hud_timer, hud_alive, hud_wins[SEATS], stats[5], last_phase;
+static uint8_t scan;                    /* drawn[] has holes: compare all the tiles */
 
 static uint8_t is_flame(uint8_t t)
 {
@@ -88,6 +89,7 @@ void play_enter(void)
     gfx_begin();
     gfx_arena();
     memset(drawn, NONE, sizeof(drawn));
+    scan = 1;
     memset(mov_on, 0, sizeof(mov_on));
     memset(die_t, 0, sizeof(die_t));
     pend_tile = NONE;
@@ -114,6 +116,7 @@ void play_enter(void)
 static void dirty(uint8_t hx, uint8_t hy)
 {
     uint8_t c = hx >> 1, r = hy >> 1;
+    scan = 1;
     drawn[r * ARENA_W + c] = NONE;
     if ((hx & 1) && c + 1 < ARENA_W)
         drawn[r * ARENA_W + c + 1] = NONE;
@@ -142,7 +145,9 @@ void play_state(void)
             dirty(mov_hx[m], mov_hy[m]);
             mov_on[m] = 0;
         }
+    /* (the scan is the slow part of a state: skipped when only players moved) */
     t = 0;
+    if (scan || net_map || pend_tile != NONE)
     for (r = 0; r < ARENA_H; ++r)
         for (c = 0; c < ARENA_W; ++c, ++t) {
             want = MAPT(t);
@@ -157,6 +162,7 @@ void play_state(void)
                 gfx_tile(c, r, want);
             }
         }
+    scan = net_map = 0;
     if (boom)
         snd_play(SND_BOOM);
     mv = st + OFF_MOVERS;
@@ -174,7 +180,7 @@ void play_state(void)
     }
 
     for (s = 0; s < SEATS; ++s) {
-        if ((was_alive & (1 << s)) && !ALIVE(s) && st[OFF_PHASE] == PH_PLAY) {
+        if ((was_alive & seat_bit[s]) && !ALIVE(s) && st[OFF_PHASE] == PH_PLAY) {
             die_t[s] = 1;
             snd_play(SND_DIE);
         }
@@ -281,6 +287,7 @@ void play_frame(void)
     if (pend_tile != NONE && pend_left && !--pend_left) {
         drawn[pend_tile] = NONE;        /* never came: off again at the next state */
         pend_tile = NONE;
+        scan = 1;
     }
 
     for (s = 0; s < SEATS; ++s) {

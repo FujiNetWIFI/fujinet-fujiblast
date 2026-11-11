@@ -85,7 +85,8 @@ static uint8_t play_table(void)
             }
             continue;
         }
-        my_seat = find_seat();
+        if (r == NET_STATE)
+            my_seat = find_seat();      /* (only a state can move us) */
         want = screen_for();
         if (want != shown || (want == S_ARENA && st[OFF_SEQ] != shown_seq)) {
             shown = want;
