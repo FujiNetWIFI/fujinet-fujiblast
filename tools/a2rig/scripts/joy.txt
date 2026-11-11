@@ -1,0 +1,17 @@
+# our bomber moved by the joystick
+wait 900
+key 13
+wait 1300
+peek @mv_x 2
+joy 0 -32768
+wait 60
+peek @mv_x 2
+joy 32767 0
+wait 90
+peek @mv_x 2
+joy 0 0
+btn 0 1
+wait 6
+btn 0 0
+wait 30
+snap joy

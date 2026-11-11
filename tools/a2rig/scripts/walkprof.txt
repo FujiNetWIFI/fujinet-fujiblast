@@ -1,0 +1,9 @@
+wait 900
+key 13
+wait 1600
+joy 32767 0
+peek @mv_x 2
+peek @frame_count 2
+xprof 120 walk.hist
+peek @mv_x 2
+peek @frame_count 2

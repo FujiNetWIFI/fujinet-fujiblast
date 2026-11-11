@@ -22,3 +22,6 @@ server/fujiblastd
 server/blastbot
 tools/atarisim/asim
 __pycache__/
+/gfx/dhgr/preview/
+tools/a2rig/a2rig
+tools/a2rig/*.o

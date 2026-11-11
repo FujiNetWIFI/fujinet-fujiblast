@@ -19,6 +19,7 @@ Environment=FUJIBLAST_STREAM_ADDR=:9910
 #Environment=FUJIBLAST_LOBBY=qa
 #Environment=FUJIBLAST_SERVER_URL=tcp://fujinet.online:9910/
 #Environment=FUJIBLAST_CLIENT_ATARI=tnfs://fujinet.online/fujiblast/atari/fujiblst.atr
+#Environment=FUJIBLAST_CLIENT_APPLE2=tnfs://fujinet.online/fujiblast/apple2/fujiblst.po
 DynamicUser=yes
 Restart=on-failure
 RestartSec=5

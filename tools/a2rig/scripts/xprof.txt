@@ -1,0 +1,7 @@
+# boot, join, then an exact profile of 20 seconds of play
+wait 900
+key 13
+wait 1500
+peek @frame_count 2
+xprof 1200 play.hist
+peek @frame_count 2

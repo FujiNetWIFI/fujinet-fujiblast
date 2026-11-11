@@ -1,0 +1,22 @@
+wait 900
+key 13
+wait 1600
+joy 32767 0
+peek @st+46 10
+peek @mv_x 2
+wait 15
+peek @st+46 10
+peek @mv_x 2
+wait 15
+peek @st+46 10
+peek @mv_x 2
+wait 15
+peek @st+46 10
+peek @mv_x 2
+wait 15
+peek @st+46 10
+peek @mv_x 2
+wait 15
+peek @st+46 10
+peek @mv_x 2
+wait 15

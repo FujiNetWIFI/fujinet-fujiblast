@@ -1,0 +1,11 @@
+wait 900
+key 13
+wait 1600
+peek @st 16
+peek @my_seat 1
+snap k0
+joy 32767 0
+wait 90
+joy 0 0
+peek @mv_x 2
+snap k1

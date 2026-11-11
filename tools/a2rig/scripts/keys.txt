@@ -1,0 +1,19 @@
+# our bomber by the keyboard, then the stick, in play
+wait 900
+key 13
+wait 1600
+peek @mv_x 2
+keydown 21
+wait 90
+keyup 21
+peek @mv_x 2
+keydown 8
+wait 90
+keyup 8
+peek @mv_x 2
+joy 32767 0
+wait 90
+joy 0 0
+peek @mv_x 2
+peek @joy_x 2
+peek @inp_dir 1

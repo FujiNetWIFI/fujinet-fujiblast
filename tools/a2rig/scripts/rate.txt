@@ -1,0 +1,22 @@
+wait 900
+key 13
+wait 1200
+peek @frame_count 2
+peek @renders 2
+wait 600
+peek @frame_count 2
+peek @renders 2
+wait 600
+peek @frame_count 2
+peek @renders 2
+wait 600
+peek @frame_count 2
+peek @renders 2
+wait 600
+peek @frame_count 2
+peek @renders 2
+wait 600
+peek @frame_count 2
+peek @renders 2
+wait 600
+snap end

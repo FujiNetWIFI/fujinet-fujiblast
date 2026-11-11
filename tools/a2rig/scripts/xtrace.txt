@@ -1,0 +1,4 @@
+wait 900
+key 13
+wait 1500
+xtrace 120 play.trace

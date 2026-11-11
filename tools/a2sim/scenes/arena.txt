@@ -1,0 +1,13 @@
+# the arena on the canned state: seat 0 walks right, then down
+test 1 0
+wait 90
+snap arena
+hold r
+wait 40
+snap walk-right
+hold d
+wait 40
+snap walk-down
+hold none
+wait 250
+snap blast

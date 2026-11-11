@@ -1,0 +1,9 @@
+# the title (overlay) with its jingle, then join and play with sound
+wait 500
+snap title
+peek @mb_slot
+wav 240 title.wav
+key 13
+wait 900
+snap play
+wav 600 play.wav

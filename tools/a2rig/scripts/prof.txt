@@ -1,0 +1,11 @@
+# boot, join, then profile play
+wait 900
+key 13
+wait 1500
+snap play0
+peek @renders 2
+peek @frame_count 2
+prof 2400 play.pcs
+peek @renders 2
+peek @frame_count 2
+snap play1
