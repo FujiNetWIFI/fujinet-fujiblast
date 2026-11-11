@@ -1,0 +1,6 @@
+-Isrc
+-Isrc/platform-specific
+-Igen
+-Igen/atari
+-D__ATARI__
+-Wno-everything

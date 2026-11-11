@@ -1,0 +1,24 @@
+.vscode/
+.claude/
+
+# build artifacts
+build/
+_cache/
+r2r/
+
+.DS_Store
+
+*.dsk
+*.atr
+*.exe
+*.com
+
+*~
+*.orig
+*.rej
+mekkogx/__pycache__/
+gen/
+server/fujiblastd
+server/blastbot
+tools/atarisim/asim
+__pycache__/
