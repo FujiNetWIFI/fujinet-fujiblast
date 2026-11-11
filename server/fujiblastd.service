@@ -1,0 +1,29 @@
+# systemd unit for the FujiBlast server: the game's stream on TCP 9910
+# (FujiNet netstream) -- open it.
+#
+# Install:
+#   go build -o fujiblastd ./cmd/fujiblastd
+#   sudo mkdir -p /srv/fujiblast && sudo cp fujiblastd /srv/fujiblast/
+#   sudo cp fujiblastd.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now fujiblastd
+[Unit]
+Description=FujiBlast server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/srv/fujiblast
+ExecStart=/srv/fujiblast/fujiblastd
+Environment=FUJIBLAST_STREAM_ADDR=:9910
+# Lobby listing (lobby key 16): off unless FUJIBLAST_LOBBY is qa, prod or a URL.
+#Environment=FUJIBLAST_LOBBY=qa
+#Environment=FUJIBLAST_SERVER_URL=tcp://fujinet.online:9910/
+#Environment=FUJIBLAST_CLIENT_ATARI=tnfs://fujinet.online/fujiblast/atari/fujiblst.atr
+DynamicUser=yes
+Restart=on-failure
+RestartSec=5
+# fujiblastd posts "offline" to the lobby on SIGTERM: give it the time
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
