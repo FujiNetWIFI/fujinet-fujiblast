@@ -40,6 +40,11 @@ void vdp_catch_up(void)
 
 void plat_init(void)
 {
+    /* Booted from CONFIG, the VDP's interrupt can be pending already: EOS
+     * reads the boot block with the SmartWriter ROM paged in, whose NMI
+     * handler leaves the status unread. The line then stays down and no
+     * NMI comes again until the status is read: read it now. */
+    vdp_catch_up();
     snd_init();
     input_init();
     gfx_init();
