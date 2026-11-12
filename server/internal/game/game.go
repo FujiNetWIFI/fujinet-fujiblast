@@ -20,6 +20,7 @@ const (
 type Player struct {
 	Name   string
 	Seated bool
+	Bot    bool // a house bot: host only when no human is seated
 	Conn   bool
 	X, Y   int
 	Dir    int // DIR_* | PDirMoving
@@ -106,11 +107,18 @@ func (g *Game) SeatOf(name string) int {
 
 // Join seats name: its old seat if it has one, else a free one in the
 // waiting room. -1: it watches.
-func (g *Game) Join(name string) int {
+func (g *Game) Join(name string) int { return g.JoinAs(name, false) }
+
+// JoinAs is Join for a house bot (bot) or a person. A name already seated
+// as the other kind is not theirs: they watch.
+func (g *Game) JoinAs(name string, bot bool) int {
 	if name == "" {
 		return -1
 	}
 	if s := g.SeatOf(name); s >= 0 {
+		if g.P[s].Bot != bot {
+			return -1
+		}
 		g.P[s].Conn = true
 		return s
 	}
@@ -119,7 +127,7 @@ func (g *Game) Join(name string) int {
 	}
 	for i := range g.P {
 		if !g.P[i].Seated {
-			g.P[i] = Player{Name: name, Seated: true, Conn: true, Warp: g.P[i].Warp}
+			g.P[i] = Player{Name: name, Seated: true, Bot: bot, Conn: true, Warp: g.P[i].Warp}
 			g.fixHost()
 			return i
 		}
@@ -148,8 +156,15 @@ func (g *Game) Leave(seat int) {
 	g.fixHost()
 }
 
+// fixHost makes the first person seated the host, else the first bot.
 func (g *Game) fixHost() {
 	g.Host = proto.NoSeat
+	for i := range g.P {
+		if g.P[i].Seated && !g.P[i].Bot {
+			g.Host = i
+			return
+		}
+	}
 	for i := range g.P {
 		if g.P[i].Seated {
 			g.Host = i

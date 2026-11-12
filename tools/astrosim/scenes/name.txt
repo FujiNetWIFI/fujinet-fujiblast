@@ -1,0 +1,16 @@
+# the title, then the name wheel (no name)
+test 5 1
+wait 40
+press fire
+wait 30
+hold down 20
+press fire
+hold up 6
+press fire
+wait 10
+snap name
+text
+peek MYNAME 8
+press ent
+wait 10
+peek MYNAME 8

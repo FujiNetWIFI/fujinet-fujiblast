@@ -81,7 +81,7 @@ cp "$HERE/r2r/atari/fujiblst.atr" "$RIG/fn/SD/fujiblst.atr"
 export RIG OUT ASIM XL PAL TABLE BOTS START ROUNDS EXTRA
 exec unshare -rn bash -c '
     ip link set lo up
-    "$RIG/fujiblastd" -stream :9910 -seed 7 > "$RIG/server.log" 2>&1 &
+    "$RIG/fujiblastd" -stream :9910 -seed 7 -bots "" > "$RIG/server.log" 2>&1 &
     srv=$!
     ( cd "$RIG/fn" && exec setsid ./run-fujinet -u http://127.0.0.1:8013 -c fnconfig.ini -s SD ) \
         > "$RIG/fn.log" 2>&1 &

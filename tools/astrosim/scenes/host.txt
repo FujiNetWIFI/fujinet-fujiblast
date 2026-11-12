@@ -1,0 +1,22 @@
+# hosting: we sit first (the bots come later and never start); right
+# twice and left once on the rounds, then FIRE starts the game
+wait 200
+press fire
+until SHOWN 1 1200
+wait 600
+snap room
+text
+peek ST 4
+press right
+wait 40
+press right
+wait 40
+press left
+wait 40
+peek ST 4
+snap rounds
+text
+press fire
+until ST 1 600
+snap started
+peek ST 4

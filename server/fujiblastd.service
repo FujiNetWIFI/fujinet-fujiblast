@@ -15,6 +15,8 @@ Wants=network-online.target
 WorkingDirectory=/srv/fujiblast
 ExecStart=/srv/fujiblast/fujiblastd
 Environment=FUJIBLAST_STREAM_ADDR=:9910
+# House bots per public table (default blast1=1,blast2=2,blast3=3; empty: none).
+#Environment=FUJIBLAST_BOTS=blast1=1,blast2=2,blast3=3
 # Lobby listing (lobby key 16): off unless FUJIBLAST_LOBBY is qa, prod or a URL.
 #Environment=FUJIBLAST_LOBBY=qa
 #Environment=FUJIBLAST_SERVER_URL=tcp://fujinet.online:9910/
@@ -25,6 +27,7 @@ Environment=FUJIBLAST_STREAM_ADDR=:9910
 #Environment=FUJIBLAST_CLIENT_ADAM=tnfs://fujinet.online/fujiblast/adam/fujiblst.ddp
 #Environment=FUJIBLAST_CLIENT_O2=tnfs://fujinet.online/fujiblast/o2/fujiblst.bin
 #Environment=FUJIBLAST_CLIENT_ARCADIA=tnfs://fujinet.online/fujiblast/arcadia/fujiblst.bin
+#Environment=FUJIBLAST_CLIENT_ASTROCADE=tnfs://fujinet.online/fujiblast/astrocade/fujiblst.bin
 DynamicUser=yes
 Restart=on-failure
 RestartSec=5

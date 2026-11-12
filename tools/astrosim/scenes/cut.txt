@@ -1,0 +1,14 @@
+# the link cut mid-game (cutproxy): CONNECTION LOST, then back at the table
+wait 200
+press fire
+until ST 2 2400
+snap play
+until NLINK 0 3000
+snap lost
+until SHOWN 0 600
+until SHOWN 2 1200
+wait 60
+snap back
+text
+peek MYSEAT 1
+peek NBAD 1

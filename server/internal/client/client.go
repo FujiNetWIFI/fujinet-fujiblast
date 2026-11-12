@@ -55,8 +55,11 @@ func pad(s string, n int) []byte {
 }
 
 // Hello sits down at table as name.
-func (c *Client) Hello(table, name string) error {
-	p := append([]byte{proto.Version, 0}, pad(table, proto.TableLen)...)
+func (c *Client) Hello(table, name string) error { return c.HelloFlags(table, name, 0) }
+
+// HelloFlags is Hello with the HELLO flags byte (proto.HelloBot).
+func (c *Client) HelloFlags(table, name string, flags byte) error {
+	p := append([]byte{proto.Version, flags}, pad(table, proto.TableLen)...)
 	return c.send(proto.SCHello, append(p, pad(name, proto.NameLen)...))
 }
 

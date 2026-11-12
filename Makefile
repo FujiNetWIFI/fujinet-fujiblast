@@ -7,6 +7,7 @@
 #   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
 #   make o2                        r2r/o2/fujiblst.bin (Odyssey 2 / Videopac, the FujiNet cartridge)
 #   make arcadia                   r2r/arcadia/fujiblst.bin (Emerson Arcadia 2001, the FujiNet cartridge)
+#   make astrocade                 r2r/astrocade/fujiblst.bin (Bally Astrocade, the FujiNet cartridge)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -138,7 +139,7 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari gen-apple2 gen-msdos gen-adam server proto intv o2 o2-rig arcadia arcadia-rig FORCE
+.PHONY: gen-atari gen-apple2 gen-msdos gen-adam server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -164,6 +165,17 @@ arcadia:
 
 arcadia-rig:
 	DEFSRV=127.0.0.1:9910 OUT=build/arcadia-rig/obj R2R=build/arcadia-rig src/arcadia/build.sh
+
+# ---- Bally Astrocade (the FujiNet cartridge) ---------------------------------
+# Z80 assembly (zmac 1.3), not mekkogx: src/astrocade/build.sh builds the
+# APPBANK image and runs its checks (LOOK=, FOOTER= its colours).
+# astrocade-rig: a copy whose default server is the rig's
+# (build/astrocade-rig/fujiblst.bin), gen/server left alone.
+astrocade:
+	$(if $(SERVER),DEFSRV=$(SERVER)) bash src/astrocade/build.sh
+
+astrocade-rig:
+	DEFSRV=127.0.0.1:9910 OUT=build/astrocade-rig/obj R2R=build/astrocade-rig bash src/astrocade/build.sh
 
 r2r/atari/$(PRODUCT): gen-atari
 r2r/apple2/$(PRODUCT): gen-apple2

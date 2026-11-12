@@ -16,7 +16,7 @@ This framing is M.U.L.E.'s stream mode (fujinet-multiplayer-mule, `docs/PROTOCOL
 
 | Type | Payload | Meaning |
 |---|---|---|
-| `H` | ver, flags, table[8], name[8] | Sit at the table. The name gets the player's old seat back, matched in any case. Otherwise the client takes a free seat in the waiting room, or watches. |
+| `H` | ver, flags, table[8], name[8] | Sit at the table. The name gets the player's old seat back, matched in any case. Otherwise the client takes a free seat in the waiting room, or watches. Flags: bit 0 (`HELLO_BOT`) marks a house bot, which is host only when no person is seated; clients send 0. A person can't take a seat a bot holds (or the reverse): they watch. |
 | `T` | (1: list the dev tables too) | List the tables. |
 | `M` | x, y, dir\|moving, warp | Where the client's player is. |
 | `A` | seq, act, a1, a2 | An action (below). Seq is never 0. A repeated seq is answered but not applied again. |

@@ -74,7 +74,7 @@ exec unshare -rnm bash -c '
     # no gamepads: a pad on the desk would play (SDL opens /dev/input and hidraw)
     mount -t tmpfs tmpfs /dev/input 2>/dev/null || true
     for h in /dev/hidraw*; do [ -e "$h" ] && mount --bind /dev/null "$h" 2>/dev/null || true; done
-    "$RIG/fujiblastd" -stream :9910 -seed 7 > "$RIG/server.log" 2>&1 &
+    "$RIG/fujiblastd" -stream :9910 -seed 7 -bots "" > "$RIG/server.log" 2>&1 &
     srv=$!
     ( cd "$RIG/fn" && exec ./fujinet -u http://127.0.0.1:8001 > "$RIG/fujinet.log" 2>&1 ) &
     fn=$!

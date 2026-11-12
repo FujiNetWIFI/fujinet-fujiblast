@@ -1,0 +1,6 @@
+# the title
+test 5
+wait 50
+snap title0
+wait 31
+snap title1

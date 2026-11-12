@@ -1,0 +1,13 @@
+# offline scene 1 (src/test.c): the arena, seat 0 walked right, then down, a bomb dropped
+test 1 0
+wait 120
+snap scene1
+peek MVX 4
+hold right 20
+hold down 12
+peek MVX 4
+press fire
+wait 20
+snap scene1b
+peek PEND 2
+peek NBAD

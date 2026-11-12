@@ -82,7 +82,7 @@ cp "$HERE/r2r/apple2/fujiblst.po" "$RIG/fn/SD/fujiblst.po"
 export RIG OUT A2RIG FNOUT TABLE BOTS START ROUNDS EXTRA FAST
 exec unshare -rn bash -c '
     ip link set lo up
-    "$RIG/fujiblastd" -stream :9910 -seed 7 > "$RIG/server.log" 2>&1 &
+    "$RIG/fujiblastd" -stream :9910 -seed 7 -bots "" > "$RIG/server.log" 2>&1 &
     srv=$!
     bots=
     trap "kill $srv \$bots 2>/dev/null; true" EXIT

@@ -1,0 +1,5 @@
+# offline scene 2
+test 2 0
+wait 90
+snap scene2
+text

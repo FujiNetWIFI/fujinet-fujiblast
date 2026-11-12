@@ -29,9 +29,12 @@ const (
 	Draw      = 4 // OffResult: nobody won the round
 )
 
+// HELLO flags.
+const HelloBot = 1 // a house bot: never the host while a human is seated
+
 // Client -> server frame types.
 const (
-	SCHello  = 'H' // ver, flags, table[8], name[8] (NUL padded)
+	SCHello  = 'H' // ver, flags (HelloBot), table[8], name[8] (NUL padded)
 	SCTables = 'T' // list the tables (payload 1: the dev tables too)
 	SCMove   = 'M' // x, y, dir|moving, warp: where my player is
 	SCAct    = 'A' // seq, act, a1, a2

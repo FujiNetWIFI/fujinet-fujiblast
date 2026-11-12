@@ -7,9 +7,11 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088;
 - the Intellivision, with the FujiNet cartridge;
 - the Coleco Adam (TMS9918A);
-- the Magnavox Odyssey 2 / Philips Videopac, with the FujiNet cartridge.
+- the Magnavox Odyssey 2 / Philips Videopac, with the FujiNet cartridge;
+- the Emerson Arcadia 2001, with the FujiNet cartridge;
+- the Bally Astrocade, with the FujiNet cartridge.
 
-All are played with a joystick (the Intellivision's hand controller); the Apple, the PC and the Adam take the keyboard too, and the Odyssey 2's keyboard types a name.
+All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle); the Apple, the PC and the Adam take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -39,6 +41,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/adam/` | The Coleco Adam implementation: z88dk and zsdcc, Graphics II as a character map, two sprites a bomber, the SN76489, the FujiNet's DCB driven by hand. |
 | `src/o2/` | The Odyssey 2 client: the C client again in 8048 assembly, the 8244's grid as the arena's walls, the font's man as the bombers; the cartridge's mailbox. |
 | `src/arcadia/` | The Emerson Arcadia 2001 client: the C client again in 2650 assembly, a character a tile, the four sprites as the bombers; the cartridge's mailbox. |
+| `src/astrocade/` | The Bally Astrocade client: the C client again in Z80 assembly, a 2-bit bitmap recoloured band by band by the line interrupt, the bombers composed into it, all three tones and the noise; the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -76,6 +79,10 @@ make o2                 # r2r/o2/fujiblst.bin
 make arcadia            # r2r/arcadia/fujiblst.bin
 ```
 
+```
+make astrocade          # r2r/astrocade/fujiblst.bin
+```
+
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
 
 `make adam` builds fujinet-lib (the pinned fujinet-lib-experimental in `~/Workspace`, `FNLIB_EXP`) with zsdcc into `build/fnlib-adam` and links the program, which must end below C800h (`tools/adam_end.py` checks); z88dk comes from the defoogi container unless installed. The art is `gfx/tms/*.png` (drawn by `tools/drawart_tms.py`, converted by `tools/mkgfx_tms.py`) and `gfx/namco.bin`. `make adam TEST_SCENE=1` builds an offline scene in (see Testing; `touch src/test.c` to go back).
@@ -83,6 +90,8 @@ make arcadia            # r2r/arcadia/fujiblst.bin
 `make o2` runs `src/o2/build.sh`: Macroassembler AS (`~/asl/asl` and `p2bin`, or `ASL=`, `P2BIN=`) assembles a protocol 2 (APPBANK) image, a page at a time, and the checks in `tools/o2/` (from the O2 lobby and CONFIG) fail the build on a table read from the wrong page, a jump that tests the wrong instruction, a stack deeper than 8, and the like. `make o2-rig` builds `build/o2-rig/fujiblst.bin`, whose default server is the rig's.
 
 `make arcadia` runs `src/arcadia/build.sh`: AS again, `CPU 2650`, an assembly a page (each holds the fixed halves, which must come out the same), linked into a protocol 2 (APPBANK) image by `tools/arc/mkblast.py`. The checks (`tools/arc/`, from M.U.L.E.'s Arcadia client) fail the build on a call chain deeper than 7 (the 2650's return stack is 8 and wraps silently), a register read after a call that clobbers it, and a branch that tests a constant just loaded. `tools/arc/fixreach.py src/arcadia/build.sh src/arcadia/src` widens relative branches that no longer reach. The art is `gfx/arcadia/*.png` (drawn by `tools/arc/drawart_arc.py`, converted by `tools/arc/mkgfx_arc.py`); the sounds `tools/arc/mksnd_arc.py`. `LOOK=0`/`2` builds the spike's other colours. `make arcadia-rig` builds `build/arcadia-rig/fujiblst.bin`, whose default server is the rig's.
+
+`make astrocade` runs `src/astrocade/build.sh`: zmac 1.3 (built from `~/Workspace/zmac-1.3` with a bigger symbol table, `build/zmac/zmac`), one assembly, every page `PHASE`d to 2000H, padded into a protocol 2 (APPBANK) image and claimed. The checks (`tools/astro/`, from M.U.L.E.'s Astrocade client) fail the build on a page over 4K, the resident half over 2816 bytes, the variables running into the stack, and a jump from one page into another (`checkcalls.py`: only `FARCALL` crosses). The art is `gfx/astrocade/*.png` (drawn by `tools/astro/drawart_astro.py`, converted by `tools/astro/mkgfx_astro.py`); the sounds `tools/astro/mksnd_astro.py` (from `src/apple2/sndtab.s`, plus the jingles' new harmony and bass parts). `LOOK=1`/`2` builds the spike's other colours, `FOOTER=0` drops the gradient under the arena. `make astrocade-rig` builds `build/astrocade-rig/fujiblst.bin`, whose default server is the rig's.
 
 The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`) and `gfx/namco.bin`, the Namco arcade font.
 
@@ -100,7 +109,7 @@ server/fujiblastd -stream :9910
 server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 ```
 
-`fujiblastd` serves tables `blast1`–`blast4` and the hidden `dev1`–`dev3`. It lists itself in the FujiNet lobby only when `FUJIBLAST_LOBBY` is set (lobby key 0x10).
+`fujiblastd` serves tables `blast1`–`blast4` and the hidden `dev1`–`dev3`. It seats house bots at the public tables: `1 BOT`, `2 BOTS`, `3 BOTS` and `HUMANS ONLY` (`-bots blast1=1,blast2=2,blast3=3`, or `FUJIBLAST_BOTS`; `-bots ""` for none). A person is the host and starts the game; the bots never do. The rigs run it with `-bots ""`. It lists itself in the FujiNet lobby only when `FUJIBLAST_LOBBY` is set (lobby key 0x10).
 
 ## The Apple II
 
@@ -177,6 +186,19 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 - **Sound:** the one voice: effects, and the jingles an octave down (the divider is coarse up high); an effect cuts a jingle.
 - **Network:** the O2's link, transcribed: the FujiNet's TCP socket, a mailbox transaction a frame, never waited on; a READ's bytes decoded (COBS, the Fletcher sum, the patches streamed straight into the state in cart RAM) a few a pass before anything else is posted; the screen picked only at a commit.
 - **Speed:** the game logic runs 60 times a second (a slow pass is made up); in live play against three bots MAME runs about 0.9 passes a frame. Decoding the stream is the biggest cost (about 180 cycles a byte).
+
+## The Bally Astrocade
+
+- **Machine:** a Bally Astrocade (NTSC) with the FujiNet cartridge (firmware speaking protocol 2, APPBANK): the program in 4K pages behind a fixed half, and the network. Its only RAM is the 4K of screen RAM, so the picture is 84 lines and the state and every variable live past them.
+- **Controls:** the first hand controller walks (diagonals turn first, as everywhere); its trigger is fire. On the keypad, C leaves the table and MR turns the sound off and on. A name is picked letter by letter: up and down turn the letter, the trigger or right takes it, left, C or CE rubs out, = ends.
+- **Screen:**
+  - 160 x 84 at 2 bits a pixel. A tile is 8 x 7 (about square: the pixels are taller than wide), so the whole 13 x 11 arena shows, framed in black, with each seat's bomber, name and wins on a strip above and the clock, the round and our powers down the right.
+  - The look is the green field: white pillars, red bricks with white mortar, black bombs with a sparking fuse, white and red flames flickering thick and thin, and the powerups as icons on dark panels.
+  - Colour: the line interrupt recolours the screen band by band (the ISS tracker's engine): the arena keeps black, green, red and white, while each row of the panel gets four colours of its own (the fire icon red and yellow, speed cyan, the glove pink...). The waiting room and the trophies give each seat's row its own strip colour, the title's logo runs from white through yellow to red, and an ember gradient fills the lines under the picture (the border's colour changed every three lines; no RAM, no drawing). A blast flashes the frame.
+  - There are no sprites: the bombers are composed into the bitmap. A region (the bomber's old and new places together) is built a line at a time, each byte the tile under it with every bomber over it masked in, and written once, top to bottom, so nothing flickers and a bomber on its own bomb keeps its colours. The four seats are white, red, black and red/white stripes, from pre-shifted pictures. Kicked and thrown bombs are a bomb tile, a tile at a time.
+- **Sound:** all three tones and the noise of the custom I/O chip, which no FujiNet client had used before. The jingles are in three parts: FujiBlast's tunes on one tone, a harmony and a bass (new here) on the others. The effects overlap, each on its own channels (a blast's noise and rumble never cut a footstep). Nothing modulates the master oscillator, so no voice retunes another.
+- **Network:** the Arcadia's link, transcribed: the FujiNet's TCP socket, a mailbox transaction a frame, never waited on; a READ's bytes decoded (COBS, the Fletcher sum, the patches straight into the state) a few a pass before anything else is posted; the screen picked only at a commit.
+- **Speed:** the game logic runs 60 times a second (a slow pass makes up to 8 jiffies). The picture is slower: in MAME, against three bots with everyone walking, about 18 redraws a second (composing the bombers is most of the work; the colour bands take about a tenth of the CPU).
 
 ## Testing
 
@@ -271,4 +293,19 @@ python3 tools/arc/preview.py OUT.png SHOT.png ...
 - `arcrig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `arcadia/build/config.bin`) and the image from the SD. The scenes in `tools/arcsim/scenes` play a game (`game.txt`), host one (`host.txt`, `BOTS=0` and bots started late by `EXTRA`), leave (`leave.txt`), lose the link (`cut.txt`, `hello.txt`) and reset the console (`reset.txt`).
 - The counters `NBAD` (bad frames), `NLATE` and `NPASH:NPASL` (late and all arena passes) and `PDBG` (our walker's last jiffy) are for peeking.
 - `preview.py` scales MAME's snapshots to a TV's 4:3.
+
+For the Astrocade:
+
+```
+python3 tools/astrosim/astrosim.py tools/astrosim/scenes/scene1.txt OUTDIR r2r/astrocade/fujiblst.bin
+make astrocade-rig && tools/astrorig/rig.sh tools/astrosim/scenes/game.txt OUTDIR
+NAME= ROOM= tools/astrorig/rig.sh tools/astrosim/scenes/nolobby.txt OUTDIR
+CONFIG=1 tools/astrorig/rig.sh tools/astrosim/scenes/config.txt OUTDIR
+ASTROSIM_WAV=FILE.wav python3 tools/astrosim/astrosim.py tools/astrosim/scenes/sounds.txt OUTDIR
+ASTROSIM_DEBUG=1 ... (a `cpu FILE N` step), then MARK=200D tools/astrosim/traceprof.py FILE LISTING
+```
+
+- `astrosim.py` (the Arcadia's arcsim, for MAME's astrocde with the FujiNet cart device) holds keypad 1 at the BIOS's menu, then plays the scenario: pictures, peeks and traces by symbol, the handle and the keypad, the screen as text (the 4x6 font read back from the pixels), `test 1`-`4` (the offline scenes), `test 5` the title, `test 6` the sound board (every sound in turn). `cpu` traces lead each line with the page mapped.
+- `astrorig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `astrocade/build/config.bin`) and the image from the SD. The scenes in `tools/astrosim/scenes` play a game (`game.txt`), host one (`host.txt`, `BOTS=0` and bots started late by `EXTRA`), the lobby-less path (`nolobby.txt`), lose the link (`cut.txt` with `tools/rigs/cutproxy.py`, `hello.txt` with `dropproxy.py`) and reset the console (`reset.txt`).
+- The counters `NBAD` (bad frames) and `PDBG` (our walker's jiffies: a count, the handle, x, y, dir, acc) are for peeking.
 

@@ -50,6 +50,7 @@ type conn struct {
 	mu      sync.Mutex
 	table   *Table
 	name    string // "" watches
+	bot     bool   // HELLO said a house bot
 	last    []byte // the state the client has once q is out
 	q       [][]byte
 	sent    uint8 // encoded bytes sent, mod 256
@@ -152,7 +153,7 @@ func (c *conn) frame(typ byte, p []byte) bool {
 		t := s.Table(cstr(p[2 : 2+proto.TableLen]))
 		name := strings.ToUpper(cstr(p[2+proto.TableLen : 2+proto.TableLen+proto.NameLen]))
 		c.mu.Lock()
-		c.table, c.name, c.last, c.q, c.acked, c.ack = t, name, nil, nil, false, false
+		c.table, c.name, c.bot, c.last, c.q, c.acked, c.ack = t, name, p[1]&proto.HelloBot != 0, nil, nil, false, false
 		c.mu.Unlock()
 		if t == nil {
 			c.queue(proto.Frame(proto.CSError, []byte{proto.ErrNoTable}))

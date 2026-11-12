@@ -30,7 +30,7 @@ rm -f "$RIG"/keys/*.key
 export RIG OUT HERE TABLE BOTS START ROUNDS KEYS FRAMES EVERY WAV EMUARGS EXTRA
 exec unshare -rn bash -c '
     ip link set lo up
-    "$RIG/fujiblastd" -stream :9910 -seed 7 > "$OUT/server.log" 2>&1 &
+    "$RIG/fujiblastd" -stream :9910 -seed 7 -bots "" > "$OUT/server.log" 2>&1 &
     srv=$!
     bots=
     trap "kill $srv \$bots 2>/dev/null; true" EXIT

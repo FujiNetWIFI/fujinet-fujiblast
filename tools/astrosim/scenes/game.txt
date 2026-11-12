@@ -1,0 +1,113 @@
+# a live game: join, then walk and bomb through every round to the game's end
+wait 200
+press fire
+until ST 2 2400
+snap play
+hold up 10
+press fire
+snap g00
+peek NBAD 2
+peek ST 14
+hold left 17
+hold down 24
+hold right 31
+press fire
+hold up 13
+hold left 20
+hold down 27
+press fire
+hold right 34
+hold up 16
+hold left 23
+press fire
+hold down 30
+snap g10
+peek NBAD 2
+peek ST 14
+hold right 12
+hold up 19
+press fire
+hold left 26
+hold down 33
+hold right 15
+press fire
+hold up 22
+hold left 29
+hold down 11
+press fire
+hold right 18
+hold up 25
+snap g20
+peek NBAD 2
+peek ST 14
+hold left 32
+press fire
+hold down 14
+hold right 21
+hold up 28
+press fire
+hold left 10
+hold down 17
+hold right 24
+press fire
+hold up 31
+hold left 13
+hold down 20
+press fire
+snap g30
+peek NBAD 2
+peek ST 14
+hold right 27
+hold up 34
+hold left 16
+press fire
+hold down 23
+hold right 30
+hold up 12
+press fire
+hold left 19
+hold down 26
+hold right 33
+press fire
+hold up 15
+snap g40
+peek NBAD 2
+peek ST 14
+hold left 22
+hold down 29
+press fire
+hold right 11
+hold up 18
+hold left 25
+press fire
+hold down 32
+hold right 14
+hold up 21
+press fire
+hold left 28
+hold down 10
+snap g50
+peek NBAD 2
+peek ST 14
+hold right 17
+press fire
+hold up 24
+hold left 31
+hold down 13
+press fire
+hold right 20
+hold up 27
+hold left 34
+press fire
+hold down 16
+hold right 23
+until ST 4 12000
+snap over
+text
+wait 300
+snap over2
+until ST 0 3000
+snap room
+text
+peek NBAD 2
+peek TAKEN 2

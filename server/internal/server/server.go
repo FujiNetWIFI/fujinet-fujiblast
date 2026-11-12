@@ -46,8 +46,8 @@ type Table struct {
 // dev1..3 (listed only when asked for).
 func New(seed uint64) *Server {
 	s := &Server{Now: time.Now}
-	for i := 1; i <= 4; i++ {
-		s.add("blast"+string(rune('0'+i)), "ROOM "+string(rune('0'+i)), false, seed+uint64(i))
+	for i, name := range []string{"1 BOT", "2 BOTS", "3 BOTS", "HUMANS ONLY"} {
+		s.add("blast"+string(rune('1'+i)), name, false, seed+uint64(i+1))
 	}
 	for i := 1; i <= 3; i++ {
 		s.add("dev"+string(rune('0'+i)), "DEV "+string(rune('0'+i)), true, seed+100+uint64(i))
@@ -136,7 +136,7 @@ func (t *Table) syncLocked() {
 			spect++
 			continue
 		}
-		if t.g.SeatOf(c.name) < 0 && t.g.Join(c.name) < 0 {
+		if t.g.SeatOf(c.name) < 0 && t.g.JoinAs(c.name, c.bot) < 0 {
 			spect++
 		}
 	}
@@ -168,8 +168,12 @@ func (t *Table) join(c *conn) {
 	defer t.mu.Unlock()
 	t.syncLocked()
 	t.conns[c] = struct{}{}
-	if s := t.g.Join(c.name); s >= 0 {
+	if s := t.g.JoinAs(c.name, c.bot); s >= 0 {
 		log.Printf("table %s: %s in seat %d", t.ID, c.name, s)
+	} else if o := t.g.SeatOf(c.name); o >= 0 {
+		c.mu.Lock() // the name is a house bot's (or a person's): watch, don't act as them
+		c.name = ""
+		c.mu.Unlock()
 	}
 	t.syncLocked()
 }

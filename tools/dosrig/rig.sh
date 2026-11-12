@@ -77,7 +77,7 @@ mcopy -o -i "$RIG/boot.img" "$RIG/config.sys" ::CONFIG.SYS
 export RIG OUT TABLE BOTS START ROUNDS EXTRA BAUD BOIP HERE SCEN
 exec unshare -rn bash -c '
     ip link set lo up
-    "$RIG/fujiblastd" -stream :9910 -seed 7 > "$RIG/server.log" 2>&1 &
+    "$RIG/fujiblastd" -stream :9910 -seed 7 -bots "" > "$RIG/server.log" 2>&1 &
     srv=$!
     ( cd "$RIG/fn" && exec ./fujinet > "$RIG/fujinet.log" 2>&1 ) &
     fn=$!

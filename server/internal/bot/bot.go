@@ -42,14 +42,23 @@ type Bot struct {
 	started  byte // epoch we last asked to start
 }
 
-// New connects a bot and sits it down.
+// New connects a bot and sits it down (as any player: the first seated is host).
 func New(addr, table, name string, seed uint64) (*Bot, error) {
+	return dial(addr, table, name, seed, 0)
+}
+
+// NewHouse is New for a server's own bots: flagged, so a human is host before it.
+func NewHouse(addr, table, name string, seed uint64) (*Bot, error) {
+	return dial(addr, table, name, seed, proto.HelloBot)
+}
+
+func dial(addr, table, name string, seed uint64, flags byte) (*Bot, error) {
 	c, err := client.Dial(addr)
 	if err != nil {
 		return nil, err
 	}
 	b := &Bot{C: c, Name: name, Table: table, Rounds: 3, rng: rand.New(rand.NewPCG(seed, 7)), wander: -1}
-	return b, c.Hello(table, name)
+	return b, c.HelloFlags(table, name, flags)
 }
 
 // Run plays until stop closes or the link fails.
