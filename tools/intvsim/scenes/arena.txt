@@ -1,0 +1,10 @@
+test 1 0            # the arena, seat 0 walking
+wait 30
+snap arena0
+disc S 20
+snap arena1
+disc E 40
+snap arena2
+wait 200
+snap arena3
+stack

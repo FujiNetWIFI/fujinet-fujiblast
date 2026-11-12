@@ -3,6 +3,7 @@
 #   make atari                     r2r/atari/fujiblst.atr (48K Atari 400/800, XL/XE)
 #   make apple2                    r2r/apple2/fujiblst.po (128K //e, //c, IIgs; double hi-res)
 #   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA)
+#   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -98,7 +99,12 @@ msdos/disk-post::
 	printf '@ECHO OFF\r\nFUJIBLST\r\n' > build/autoexec.bat
 	mcopy -o -i $(DISK) build/autoexec.bat "::AUTOEXEC.BAT"
 
-.PHONY: gen-atari gen-apple2 gen-msdos server proto FORCE
+.PHONY: gen-atari gen-apple2 gen-msdos server proto intv FORCE
+
+# ---- Intellivision (the FujiNet cartridge) ----------------------------------
+# IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
+intv:
+	$(MAKE) -C src/intv $(if $(SERVER),SERVER=$(SERVER))
 
 r2r/atari/$(PRODUCT): gen-atari
 r2r/apple2/$(PRODUCT): gen-apple2

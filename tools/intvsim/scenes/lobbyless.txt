@@ -1,0 +1,30 @@
+# no appkeys: the title, the name picker (IN), the room list, join, leave
+wait 120
+btn T
+until WHAT 300
+disc N 2
+disc N 2
+disc N 2
+disc N 2
+disc N 2
+disc N 2
+disc N 2
+disc N 2
+btn T
+disc N 2
+disc N 2
+disc N 2
+disc N 2
+disc N 2
+btn T
+snap name
+key E
+until PICK 900
+snap rooms
+btn T
+until ROOM 900
+snap waiting
+wait 60
+key C
+until PICK 900
+snap rooms2

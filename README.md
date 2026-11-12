@@ -4,9 +4,10 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 
 - the Atari 400/800/XL/XE with 48K;
 - the Apple II in double hi-res (a 128K //e, //c or IIgs);
-- MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088.
+- MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088;
+- the Intellivision, with the FujiNet cartridge.
 
-All are played with a joystick; the Apple and the PC take the keyboard too.
+All are played with a joystick (the Intellivision's hand controller); the Apple and the PC take the keyboard too.
 
 ## How to play
 
@@ -32,6 +33,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/atari/` | The Atari implementation: cc65, ANTIC mode 4, players and missiles, netstream. |
 | `src/apple2/` | The Apple II implementation: cc65, double hi-res on both pages, a blitter in the language card, SmartPort, the Mockingboard. |
 | `src/msdos/` | The MS-DOS implementation: Open Watcom, CGA's 320x200 4-colour mode, FUJINET.SYS's serial port driven by interrupt, the PC speaker. |
+| `src/intv/` | The Intellivision client: the C client again in IntyBASIC, its hot loops in CP1610 assembly; the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -52,6 +54,12 @@ make apple2             # r2r/apple2/fujiblst.po
 ```
 defoogi make msdos      # r2r/msdos/fujiblst.img
 ```
+
+```
+make intv               # r2r/intv/fujiblst.rom
+```
+
+`make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
 
 The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`) and `gfx/namco.bin`, the Namco arcade font.
 
@@ -97,6 +105,18 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
   - In live play against three bots, a 4.77 MHz 8088 redraws about 30 times a second (86Box's IBM 5150).
   - Only bombs and duds animate (each animated tile costs an 8088 a redraw).
 
+## The Intellivision
+
+- **Machine:** an Intellivision (NTSC or PAL) with the FujiNet cartridge, which carries the ROM's RAM and the network.
+- **Controls:** either hand controller. The disc walks; any side button is fire. CLEAR leaves the table; ENTER is RETURN; 0 turns the sound off and on.
+- **Name:** without one from the lobby, picked a letter at a time: the disc's up and down choose, right or fire takes it, left or CLEAR takes one back, ENTER ends it. Keypad digits are taken at once.
+- **Screen:** foreground/background mode, a card a tile. The tiles animate by redefining their cards; each bomber is two MOBs (its body and its visor).
+- **Sound:** the PSG plays the Atari's jingles on one voice and its effects on another, with the noise generator for the blasts.
+- **Speed:**
+  - The game logic runs 60 times a second (a jiffy owed is made up next frame).
+  - In live play against three bots, jzIntv redraws about 50 times a second.
+  - The link's decoding, the walking, the bombers and the controller are CP1610 assembly (`src/intv/*.asm`); IntyBASIC alone took over two frames a pass.
+
 ## Testing
 
 ```
@@ -137,3 +157,15 @@ tools/dosrig/86box.sh SECONDS OUTDIR
   - The `STATS=1` build plays by itself.
   - Every 10 s it adds a line to `A:\STATS.TXT`: frames drawn and late, the link's counters, and the share of time spent drawing, waiting, on logic, the link and the UART.
   - It also writes a profile, `A:\PROF.BIN`, which `tools/dosrig/prof86.py` reads.
+
+For the Intellivision:
+
+```
+python3 tools/intvsim/intvsim.py r2r/intv/fujiblst.rom tools/intvsim/scenes/arena.txt OUTDIR
+tools/intvrig/rig.sh tools/intvsim/scenes/live.txt OUTDIR
+make -C src/intv rig && ROM=build/intv-rig/fujiblst.rom NAME= ROOM= TABLE=blast1 tools/intvrig/rig.sh tools/intvsim/scenes/lobbyless.txt OUTDIR
+```
+
+- `intvsim.py` runs the test scenes (`test 1`-`4`) in jzIntv (`~/Workspace/jzintv-20200712-src`, the FujiNet build): pictures with the MOBs, the screen as text, the stack's use, and `prof`, the CPU cycles between two labels.
+- `intvrig/rig.sh` plays live in a namespace of its own (no gamepads either): the server, bots, a copy of fujinet-pc-rs232 on BoIP, and jzIntv's cartridge dialing it. `make -C src/intv rig` builds a ROM whose default server is the rig's.
+- `tools/rigs/dropproxy.py` loses the first frame; `tools/rigs/cutproxy.py` hangs up in the middle of a game (`EXTRA=`, `ROOM=` through it).

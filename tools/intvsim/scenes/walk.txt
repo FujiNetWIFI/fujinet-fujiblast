@@ -1,0 +1,24 @@
+# live: walk about and drop bombs through a round; my_warp should change
+# only when a round starts (the server warps everyone home then)
+wait 120
+btn T
+until RD 2700
+until 2: 600
+vars my_warp mv_x mv_y my_seat
+disc N 40
+disc E 40
+btn T
+disc W 60
+disc S 40
+vars my_warp mv_x mv_y
+disc E 60
+btn T
+disc N 60
+disc W 60
+vars my_warp mv_x mv_y
+disc S 60
+disc E 60
+disc N 60
+vars my_warp mv_x mv_y
+snap walk
+stack

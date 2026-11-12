@@ -1,0 +1,26 @@
+# live: title, the lobby's room (dev1), the bots start, play two rounds
+wait 120
+snap title
+btn T
+until ROOM 900
+snap waiting
+until RD 1800
+snap countdown
+wait 200
+snap play0
+disc E 20
+disc S 30
+btn T
+disc N 30
+snap play1
+prof pt_a pt_b 300
+prof pt_a pt_n 300
+vars n_status n_read n_write n_bytes n_commit n_bad
+stack
+until WINS 7200
+snap roundend
+until RD 1800
+snap round2
+until BACK TO 9000
+snap gameover
+stack

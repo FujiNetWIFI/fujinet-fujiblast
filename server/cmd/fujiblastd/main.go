@@ -5,7 +5,8 @@
 //
 // Lobby listing is off unless FUJIBLAST_LOBBY is qa, prod or a lobby URL;
 // then FUJIBLAST_SERVER_URL (tcp://host:9910/) and FUJIBLAST_CLIENT_ATARI
-// (tnfs://host/path/fujiblst.atr), _APPLE2 and _MSDOS say what it lists.
+// (tnfs://host/path/fujiblst.atr), _APPLE2, _MSDOS and _INTV say what it
+// lists.
 package main
 
 import (
@@ -56,6 +57,9 @@ func main() {
 		}
 		if u := os.Getenv("FUJIBLAST_CLIENT_MSDOS"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "msdos", URL: u})
+		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_INTV"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "intv", URL: u})
 		}
 		pub := lobby.New(cfg)
 		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Players: ti.Seated}) }

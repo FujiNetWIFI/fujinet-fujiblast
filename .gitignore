@@ -25,3 +25,4 @@ __pycache__/
 /gfx/dhgr/preview/
 tools/a2rig/a2rig
 tools/a2rig/*.o
+/gfx/intv/preview/

@@ -21,6 +21,7 @@ Environment=FUJIBLAST_STREAM_ADDR=:9910
 #Environment=FUJIBLAST_CLIENT_ATARI=tnfs://fujinet.online/fujiblast/atari/fujiblst.atr
 #Environment=FUJIBLAST_CLIENT_APPLE2=tnfs://fujinet.online/fujiblast/apple2/fujiblst.po
 #Environment=FUJIBLAST_CLIENT_MSDOS=tnfs://fujinet.online/fujiblast/msdos/fujiblst.img
+#Environment=FUJIBLAST_CLIENT_INTV=tnfs://fujinet.online/fujiblast/intv/fujiblst.rom
 DynamicUser=yes
 Restart=on-failure
 RestartSec=5
