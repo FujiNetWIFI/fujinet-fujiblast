@@ -25,7 +25,7 @@
 #define BUTN1   (*(volatile uint8_t *)0xC062)
 #define CLEAR_STROBE() __asm__("bit $C010")
 
-/* lowlevel.s, dhgr.s */
+/* lowlevel.s, hgr.s */
 void joy_read(void);
 extern uint8_t joy_x, joy_y, btn_latch;
 #pragma zpsym("joy_x")

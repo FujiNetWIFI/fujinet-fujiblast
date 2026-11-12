@@ -1,7 +1,7 @@
 # FujiBlast for FujiNet 8-bit computers (MekkoGX).
 #
 #   make atari                     r2r/atari/fujiblst.atr (48K Atari 400/800, XL/XE)
-#   make apple2                    r2r/apple2/fujiblst.po (128K //e, //c, IIgs; double hi-res)
+#   make apple2                    r2r/apple2/fujiblst.po (128K //e, //c, IIgs; high-res)
 #   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA)
 #   make adam                      r2r/adam/fujiblst.ddp (Coleco Adam; TMS9918A)
 #   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
@@ -39,7 +39,7 @@ ifeq ($(PLATFORM),atari)
   EXTRA_INCLUDE += gen/atari
 endif
 
-# ---- Apple II (128K //e, //c, IIgs), double hi-res -------------------------
+# ---- Apple II (128K //e, //c, IIgs), high-res -----------------------------
 # cc65, ProDOS: FUJIBLST.SYSTEM (tools/a2loader) loads FUJIBLST, which reads
 # its art from FUJIBLST.GFX into aux RAM. Memory: src/apple2/fujiblst.cfg.
 CFLAGS_EXTRA_APPLE2 += -Os -Cl
@@ -51,7 +51,7 @@ ifeq ($(PLATFORM),apple2)
 endif
 
 # Where the modules go: the room's screens, test scenes, main and
-# the link below the DHGR pages; the menus and appkeys in an overlay. (The
+# the link below the HGR pages; the menus and appkeys in an overlay. (The
 # language card, beside the blitter, has no room for input too.)
 A2OBJ = build/$(PRODUCT)/apple2/src
 $(A2OBJ)/screens.o $(A2OBJ)/test.o $(A2OBJ)/main.o $(A2OBJ)/apple2/nstrans.o: CFLAGS += --code-name LOWCODE --rodata-name LOWDATA
@@ -61,10 +61,10 @@ A2OVL = -Dtitle=ov_title -Dname_entry=ov_name_entry -Dtable_list=ov_table_list \
         -Dappkey_save_room=ov_appkey_save_room -Dappkey_clear_room=ov_appkey_clear_room
 $(A2OBJ)/menus.o $(A2OBJ)/appkey.o: CFLAGS += --code-name OVERLAY --rodata-name OVERLAY $(A2OVL)
 
-# FUJIBLST.SYSTEM is our own loader (tools/a2loader): it skips the DHGR
+# FUJIBLST.SYSTEM is our own loader (tools/a2loader): it skips the HGR
 # pages' zeros in the file, so the program can run up to $BE00.
 apple2/disk-post:: build/a2loader.bin
-	ac -p $(DISK) FUJIBLST.GFX BIN 0x6000 < $(EXECUTABLE).gfx
+	ac -p $(DISK) FUJIBLST.GFX BIN 0x0800 < $(EXECUTABLE).gfx
 	ac -d $(DISK) FUJIBLST.SYSTEM
 	ac -p $(DISK) FUJIBLST.SYSTEM SYS 0x2000 < build/a2loader.bin
 
@@ -194,9 +194,9 @@ gen/config.h: FORCE
 
 gen-apple2: gen/config.h gen/apple2/gfxdata.s
 
-gen/apple2/gfxdata.s: tools/mkgfx_apple2.py tools/artlayout.py tools/png.py gfx/dhgr/tiles.png gfx/dhgr/sprites.png gfx/dhgr/logo.png gfx/dhgr/wall.png gfx/dhgr/font3.png gfx/dhgr/font5.png
+gen/apple2/gfxdata.s: tools/mkgfx_hgr.py tools/hgr.py tools/drawart_hgr.py tools/artlayout.py tools/png.py gfx/hgr/tiles.png gfx/hgr/sprites.png gfx/hgr/logo.png gfx/hgr/wall.png gfx/hgr/font3.png gfx/hgr/font5.png
 	@mkdir -p gen/apple2
-	$(PYTHON) tools/mkgfx_apple2.py gen/apple2
+	$(PYTHON) tools/mkgfx_hgr.py gen/apple2
 
 gen-msdos: gen/config.h gen/msdos/gfxdata.c
 

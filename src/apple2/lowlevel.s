@@ -4,7 +4,7 @@
 ; (From M.U.L.E.'s src/apple2/lowlevel.s.)
 ;
 
-        .export         _vbl_init, _dhgr_on, _dhgr_off, _joy_read, _snd_tone
+        .export         _vbl_init, _hgr_on, _hgr_off, _joy_read, _snd_tone
         .export         _mli, _aux_put, _aux_get
         .exportzp       _joy_x, _joy_y
         .importzp       _vbl_mode
@@ -26,7 +26,7 @@ _joy_y: .res 1
 
 ; void vbl_init(uint8_t mode): 0 //e, 1 IIgs, 2 //c. The //c's VBL flag is
 ; enabled with the CPU's IRQs masked (the game never takes interrupts), and
-; IOUDIS left on, which double hi-res needs there.
+; IOUDIS left on (the //c's VBL flag is read through it).
 .proc   _vbl_init
         sta     _vbl_mode
         sei
@@ -39,12 +39,12 @@ _joy_y: .res 1
 :       rts
 .endproc
 
-; Double hi-res, page 1, full screen; 80STORE off (PAGE2 picks the page
-; shown; aux is written through RAMWRT).
-.proc   _dhgr_on
+; High-res, page 1, full screen; 80STORE off (PAGE2 picks the page shown),
+; 40 columns and AN3 on, so no double hi-res.
+.proc   _hgr_on
         sta     $C000           ; 80STORE off
-        sta     $C00D           ; 80 columns
-        sta     $C05E           ; DHIRES (AN3 off)
+        sta     $C00C           ; 40 columns
+        sta     $C05F           ; AN3 on: not double hi-res
         sta     $C050           ; graphics
         sta     $C052           ; full screen
         sta     $C057           ; hi-res
@@ -52,9 +52,7 @@ _joy_y: .res 1
         rts
 .endproc
 
-.proc   _dhgr_off
-        sta     $C05F
-        sta     $C00C
+.proc   _hgr_off
         sta     $C051
         sta     $C054
         rts

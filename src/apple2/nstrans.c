@@ -28,7 +28,7 @@ extern uint16_t sp_count;
 int8_t sp_status_nw(uint8_t dest, uint8_t statcode);
 int8_t sp_read_nw(uint8_t dest, uint16_t len);
 int8_t sp_write_nw(uint8_t dest, uint16_t len);
-void frame_tick(void);                  /* dhgr.s */
+void frame_tick(void);                  /* hgr.s */
 
 #ifndef POLL_EVERY
 #define POLL_EVERY 2

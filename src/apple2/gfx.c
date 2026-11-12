@@ -1,12 +1,14 @@
 /*
- * gfx.c -- the Apple II's screens (gfx.h), in double hi-res: 140x192 in 16
- * colours, both pages, drawn one while the other shows.
+ * gfx.c -- the Apple II's screens (gfx.h), in high-res: 140x192 colour
+ * pixels (two dots each) in HGR's 6 colours. The menus use both pages, drawn
+ * one while the other shows; the arena only page 1, drawn as it shows (half
+ * the drawing, and a bomber is redrawn in one pass: see below).
  *
  * The gfx_* calls only change a model of the screen, as on the Atari: 25
  * rows of cells (text, big text, the logo or trophies) or the arena's
  * tiles, and the sprites. gfx_render() (frame_wait calls it) brings the page
- * not shown up to date with the model -- what each page last drew is kept
- * apart -- and asks frame_tick to show it at the next blank.
+ * up to date with the model -- what each page last drew is kept apart --
+ * and, in the menus, asks frame_tick to show it at the next blank.
  *
  *   text rows    35 columns of 4 pixels (the 3x7 font); the Atari's 40
  *                columns come 2 to the left, so its centred lines stay centred
@@ -17,9 +19,12 @@
  *                round right
  *
  * Sprites are drawn last, and taken off the next time that page is drawn
- * by drawing what is under them again (tiles, or the rows' cells).
+ * by drawing what is under them again (tiles, or the rows' cells). In the
+ * arena a sprite that touches no other (solo: gfxa.s's plan) is drawn over
+ * the tiles beneath it, not the screen (hgr.s's comp), so only the strips
+ * of its old place outside the new one come off first (erase_diff).
  *
- * The rows' cells live in text page 1 ($0400-$07FF), which double hi-res
+ * The rows' cells live in text page 1 ($0400-$07FF), which high-res
  * leaves unused: three rows of 35 in each 120 bytes between the screen
  * holes (the cards' scratch bytes, never touched).
  */
@@ -31,33 +36,48 @@
 #include "proto.h"
 #include "gfxcodes.h"
 
-/* dhgr.s */
-extern uint8_t dh_page, dh_y, dh_n, dh_g, dh_g1, dh_x, dh_big, dh_bg, flip;
-extern uint16_t dh_src, dh_tb, dh_ts, dh_tv;
-#pragma zpsym("dh_page")
-#pragma zpsym("dh_y")
-#pragma zpsym("dh_n")
-#pragma zpsym("dh_g")
-#pragma zpsym("dh_g1")
-#pragma zpsym("dh_x")
-#pragma zpsym("dh_big")
-#pragma zpsym("dh_bg")
+/* hgr.s: a group (7 colour pixels) is bytes 2g, 2g+1 */
+extern uint8_t hg_page, hg_y, hg_n, hg_g, hg_g1, hg_x, hg_bg, flip;
+extern uint8_t hg_c0, hg_nb, er_c, er_n, er_y0, er_y1;
+extern uint16_t hg_src;
+#pragma zpsym("hg_c0")
+#pragma zpsym("hg_nb")
+#pragma zpsym("er_c")
+#pragma zpsym("er_n")
+#pragma zpsym("er_y0")
+#pragma zpsym("er_y1")
+#pragma zpsym("hg_page")
+#pragma zpsym("hg_y")
+#pragma zpsym("hg_n")
+#pragma zpsym("hg_g")
+#pragma zpsym("hg_g1")
+#pragma zpsym("hg_x")
+#pragma zpsym("hg_bg")
 #pragma zpsym("flip")
-#pragma zpsym("dh_src")
-#pragma zpsym("dh_tb")
-#pragma zpsym("dh_ts")
-#pragma zpsym("dh_tv")
-void dh_tile(void);
-void dh_lines(void);
-void dh_frags(void);
-void dh_fill(void);
-void dh_sprite(void);
-void dh_bomber(void);
-void dh_mover(void);
+#pragma zpsym("hg_src")
+void hg_tile(void);
+void hg_lines(void);
+void hg_frags(void);
+void hg_fill(void);
+void hg_bomber(void);
+void hg_mover(void);
+void hg_big(void);
+void erase_box(void);
+void hg_bomber_c(void);
+void hg_mover_c(void);
+/* gfxa.s */
+void __fastcall__ plan(uint8_t so);
+uint8_t __fastcall__ keep_scan(uint8_t so);
+void __fastcall__ sprites_m(uint8_t so);
+extern uint8_t spph;
+void __fastcall__ erase_diff(uint8_t k);
+void ebox(void);
 void frame_tick(void);
 
 /* gfxa.s */
 void pack_text(void);
+void pack_big(void);
+extern uint8_t big_col[4];
 void __fastcall__ tile_mark(uint8_t t);
 void tile_drain(void);
 void __fastcall__ tile_part(uint8_t t);
@@ -65,7 +85,7 @@ extern uint8_t *ptx_cells;
 extern uint8_t ptx_line, ptx_fg, ptx_hi, tm_page, tm_phase, tp_l0, tp_n;
 extern uint8_t tile_want[], tile_shown0[], tile_shown1[], tqn0, tqn1;
 
-uint8_t fragbuf[20], fgbuf[20];         /* dh_frags' line */
+uint8_t fragbuf[20], fgbuf[20];         /* hg_frags' line */
 uint16_t renders;                       /* pages drawn (the rigs time them) */
 uint8_t ov_here;                        /* the overlay is in page 2's main half (overlay.c) */
 static uint8_t one;                     /* page 1 only, shown as it is drawn: page 2 holds code */
@@ -78,17 +98,26 @@ static uint8_t one;                     /* page 1 only, shown as it is drawn: pa
 #define CELLS    35
 #define NONE_FREE 0xFF
 
-/* palettes: background, text, highlighted text, big colours 0-3 */
+/* HGR's colours (tools/hgr.py) */
+#define BLK 0
+#define WHT 1
+#define VIO 2
+#define GRN 3
+#define BLU 4
+#define ORA 5
+
+/* palettes: background, text, highlighted text, big colours 0-3 (the seats'
+ * colours: white, orange, blue, violet; tools/drawart_hgr.py) */
 static const uint8_t pal[][7] = {
-    { 2, 15, 13, 13, 15, 14, 7 },       /* MENU: white on dark blue */
-    { 2, 15, 13, 13, 15, 14, 7 },       /* GFX */
-    { 0, 15, 13, 15, 11, 7, 12 },       /* HUD: the seats' colours on black */
-    { 0, 15, 13, 15, 15, 15, 15 },      /* ARENA */
-    { 2, 15, 13, 15, 15, 15, 15 },      /* SEAT0..3 */
-    { 2, 15, 13, 11, 11, 11, 11 },
-    { 2, 15, 13, 7, 7, 7, 7 },
-    { 2, 15, 13, 12, 12, 12, 12 },
-    { 2, 15, 13, 13, 15, 14, 7 },       /* TITLE */
+    { BLK, WHT, ORA, ORA, WHT, BLU, VIO },      /* MENU */
+    { BLK, WHT, ORA, ORA, WHT, BLU, VIO },      /* GFX */
+    { BLK, WHT, ORA, WHT, ORA, BLU, VIO },      /* HUD: the seats' colours */
+    { BLK, WHT, ORA, WHT, WHT, WHT, WHT },      /* ARENA */
+    { BLK, WHT, ORA, WHT, WHT, WHT, WHT },      /* SEAT0..3 */
+    { BLK, WHT, ORA, ORA, ORA, ORA, ORA },
+    { BLK, WHT, ORA, BLU, BLU, BLU, BLU },
+    { BLK, WHT, ORA, VIO, VIO, VIO, VIO },
+    { BLK, WHT, ORA, ORA, WHT, BLU, VIO },      /* TITLE */
 };
 
 /* the cells: text page 1, three rows a 128 bytes (the last row apart) */
@@ -103,20 +132,31 @@ static uint8_t *const cellp[SCR_ROWS] = {
 #define GFX_TROPHY 2
 
 static uint8_t row_kind[SCR_ROWS], row_pal[SCR_ROWS], row_ver[SCR_ROWS];
-static uint8_t showing, arena, stat_want[5], round_want;
+static uint8_t showing, stat_want[5], round_want;
+uint8_t arena;
 uint8_t sp_on[SLOTS], sp_x[SLOTS], sp_y[SLOTS], sp_fr[SLOTS], sp_seat[SLOTS], sp_big[SLOTS];  /* (gfxa.s sets them too) */
+const uint8_t fr_win0 = FR_WIN0;        /* (for gfxa.s) */
 uint8_t spr_ax, spr_ay, spr_af, spr_as;  /* spr_arena's arguments (gfx.h) */
 
 /* what each page has: index k + page * count */
 static uint8_t back = 1;                /* the page drawn next (page 1 shows) */
+static uint8_t up;                      /* the page shown, or to be at the blank */
 static uint8_t pg;                      /* the page being drawn */
 static uint8_t full[2], phase_shown[2], round_shown[2];
 static uint8_t row_seen[2 * SCR_ROWS], row_force[2 * SCR_ROWS];
 static uint8_t sum_lo[2 * SCR_ROWS], sum_hi[2 * SCR_ROWS];
 static uint8_t stat_shown[2 * 5];
-static uint8_t dr_on[2 * SLOTS], dr_g[2 * SLOTS], dr_ng[2 * SLOTS], dr_y[2 * SLOTS], dr_h[2 * SLOTS];
-static uint8_t dr_x[2 * SLOTS], dr_f[2 * SLOTS], dr_s[2 * SLOTS];   /* what it was */
-static uint8_t keep[SLOTS];             /* this render: as it is on the page */
+uint8_t dr_on[2 * SLOTS], dr_g[2 * SLOTS], dr_ng[2 * SLOTS];
+uint8_t dr_y[2 * SLOTS], dr_h[2 * SLOTS];       /* (gfxa.s reads these) */
+uint8_t dr_x[2 * SLOTS], dr_f[2 * SLOTS], dr_s[2 * SLOTS];   /* what it was (gfxa.s too) */
+uint8_t dr_c[2 * SLOTS], dr_n[2 * SLOTS];  /* the bytes it touched: first, how many */
+static const uint8_t row13[ARENA_H] = { 0, 13, 26, 39, 52, 65, 78, 91, 104, 117, 130 };
+/* this render: where each sprite redrawn goes (bytes, lines), and whether it
+ * is solo -- in the arena, touching nothing else drawn: then it is drawn
+ * over the tiles beneath (hgr.s's comp), and only what its old place
+ * doesn't share with the new comes off first */
+uint8_t nw_c[SLOTS], nw_n[SLOTS], nw_y[SLOTS], solo[SLOTS];
+uint8_t keep[SLOTS];                    /* this render: as it is on the page */
 static uint8_t redrawn[SCR_ROWS];
 static uint8_t hud_sh[2 * 20];          /* the HUD's cells as each page has them */
 static uint8_t hud_ver[2];              /* and row 0's version then */
@@ -250,7 +290,7 @@ void gfx_arena(void)
 
 void gfx_tile(uint8_t c, uint8_t r, uint8_t tile)
 {
-    uint8_t t = r * ARENA_W + c, m, x0, y0;
+    uint8_t t = row13[r] + c, m, x0, y0;
     frame_tick();
     if (tile_want[t] != tile) {
         if (tile_n[tile_want[t]] > 1)          /* off the animated list */
@@ -260,9 +300,7 @@ void gfx_tile(uint8_t c, uint8_t r, uint8_t tile)
         if (tile_n[tile] > 1 && anim_n < ANIMS)
             anim_t[anim_n++] = t;
         tile_want[t] = tile;
-        tm_page = 0;
-        tile_mark(t);
-        tm_page = 1;
+        tm_page = 0;                    /* (the arena is page 1 only) */
         tile_mark(t);
     }
     /* a mover over it is gone: play_state draws the tiles under last
@@ -359,50 +397,48 @@ static void draw_row(uint8_t r, uint8_t l0, uint8_t l1, uint8_t g0, uint8_t g1)
     uint8_t l, g, k = row_kind[r];
     if (k == ROW_ARENA || (!arena && !r))
         return;
-    dh_bg = pl[0];
-    dh_y = (arena ? 0 : (r - 1) * 8) + l0;
-    dh_n = l1 - l0 + 1;
+    hg_bg = pl[0];
+    hg_y = (arena ? 0 : (r - 1) * 8) + l0;
+    hg_n = l1 - l0 + 1;
     if (k == ROW_GFX) {
         if (c[0] == GFX_LOGO) {
-            dh_g = g0 * 2;
-            dh_g1 = g1 * 2 + 1;
-            dh_src = AX_LOGO + (c[1] * 8 + l0) * 80;
-            dh_lines();
+            hg_g = g0 * 2;
+            hg_g1 = g1 * 2 + 1;
+            hg_src = AX_LOGO + (c[1] * 8 + l0) * 40;
+            hg_lines();
             return;
         }
-        dh_g = g0;
-        dh_g1 = g1;
-        dh_fill();
+        hg_g = g0;
+        hg_g1 = g1;
+        hg_fill();
         if (c[0] != GFX_TROPHY)
             return;
         for (g = c[2]; g < c[2] + c[3] && g < 20; ++g) {
             if (g < g0 || g > g1)
                 continue;
-            dh_g = g;
-            dh_y = (arena ? 0 : (r - 1) * 8) + l0;
-            dh_n = l1 - l0 + 1;
-            dh_src = AX_TILES + (tile_first[T_TROPHY] * 16 + c[1] * 8 + l0) * 4;
-            dh_tile();
+            hg_g = g;
+            hg_y = (arena ? 0 : (r - 1) * 8) + l0;
+            hg_n = l1 - l0 + 1;
+            hg_src = AX_TILES + (tile_first[T_TROPHY] * 16 + c[1] * 8 + l0) * 2;
+            hg_tile();
         }
         return;
     }
     ptx_cells = (uint8_t *)c;
     ptx_fg = pl[1];
     ptx_hi = pl[2];
+    if (k == ROW_BIG)
+        memcpy(big_col, pl + 3, 4);
     for (l = l0; l <= l1; ++l) {
-        if (k == ROW_BIG) {
-            for (g = g0; g <= g1; ++g) {
-                fragbuf[g] = font5[l][c[g] & 0x3F] << 1;
-                fgbuf[g] = pl[3 + (c[g] >> 6)];
-            }
-        } else {
-            ptx_line = l;
+        ptx_line = l;
+        hg_g = g0;
+        hg_g1 = g1;
+        if (k == ROW_BIG)
+            pack_big();
+        else
             pack_text();
-        }
-        dh_g = g0;
-        dh_g1 = g1;
-        dh_frags();
-        ++dh_y;
+        hg_frags();
+        ++hg_y;
     }
 }
 
@@ -417,7 +453,7 @@ static void panel_text(uint8_t g, uint8_t ng, uint8_t y, const char *s, uint8_t 
         c[i] = internal(s[i]);
     ptx_cells = c;
     ptx_fg = ptx_hi = fg;
-    dh_bg = 0;
+    hg_bg = 0;
     for (l = 0; l < 7; ++l) {
         ptx_line = l;
         pack_text();
@@ -425,10 +461,10 @@ static void panel_text(uint8_t g, uint8_t ng, uint8_t y, const char *s, uint8_t 
             fragbuf[g + i] = fragbuf[i];
             fgbuf[g + i] = fg;
         }
-        dh_y = y + l;
-        dh_g = g;
-        dh_g1 = g + ng - 1;
-        dh_frags();
+        hg_y = y + l;
+        hg_g = g;
+        hg_g1 = g + ng - 1;
+        hg_frags();
     }
 }
 
@@ -436,32 +472,32 @@ static void draw_stat(uint8_t i, uint8_t n)
 {
     static char b[3];
     uint8_t y = 14 + i * 36;
-    dh_g = 1;
-    dh_y = y;
-    dh_n = 16;
+    hg_g = 1;
+    hg_y = y;
+    hg_n = 16;
     if (i >= 3 && !n) {
-        dh_g1 = 1;
-        dh_bg = 0;
-        dh_fill();
+        hg_g1 = 1;
+        hg_bg = 0;
+        hg_fill();
         return;
     }
-    dh_src = AX_TILES + (tile_first[T_FIRE + i] + tile_n[T_FIRE + i] - 1) * 64;
-    dh_tile();
+    hg_src = AX_TILES + (tile_first[T_FIRE + i] + tile_n[T_FIRE + i] - 1) * 32;
+    hg_tile();
     if (i < 3) {
         b[0] = 'X';
         b[1] = n < 10 ? '0' + n : '+';
-        panel_text(2, 1, y + 8, b, 15);
+        panel_text(2, 1, y + 8, b, WHT);
     }
 }
 
 static void draw_round(uint8_t round)
 {
     static char b[4];
-    panel_text(18, 2, 20, "RND", 15);
+    panel_text(18, 2, 20, "RND", WHT);
     b[0] = ' ';
     b[1] = round >= 10 ? '0' + (round / 10) % 10 : ' ';
     b[2] = '0' + round % 10;
-    panel_text(18, 2, 30, b, 13);
+    panel_text(18, 2, 30, b, ORA);
 }
 
 /* The arena's frame: the HUD's row aside, every line from 8 down. */
@@ -469,12 +505,12 @@ static void draw_frame(void)
 {
     uint8_t y;
     for (y = 8; y < 192; y += 4) {
-        dh_g = 0;
-        dh_g1 = 39;
-        dh_y = y;
-        dh_n = 4;
-        dh_src = AX_FRAME + (y < AR_Y || y >= AR_Y + 176 ? 0 : 4 * 80);
-        dh_lines();
+        hg_g = 0;
+        hg_g1 = 39;
+        hg_y = y;
+        hg_n = 4;
+        hg_src = AX_FRAME + (y < AR_Y || y >= AR_Y + 176 ? 0 : 4 * 40);
+        hg_lines();
     }
 }
 
@@ -482,32 +518,18 @@ static void draw_frame(void)
 static void erase(uint8_t i)
 {
     uint8_t y0 = dr_y[i], y1 = y0 + dr_h[i] - 1, g0 = dr_g[i], g1 = g0 + dr_ng[i] - 1;
-    uint8_t c0, c1, r0, r1, r, c, l0, l1;
+    uint8_t r, l0, l1;
     if (y1 > 191)
         y1 = 191;
     if (g1 > 19)
         g1 = 19;
     if (arena) {
-        /* just the lines it covered, of the tiles under it */
-        if (g1 < AR_G || g0 >= AR_G + ARENA_W || y1 < AR_Y)
-            return;
-        c0 = g0 < AR_G ? 0 : g0 - AR_G;
-        c1 = g1 >= AR_G + ARENA_W ? ARENA_W - 1 : g1 - AR_G;
-        if (y0 < AR_Y)
-            y0 = AR_Y;
-        if (y1 > AR_Y + ARENA_H * 16 - 1)
-            y1 = AR_Y + ARENA_H * 16 - 1;
-        r0 = (y0 - AR_Y) >> 4;
-        r1 = (y1 - AR_Y) >> 4;
-        for (r = r0; r <= r1; ++r) {
-            frame_tick();
-            l0 = r == r0 ? (y0 - AR_Y) & 15 : 0;
-            l1 = r == r1 ? (y1 - AR_Y) & 15 : 15;
-            tp_l0 = l0;
-            tp_n = l1 - l0 + 1;
-            for (c = c0; c <= c1; ++c)
-                tile_part(r * ARENA_W + c);
-        }
+        /* just the bytes it touched, from the tiles under them (hgr.s) */
+        er_c = dr_c[i];
+        er_n = dr_n[i];
+        er_y0 = y0;
+        er_y1 = y1;
+        ebox();
         return;
     }
     for (r = (y0 >> 3) + 1; r <= (y1 >> 3) + 1 && r < SCR_ROWS; ++r) {
@@ -516,52 +538,6 @@ static void erase(uint8_t i)
         l0 = y0 > (r - 1) * 8 ? y0 - (r - 1) * 8 : 0;
         l1 = y1 < r * 8 - 1 ? y1 - (r - 1) * 8 : 7;
         draw_row(r, l0, l1, g0, g1);
-    }
-}
-
-static void sprites(uint8_t so, uint8_t phase)
-{
-    static const uint8_t order[SLOTS] = { 4, 5, 6, 7, 0, 1, 2, 3 };
-    uint8_t i, k, j, s;
-    for (i = 0; i < SLOTS; ++i) {
-        frame_tick();
-        k = order[i];
-        j = k + so;
-        if (keep[k])
-            continue;
-        dr_on[j] = sp_on[k];
-        if (!sp_on[k])
-            continue;
-        dr_x[j] = sp_x[k];
-        dr_y[j] = dh_y = sp_y[k];
-        dr_s[j] = sp_seat[k];
-        dr_ng[j] = 2 + (k < MOVER ? sp_big[k] : 0);
-        dr_h[j] = k < MOVER && sp_big[k] ? 32 : 16;
-        if (k >= MOVER) {
-            dr_f[j] = sp_fr[k] * 4 + phase;
-            dr_g[j] = dh_g = sp_seat[k];
-            dh_src = AX_MOVERS + (uint16_t)((sp_fr[k] * 2 + sp_big[k]) * 4 + phase) * 256;
-            dh_mover();
-            continue;
-        }
-        dr_f[j] = sp_fr[k] | sp_big[k] << 7;
-        dh_x = sp_x[k];
-        dh_n = 16;
-        if (!sp_big[k] && dh_x < 133) {     /* the usual: coloured art (dhgr.s) */
-            dh_g1 = sp_fr[k];
-            dh_bg = sp_seat[k];
-            dh_bomber();
-            dr_g[j] = dh_g;
-            continue;
-        }
-        s = sp_seat[k] * 2;
-        dh_big = sp_big[k];
-        dh_src = sp_big[k] ? AX_SPRBIG + sp_fr[k] * 128 : AX_SPR + sp_fr[k] * 64;
-        dh_tb = AX_CTAB + ctab_of[s] * 512;
-        dh_ts = AX_CTAB + ctab_of[s + 1] * 512;
-        dh_tv = AX_CTAB + ctab_of[8] * 512;
-        dh_sprite();
-        dr_g[j] = dh_g;
     }
 }
 
@@ -574,18 +550,11 @@ static uint8_t meet(uint8_t a, uint8_t b)
 
 /* Which sprites can stay as they are on page so: drawn there as they are
  * now, and nothing drawn over them this time. */
-static void keepers(uint8_t so, uint8_t phase)
+static void keepers(uint8_t so)
 {
-    uint8_t k, j, m, r, c, c0, c1, r0, r1, any = 0;
+    uint8_t k, j, m, r, c, c0, c1, r0, r1;
     const uint8_t *shown = so ? tile_shown1 : tile_shown0;
-    for (k = 0; k < SLOTS; ++k) {
-        j = k + so;
-        keep[k] = sp_on[k] && dr_on[j] && dr_x[j] == sp_x[k] && dr_y[j] == sp_y[k] &&
-                  dr_s[j] == sp_seat[k] &&
-                  dr_f[j] == (k >= MOVER ? sp_fr[k] * 4 + phase : sp_fr[k] | sp_big[k] << 7);
-        any |= keep[k];
-    }
-    if (!any)                           /* (all moving: nothing to check) */
+    if (!keep_scan(so))                 /* (gfxa.s; all moving: nothing to check) */
         return;
     for (k = 0; k < SLOTS; ++k) {
         frame_tick();
@@ -606,7 +575,7 @@ static void keepers(uint8_t so, uint8_t phase)
                 r1 = ARENA_H - 1;
             for (r = r0; r <= r1; ++r)
                 for (c = c0; c <= c1; ++c)
-                    if (shown[r * ARENA_W + c] == 0xFF)
+                    if (shown[row13[r] + c] == 0xFF)
                         keep[k] = 0;
         } else {                        /* rows drawn again under it */
             for (r = (dr_y[j] >> 3) + 1; r <= ((dr_y[j] + dr_h[j] - 1) >> 3) + 1 && r < SCR_ROWS; ++r)
@@ -625,13 +594,13 @@ void gfx_render(void)
         return;
     while (flip)                        /* the last page drawn isn't up yet */
         frame_tick();
-    pg = one ? 0 : back;
+    pg = one || arena ? 0 : back;       /* the arena: page 1 only, drawn as it shows */
     if (pg)
         ov_here = 0;                    /* (drawing page 2 is the overlay's end) */
     ro = pg ? SCR_ROWS : 0;
     so = pg ? SLOTS : 0;
     so5 = pg ? 5 : 0;
-    dh_page = pg ? 0x40 : 0x20;
+    hg_page = pg ? 0x40 : 0x20;
     tm_page = pg;
     tm_phase = phase = (uint8_t)(frame_count >> 4) & 3;
     if (full[pg]) {
@@ -699,10 +668,16 @@ void gfx_render(void)
         }
     }
     frame_tick();
-    keepers(so, phase);
+    spph = phase;
+    keepers(so);
+    plan(so);
     for (k = 0; k < SLOTS; ++k)
-        if (!keep[k] && dr_on[k + so])
-            erase(k + so);
+        if (!keep[k] && dr_on[k + so]) {
+            if (solo[k] && dr_h[k + so] == 16)
+                erase_diff(k);
+            else
+                erase(k + so);
+        }
     frame_tick();
     if (arena) {
         tm_page = pg;
@@ -718,9 +693,10 @@ void gfx_render(void)
             draw_round(round_want);
         }
     }
-    sprites(so, phase);
-    if (!one) {
+    sprites_m(so);
+    if (!one && (!arena || up)) {
         flip = pg + 1;                  /* frame_tick shows it at the blank */
+        up = pg;
         back = pg ^ 1;
     }
     ++renders;
@@ -733,6 +709,7 @@ void gfx_single(uint8_t on)
     if (on) {
         flip = 0;
         *(volatile uint8_t *)0xC054 = 0;        /* page 1 shows (it is a page behind, or up to date) */
+        up = 0;
         one = 1;
     } else {
         one = 0;
@@ -746,13 +723,13 @@ void gfx_clear_pages(void)
 {
     uint8_t p;
     for (p = 0; p < 2; ++p) {
-        dh_page = p ? 0x40 : 0x20;
-        dh_y = 0;
-        dh_n = 192;
-        dh_g = 0;
-        dh_g1 = 19;
-        dh_bg = 0;
-        dh_fill();
+        hg_page = p ? 0x40 : 0x20;
+        hg_y = 0;
+        hg_n = 192;
+        hg_g = 0;
+        hg_g1 = 19;
+        hg_bg = 0;
+        hg_fill();
     }
 }
 

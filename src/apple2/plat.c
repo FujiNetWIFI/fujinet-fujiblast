@@ -1,8 +1,8 @@
 /*
  * plat.c -- Apple II start-up, the 60 Hz clock and quitting.
  *
- * A 128K //e, //c or IIgs: double hi-res needs the aux RAM, and the clock
- * is the vertical blank (frame_tick in dhgr.s: polled on the //e and IIgs).
+ * A 128K //e, //c or IIgs: the art lives in the aux RAM, and the clock is
+ * the vertical blank (frame_tick in hgr.s: polled on the //e and IIgs).
  *
  * The game's loop is one pass a jiffy (src/main.c), but drawing four
  * sprites takes the Apple more than a jiffy. So frame_wait draws only when
@@ -31,17 +31,17 @@ static uint16_t seed = 0x1234;
 
 /* lowlevel.s */
 void vbl_init(uint8_t mode);
-void dhgr_on(void);
-void dhgr_off(void);
+void hgr_on(void);
+void hgr_off(void);
 uint8_t __fastcall__ mli(uint8_t cmd, void *parms);
 void aux_put(void *dst, const void *src, uint16_t n);
-/* dhgr.s, gfx.c */
+/* hgr.s, gfx.c */
 void frame_tick(void);
 void gfx_render(void);
 void gfx_clear_pages(void);
 void snd_tick(void);
 
-extern uint8_t _AUXGFX__[], _AUXG_LAST__[], _AUXSPR_LOAD__[], _AUXSPR_RUN__[];
+extern uint8_t _AUXGFX__[], _AUXG_LAST__[];
 
 /* kept in DATA: the constructor runs before BSS is cleared */
 static uint8_t boot_mode = 0xFF;
@@ -106,8 +106,7 @@ static uint8_t load_gfx(void)
     static struct { uint8_t n, ref; uint8_t *buf; uint16_t req, got; } p_read = { 4, 0, TEMP, 0x2000, 0 };
     static struct { uint8_t n, ref; } p_close = { 1, 0 };
     uint8_t err = 0;
-    uint16_t total = 0, n, m;
-    uint16_t split = _AUXSPR_LOAD__ - _AUXGFX__;       /* the file's last part goes to $0800 */
+    uint16_t total = 0;
     if (mli(0xC8, &p_open))             /* OPEN */
         return 0;
     p_read.ref = p_close.ref = p_open.ref;
@@ -115,17 +114,8 @@ static uint8_t load_gfx(void)
         err = mli(0xCA, &p_read);       /* READ */
         if (err || !p_read.got)
             break;
-        n = p_read.got;
-        m = 0;
-        if (total < split) {
-            m = split - total;
-            if (m > n)
-                m = n;
-            aux_put(_AUXGFX__ + total, TEMP, m);
-        }
-        if (m < n)
-            aux_put(_AUXSPR_RUN__ + (total + m - split), TEMP + m, n - m);
-        total += n;
+        aux_put(_AUXGFX__ + total, TEMP, p_read.got);
+        total += p_read.got;
     } while (p_read.got == 0x2000);
     mli(0xCC, &p_close);                /* CLOSE */
     return total == (uint16_t)(_AUXG_LAST__ - _AUXGFX__);
@@ -154,7 +144,7 @@ void plat_init(void)
 {
     vbl_init(boot_mode);
     gfx_clear_pages();
-    dhgr_on();
+    hgr_on();
     snd_init();
     input_init();
     gfx_init();
@@ -162,7 +152,7 @@ void plat_init(void)
 
 void plat_quit(void)
 {
-    dhgr_off();
+    hgr_off();
     exit(0);
 }
 

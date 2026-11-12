@@ -3,7 +3,7 @@
 FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 
 - the Atari 400/800/XL/XE with 48K;
-- the Apple II in double hi-res (a 128K //e, //c or IIgs);
+- the Apple II in high-res (a 128K //e, //c or IIgs: the art lives in aux RAM);
 - MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088;
 - the Intellivision, with the FujiNet cartridge;
 - the Coleco Adam (TMS9918A);
@@ -35,7 +35,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/*.c` | The client, platform neutral. |
 | `src/platform-specific/*.h` | The API each platform implements. |
 | `src/atari/` | The Atari implementation: cc65, ANTIC mode 4, players and missiles, netstream. |
-| `src/apple2/` | The Apple II implementation: cc65, double hi-res on both pages, a blitter in the language card, SmartPort, the Mockingboard. |
+| `src/apple2/` | The Apple II implementation: cc65, high-res (the menus on both pages, the arena on one), a blitter in the language card, SmartPort, the Mockingboard. |
 | `src/msdos/` | The MS-DOS implementation: Open Watcom, CGA's 320x200 4-colour mode, FUJINET.SYS's serial port driven by interrupt, the PC speaker. |
 | `src/intv/` | The Intellivision client: the C client again in IntyBASIC, its hot loops in CP1610 assembly; the cartridge's mailbox. |
 | `src/adam/` | The Coleco Adam implementation: z88dk and zsdcc, Graphics II as a character map, two sprites a bomber, the SN76489, the FujiNet's DCB driven by hand. |
@@ -98,7 +98,9 @@ The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art
 The Apple II disk holds three files:
 - `FUJIBLST.SYSTEM`, our own loader (`tools/a2loader`)
 - `FUJIBLST`, the program
-- `FUJIBLST.GFX`, which goes to aux RAM: the art (`gfx/dhgr/*.png`, drawn by `tools/drawart_dhgr.py`, converted by `tools/mkgfx_apple2.py`), the Mockingboard's sounds and the menus' overlay
+- `FUJIBLST.GFX`, which goes to aux RAM: the art (`gfx/hgr/*.png`, made by `tools/drawart_hgr.py` from the 16-colour art in `gfx/dhgr/`, converted by `tools/mkgfx_hgr.py`), the Mockingboard's sounds and the menus' overlay
+
+The Apple II's speed is timed on test scene 5 (four walking, blasts every second): `BOTS=0 ROOM= tools/a2rig/rig.sh tools/a2rig/bench4.txt OUTDIR`.
 
 Main RAM is full: `src/apple2/fujiblst.cfg` says what goes where.
 
