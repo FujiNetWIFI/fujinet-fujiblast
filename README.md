@@ -7,11 +7,13 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088;
 - the Intellivision, with the FujiNet cartridge;
 - the Coleco Adam (TMS9918A);
+- the MSX (MSX1 and up, TMS9918A), as a FujiNet cartridge's user ROM;
 - the Magnavox Odyssey 2 / Philips Videopac, with the FujiNet cartridge;
 - the Emerson Arcadia 2001, with the FujiNet cartridge;
-- the Bally Astrocade, with the FujiNet cartridge.
+- the Bally Astrocade, with the FujiNet cartridge;
+- the ColecoVision, with the FujiNet cartridge.
 
-All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle); the Apple, the PC and the Adam take the keyboard too, and the Odyssey 2's keyboard types a name.
+All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the ColecoVision's stick); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -39,9 +41,12 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/msdos/` | The MS-DOS implementation: Open Watcom, CGA's 320x200 4-colour mode, FUJINET.SYS's serial port driven by interrupt, the PC speaker. |
 | `src/intv/` | The Intellivision client: the C client again in IntyBASIC, its hot loops in CP1610 assembly; the cartridge's mailbox. |
 | `src/adam/` | The Coleco Adam implementation: z88dk and zsdcc, Graphics II as a character map, two sprites a bomber, the SN76489, the FujiNet's DCB driven by hand. |
+| `src/tms9918/` | What the Adam and the MSX share: the screen (`gfx.c`, Graphics II as a character map, sprites), the VDP header and the tunes. |
+| `src/msx/` | The MSX implementation: the Adam's game on the BIOS's interrupt for a clock, the AY-3-8910, the FujiNet cartridge's registers driven by hand (FujiBus packets). |
 | `src/o2/` | The Odyssey 2 client: the C client again in 8048 assembly, the 8244's grid as the arena's walls, the font's man as the bombers; the cartridge's mailbox. |
 | `src/arcadia/` | The Emerson Arcadia 2001 client: the C client again in 2650 assembly, a character a tile, the four sprites as the bombers; the cartridge's mailbox. |
 | `src/astrocade/` | The Bally Astrocade client: the C client again in Z80 assembly, a 2-bit bitmap recoloured band by band by the line interrupt, the bombers composed into it, all three tones and the noise; the cartridge's mailbox. |
+| `src/coleco/` | The ColecoVision client: the Adam's screen, art and sound in Z80 assembly (the console has 1K of RAM), the Astrocade's game logic and link; the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -69,6 +74,7 @@ make intv               # r2r/intv/fujiblst.rom
 
 ```
 make adam               # r2r/adam/fujiblst.ddp
+make msxrom             # r2r/msxrom/fujiblst[ASCII8].rom
 ```
 
 ```
@@ -83,6 +89,10 @@ make arcadia            # r2r/arcadia/fujiblst.bin
 make astrocade          # r2r/astrocade/fujiblst.bin
 ```
 
+```
+make coleco             # r2r/coleco/fujiblst.col (and .rom)
+```
+
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
 
 `make adam` builds fujinet-lib (the pinned fujinet-lib-experimental in `~/Workspace`, `FNLIB_EXP`) with zsdcc into `build/fnlib-adam` and links the program, which must end below C800h (`tools/adam_end.py` checks); z88dk comes from the defoogi container unless installed. The art is `gfx/tms/*.png` (drawn by `tools/drawart_tms.py`, converted by `tools/mkgfx_tms.py`) and `gfx/namco.bin`. `make adam TEST_SCENE=1` builds an offline scene in (see Testing; `touch src/test.c` to go back).
@@ -92,6 +102,8 @@ make astrocade          # r2r/astrocade/fujiblst.bin
 `make arcadia` runs `src/arcadia/build.sh`: AS again, `CPU 2650`, an assembly a page (each holds the fixed halves, which must come out the same), linked into a protocol 2 (APPBANK) image by `tools/arc/mkblast.py`. The checks (`tools/arc/`, from M.U.L.E.'s Arcadia client) fail the build on a call chain deeper than 7 (the 2650's return stack is 8 and wraps silently), a register read after a call that clobbers it, and a branch that tests a constant just loaded. `tools/arc/fixreach.py src/arcadia/build.sh src/arcadia/src` widens relative branches that no longer reach. The art is `gfx/arcadia/*.png` (drawn by `tools/arc/drawart_arc.py`, converted by `tools/arc/mkgfx_arc.py`); the sounds `tools/arc/mksnd_arc.py`. `LOOK=0`/`2` builds the spike's other colours. `make arcadia-rig` builds `build/arcadia-rig/fujiblst.bin`, whose default server is the rig's.
 
 `make astrocade` runs `src/astrocade/build.sh`: zmac 1.3 (built from `~/Workspace/zmac-1.3` with a bigger symbol table, `build/zmac/zmac`), one assembly, every page `PHASE`d to 2000H, padded into a protocol 2 (APPBANK) image and claimed. The checks (`tools/astro/`, from M.U.L.E.'s Astrocade client) fail the build on a page over 4K, the resident half over 2816 bytes, the variables running into the stack, and a jump from one page into another (`checkcalls.py`: only `FARCALL` crosses). The art is `gfx/astrocade/*.png` (drawn by `tools/astro/drawart_astro.py`, converted by `tools/astro/mkgfx_astro.py`); the sounds `tools/astro/mksnd_astro.py` (from `src/apple2/sndtab.s`, plus the jingles' new harmony and bass parts). `LOOK=1`/`2` builds the spike's other colours, `FOOTER=0` drops the gradient under the arena. `make astrocade-rig` builds `build/astrocade-rig/fujiblst.bin`, whose default server is the rig's.
+
+`make coleco` runs `src/coleco/build.sh`: zmac 1.3 again, one assembly of a fixed 16K (the screen, the sprites, the sound, the link's mailbox, the main loop), the art in a fixed 6K, and 4K pages two to an 8K image page (page 0 the boot page, whose C000H is mapped at power-on), padded into an APPBANK image of 56K and claimed. The art is the Adam's (`gfx/tms/*.png` and `gfx/namco.bin`, `tools/coleco/mkgfx_coleco.py` turning the Adam's generated tables into zmac includes) and its tunes (`tools/coleco/mksnd_coleco.py` reads `src/adam/sound.c`). The checks (`tools/coleco/`, from M.U.L.E.'s ColecoVision client) fail the build on a region past its budget, the variables running into the stack, the mailbox pages not clear, or a label defined twice. `make coleco-rig` builds `build/coleco-rig/fujiblst.rom`, whose default server is the rig's.
 
 The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`) and `gfx/namco.bin`, the Namco arcade font.
 
@@ -162,6 +174,16 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
   - The game logic runs 60 times a second (a pass behind is made up by one that doesn't wait or draw).
   - In live play against three bots, adamcore redraws about 34 times a second.
 
+## The MSX
+
+- **Machine:** an MSX1 or later (50 or 60 Hz) with the FujiNet cartridge, which runs the ROM as a user ROM: mount `fujiblst[ASCII8].rom` in CONFIG and boot it (`b`), or the lobby does. The name ends in `[ASCII8].rom` because the firmware reads the mapper from it.
+- **Controls:** joystick 1 or the keyboard: the arrows walk, SPACE (or the stick's button) is fire, RETURN, ESCAPE (the lobby: back to CONFIG) and BACKSPACE as they say, F1 turns the sound off and on.
+- **Screen:** the Adam's (`src/tms9918/gfx.c`), the same art and sprites. Writes to the VDP go through the slow writer only, with the BIOS's interrupt held off for each burst: the interrupt reads the status register while the burst is going and bytes were lost (a shifted sprite table), and the interrupt's latency is too long to know the frame's blank is still ours for a flat-out write.
+- **Sound:** the AY-3-8910: the Adam's tunes (`src/tms9918/tunes.h`; a divisor is the AY's period), jingles on channel A, effects on B and the noise, stepped by the BIOS's interrupt through the H.TIMI hook (`src/msx/msxint.asm`), which also keeps the 60 Hz clock on a 50 Hz machine.
+- **Memory:** an ASCII8 megaROM (`src/msx/blast.asm`, `tools/msx/mkrom.py`): the program fixed at 4000h-9FFFh (473 bytes spare), the arena's cells in the window's bank 3 and the logo, trophies, sprites and font in bank 4 (`ART_BANK`, `src/tms9918/vdp.h`). The variables end at CF93h.
+- **Network:** an N:TCP socket, spoken to in FujiBus packets by hand through the cartridge's registers (BFFCh-BFFFh) and never waited on: a status, then a read only when bytes wait, a write of what was queued (`src/msx/nstrans.c`, from M.U.L.E.'s). The frame layer is the Adam's.
+- **Speed:** the benchmark scene (`make msxrom TEST_SCENE=5`, four walkers) redraws about 33 times a second in openMSX, as the Adam does; the animated tiles are redrawn one kind a frame.
+
 ## The Odyssey 2
 
 - **Machine:** an Odyssey 2 or a Videopac G7000 (NTSC or PAL) with the FujiNet cartridge (firmware speaking protocol 2, APPBANK), which carries the program in pages of 2K, its RAM and the network.
@@ -201,6 +223,15 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 - **Sound:** all three tones and the noise of the custom I/O chip, which no FujiNet client had used before. The jingles are in three parts: FujiBlast's tunes on one tone, a harmony and a bass (new here) on the others. The effects overlap, each on its own channels (a blast's noise and rumble never cut a footstep). Nothing modulates the master oscillator, so no voice retunes another.
 - **Network:** the Arcadia's link, transcribed: the FujiNet's TCP socket, a mailbox transaction a frame, never waited on; a READ's bytes decoded (COBS, the Fletcher sum, the patches straight into the state) a few a pass before anything else is posted; the screen picked only at a commit.
 - **Speed:** the game logic runs 60 times a second (a slow pass makes up to 8 jiffies). The picture is slower: in MAME, against three bots with everyone walking, about 18 redraws a second (composing the bombers is most of the work; the colour bands take about a tenth of the CPU).
+
+## The ColecoVision
+
+- **Machine:** a ColecoVision (NTSC) with the FujiNet cartridge (the firmware's APPBANK images: the program in 4K pages behind a fixed half, mapped by a read of the cartridge's page register) and the network. The console has 1K of RAM, so everything is assembly: 602 bytes of variables, the 247-byte state among them, and 68 bytes of stack at the deepest, measured.
+- **Controls:** controller 1: the stick walks (diagonals turn first, as everywhere); either fire button is fire. On the keypad `*` leaves the table (and rubs out a letter in a name), `#` ends a name, `9` turns the sound off and on. A name is picked letter by letter as on the Astrocade: up and down turn the letter, fire or right takes it, left or `*` rubs out.
+- **Screen:** the Adam's: the TMS9918A in Graphics II as a character map, 32 x 24 cells, each its own pattern and colours, the Namco font. A tile is 2 x 2 cells, the 13 x 11 arena framed in walls with the HUD above and our powers down the left. Each bomber is two sprites (the seat's colour behind, black with the eyes cut out in front); when three share lines they take turns at the front. Text is made of glyph sets by colour (a screen keeps to four colours: 59 glyphs a colour, stacked down from character 256), made the first time they are used. A bomb in the air is drawn on the cell grid, half a tile at a time.
+- **Sound:** the SN76489, the Adam's tunes and effects, two voices stepped a frame at a time by the frame interrupt.
+- **Network:** the Astrocade's link: the FujiNet's TCP socket, a mailbox transaction a frame, never waited on; a STATUS says how many bytes wait and a READ takes exactly those (a short read loses its bytes on older firmware); the stream's frames decoded (COBS, the Fletcher sum, the patches straight into the state) a few a pass.
+- **Speed:** the game logic runs 60 times a second (a slow pass makes up to 8 jiffies). In MAME, against three bots with everyone walking, a pass takes about one and a half frames.
 
 ## Testing
 
@@ -267,6 +298,18 @@ KEYS=keys.txt FRAMES=2400 tools/adamrig/rig.sh OUTDIR
 
 - `tools/rigs/dropproxy.py` loses the first frame; `tools/rigs/cutproxy.py` hangs up in the middle of a game (`EXTRA=`, `ROOM=` through it).
 
+For the MSX:
+
+```
+make msxrom TEST_SCENE=1                # as the Adam's: 1 the arena, 2 the waiting room, 3, 4, 5 four walkers (touch src/test.c to go back)
+python3 tools/msx/msxsim.py r2r/msxrom/'fujiblst[ASCII8].rom' r2r/msxrom/fujiblst.map scenario.txt OUTDIR
+KEYS=keys.txt SECS=60 PEEKS="msx_passes msx_skip" tools/msxrig/rig.sh OUTDIR
+```
+
+- `msx/msxsim.py` runs the ROM in openMSX (C-BIOS) with no FujiNet: `wait N`, `snap NAME` (the VRAM drawn by `tools/tmsshot.py`), `hold`, `press`, `key`, `peek SYMBOL`.
+- `msxrig/rig.sh` plays live in a namespace of its own: the server, bots, fujinet-pc (the MSX build that mounts user ROMs, `FNPC=`, default `~/Workspace/fn-msx-romtype/build/dist`) and openMSX with its FujiNet extension: CONFIG mounts the ROM and boots it. `KEYS` lines are `SECONDS CMD ARG` (`type TEXT`, `down|up|tap` u d l r s e 1), `PEEKS` prints counters at the end, `WAV` records the sound, `EVERY` is the seconds between pictures.
+- After a cut link (`cutproxy.py`) the client goes back to the title; in the rig the firmware (fujinet-pc) then took about 35 seconds over the next connect, so FIRE had to wait that long.
+
 For the Odyssey 2:
 
 ```
@@ -310,4 +353,18 @@ ASTROSIM_DEBUG=1 ... (a `cpu FILE N` step), then MARK=200D tools/astrosim/tracep
 - `astrosim.py` (the Arcadia's arcsim, for MAME's astrocde with the FujiNet cart device) holds keypad 1 at the BIOS's menu, then plays the scenario: pictures, peeks and traces by symbol, the handle and the keypad, the screen as text (the 4x6 font read back from the pixels), `test 1`-`4` (the offline scenes), `test 5` the title, `test 6` the sound board (every sound in turn). `cpu` traces lead each line with the page mapped.
 - `astrorig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `astrocade/build/config.bin`) and the image from the SD. The scenes in `tools/astrosim/scenes` play a game (`game.txt`), host one (`host.txt`, `BOTS=0` and bots started late by `EXTRA`), the lobby-less path (`nolobby.txt`), lose the link (`cut.txt` with `tools/rigs/cutproxy.py`, `hello.txt` with `dropproxy.py`) and reset the console (`reset.txt`).
 - The counters `NBAD` (bad frames) and `PDBG` (our walker's jiffies: a count, the handle, x, y, dir, acc) are for peeking.
+
+For the ColecoVision:
+
+```
+python3 tools/coleco/colsim.py SCENARIO OUTDIR r2r/coleco/fujiblst.rom build/coleco/fujiblst.lst
+make coleco-rig && tools/colrig/rig.sh SCENARIO OUTDIR
+NAME= ROOM= tools/colrig/rig.sh SCENARIO OUTDIR
+COLSIM_WAV=FILE.wav python3 tools/coleco/colsim.py SCENARIO OUTDIR ...
+```
+
+- `colsim.py` (M.U.L.E.'s, for this build) runs MAME's coleco with the FujiNet cart device (`-cartslot fujinet`) and a scenario, a command a line: `test 1`-`4` (the offline scenes), `test 5` the title, `test 6` the sound board; `wait`, `waitfor`, `press`, `hold`, `key`, `reset`, `snap`, `peek`, `dump`, `vdump`, `fill`, `trace`, `show` (by symbol, from the listing).
+- `colrig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled; `EXTRA` runs a proxy (`tools/rigs/dropproxy.py`, `cutproxy.py`) between them. `NAME=` and `ROOM=` empty play the lobby-less path. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `coleco/build/config.bin`) and the image from the SD as `fujiblst.col`; its fujinet-pc must know `.col` images (`FNPC=~/Workspace/fn-coleco-board/build/dist`: the shared rs232 build's mount stalls at LOADING 0).
+- The counters `NBAD` (bad frames) and `PDBG` (our walker's jiffies) are for peeking.
+
 

@@ -7,7 +7,7 @@
 
 #define SCR_ROWS 25
 
-#ifdef __ADAM__
+#if defined(__ADAM__) || defined(__MSX__)
 #define TITLE_Y(n) (80 + (n) * 8)  /* the VDP shows 4 sprites a line: the bombers stagger */
 #endif
 

@@ -4,10 +4,12 @@
 #   make apple2                    r2r/apple2/fujiblst.po (128K //e, //c, IIgs; high-res)
 #   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA)
 #   make adam                      r2r/adam/fujiblst.ddp (Coleco Adam; TMS9918A)
+#   make msxrom                    r2r/msxrom/fujiblst[ASCII8].rom (MSX, a FujiNet user ROM; TMS9918A)
 #   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
 #   make o2                        r2r/o2/fujiblst.bin (Odyssey 2 / Videopac, the FujiNet cartridge)
 #   make arcadia                   r2r/arcadia/fujiblst.bin (Emerson Arcadia 2001, the FujiNet cartridge)
 #   make astrocade                 r2r/astrocade/fujiblst.bin (Bally Astrocade, the FujiNet cartridge)
+#   make coleco                    r2r/coleco/fujiblst.col (ColecoVision, the FujiNet cartridge)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -18,7 +20,10 @@
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
 
 PRODUCT = fujiblst
-PLATFORMS = atari apple2 msdos adam
+PLATFORMS = atari apple2 msdos adam msxrom
+
+# the TMS9918A code (src/tms9918) is the Adam's and the MSX's
+PLATFORM_COMBOS = adam+=tms9918 msxrom+=tms9918,msx
 
 SRC_DIRS = src src/%PLATFORM% gen/%PLATFORM%
 EXTRA_INCLUDE = src src/platform-specific gen
@@ -117,7 +122,7 @@ ifeq ($(PLATFORM),adam)
   CC_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
   AS_Z88DK = $(CURDIR)/tools/z80/z88dk z80asm
   LD_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
-  EXTRA_INCLUDE += build/fnlib-adam/include gen/adam
+  EXTRA_INCLUDE += build/fnlib-adam/include gen/adam src/tms9918
   LIBS += -Lbuild/fnlib-adam -lfujinet-adam
 endif
 # (zcc hands a define on through a shell: a string is quoted twice)
@@ -138,7 +143,7 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari gen-apple2 gen-msdos gen-adam server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig FORCE
+.PHONY: gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig coleco coleco-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -176,10 +181,52 @@ astrocade:
 astrocade-rig:
 	DEFSRV=127.0.0.1:9910 OUT=build/astrocade-rig/obj R2R=build/astrocade-rig bash src/astrocade/build.sh
 
+# ---- ColecoVision (the FujiNet cartridge) -------------------------------------
+# Z80 assembly (zmac 1.3), not mekkogx: src/coleco/build.sh builds the APPBANK
+# image (the Adam's art and sound, the Astrocade's logic) and runs its checks.
+# coleco-rig: a copy whose default server is the rig's
+# (build/coleco-rig/fujiblst.rom), gen/server left alone.
+coleco:
+	$(if $(SERVER),DEFSRV=$(SERVER)) bash src/coleco/build.sh
+
+coleco-rig:
+	DEFSRV=127.0.0.1:9910 OUT=build/coleco-rig/obj R2R=build/coleco-rig bash src/coleco/build.sh
+
+# ---- MSX (MSX1 and up): a ROM the FujiNet cartridge runs ----------------------
+# The Adam's screen and game on the MSX's TMS9918A (src/tms9918 is shared),
+# zcc with zsdcc as above. An ASCII8 megaROM (src/msx/blast.asm,
+# tools/msx/mkrom.py): the program fixed at 4000h-9FFFh, the art in two
+# banks of the window at A000h. fujinet-lib is fujinet-lib-experimental built
+# with zsdcc (tools/z80/fnlib_msx.sh); the link to the server is the
+# cartridge's registers, driven by hand (src/msx/nstrans.c).
+ifeq ($(PLATFORM),msxrom)
+  FUJINET_LIB := __UNDEFINED__
+  CC_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  AS_Z88DK = $(CURDIR)/tools/z80/z88dk z80asm
+  LD_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  EXTRA_INCLUDE += build/fnlib-msx/include gen/msxrom src/tms9918
+  LIBS += -Lbuild/fnlib-msx -lfujinet-msx
+endif
+CFLAGS_EXTRA_MSXROM += -compiler=sdcc -SO3 -DQUIT_HINT='"\"ESC: LOBBY\""' -DTAGLINE='"\"BOMBS AND BLASTS FOR 2-4\""' \
+                       -DHINT_LR='"\"(L/R)\""' -DNAME_HELP='"\"LETTERS, DIGITS, THEN RETURN\""'
+LDFLAGS_EXTRA_MSXROM += -compiler=sdcc -m -pragma-define:CRT_MSX_CUSTOM_HEADER=1 -Ca-I$(CURDIR)/src/msx/crt \
+                        -pragma-define:CRT_ENABLE_STDIO=0 -pragma-redirect:fputc_cons=l_ret
+EXECUTABLE_EXTRA_DEPS_MSXROM += build/fnlib-msx/fujinet-msx.lib src/msx/crt/msx_rom_header.asm
+ifneq ($(TEST_SCENE),)
+  CFLAGS_EXTRA_MSXROM += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+endif
+
+msxrom/r2r-post::
+	@python3 tools/msx/mkrom.py r2r/msxrom $(PRODUCT)
+
+build/fnlib-msx/fujinet-msx.lib: tools/z80/fnlib_msx.sh tools/z80/msx-portio.c
+	tools/z80/fnlib_msx.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-msx
+
 r2r/atari/$(PRODUCT): gen-atari
 r2r/apple2/$(PRODUCT): gen-apple2
 r2r/msdos/$(PRODUCT): gen-msdos
 r2r/adam/$(PRODUCT): gen-adam
+r2r/msxrom/$(PRODUCT): gen-msxrom
 
 gen-atari: gen/config.h gen/atari/gfxdata.s
 
@@ -206,9 +253,15 @@ gen/msdos/gfxdata.c: tools/mkgfx_cga.py tools/artlayout.py tools/png.py gfx/cga/
 
 gen-adam: gen/config.h gen/adam/gfxdata.c build/fnlib-adam/fujinet-adam.lib
 
-gen/adam/gfxdata.c: tools/mkgfx_tms.py tools/artlayout.py tools/png.py gfx/tms/tiles.png gfx/tms/sprites.png gfx/tms/logo.png gfx/tms/cells.png gfx/namco.bin
+gen/adam/gfxdata.c gen/adam/gfxart1.c gen/adam/gfxart2.c &: tools/mkgfx_tms.py tools/artlayout.py tools/png.py gfx/tms/tiles.png gfx/tms/sprites.png gfx/tms/logo.png gfx/tms/cells.png gfx/namco.bin
 	@mkdir -p gen/adam
 	$(PYTHON) tools/mkgfx_tms.py gen/adam
+
+gen-msxrom: gen/config.h gen/msxrom/gfxdata.c build/fnlib-msx/fujinet-msx.lib
+
+gen/msxrom/gfxdata.c gen/msxrom/gfxart1.c gen/msxrom/gfxart2.c &: tools/mkgfx_tms.py tools/artlayout.py tools/png.py gfx/tms/tiles.png gfx/tms/sprites.png gfx/tms/logo.png gfx/tms/cells.png gfx/namco.bin
+	@mkdir -p gen/msxrom
+	$(PYTHON) tools/mkgfx_tms.py gen/msxrom
 
 gen/atari/gfxdata.s: tools/mkgfx_atari.py tools/artlayout.py tools/png.py gfx/tiles.png gfx/glyphs.png gfx/logo.png gfx/sprites.png
 	@mkdir -p gen/atari

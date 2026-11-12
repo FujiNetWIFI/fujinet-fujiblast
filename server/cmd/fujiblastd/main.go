@@ -5,7 +5,7 @@
 //
 // Lobby listing is off unless FUJIBLAST_LOBBY is qa, prod or a lobby URL;
 // then FUJIBLAST_SERVER_URL (tcp://host:9910/) and FUJIBLAST_CLIENT_ATARI
-// (tnfs://host/path/fujiblst.atr), _APPLE2, _MSDOS, _INTV, _ADAM, _O2, _ARCADIA and _ASTROCADE
+// (tnfs://host/path/fujiblst.atr), _APPLE2, _MSDOS, _INTV, _ADAM, _O2, _ARCADIA, _ASTROCADE and _COLECO
 // say what it lists.
 //
 // House bots (-bots / FUJIBLAST_BOTS, default blast1=1,blast2=2,blast3=3) sit
@@ -81,6 +81,9 @@ func main() {
 		}
 		if u := os.Getenv("FUJIBLAST_CLIENT_ASTROCADE"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "astrocade", URL: u})
+		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_COLECO"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "coleco", URL: u})
 		}
 		pub := lobby.New(cfg)
 		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Players: ti.Seated}) }

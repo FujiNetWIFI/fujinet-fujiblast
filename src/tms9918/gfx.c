@@ -24,14 +24,14 @@
  * cut out. Four sprites fit on a line: when 3 bombers share lines they
  * take turns at the front.
  */
-#ifdef __ADAM__
+#if defined(__ADAM__) || defined(__MSX__)
 
 #include <string.h>
 #include "gfx.h"
 #include "plat.h"
 #include "proto.h"
 #include "gfxcodes.h"
-#include "adam.h"
+#include "vdp.h"
 
 #define R1_OFF  0xA2            /* 16K, the interrupt, 16 x 16 sprites; display off */
 #define R1_ON   0xE2
@@ -137,6 +137,7 @@ static uint8_t glyph_code(uint8_t g, uint8_t fg, uint8_t bg)
             return fc_code[i];
     if (fc_n >= FC_MAX || !(c = alloc_codes(1)))
         return CH_PANEL;
+    ART_BANK(ART_B);
     memcpy(cell, font_gfx + g * 8, 8);
     memset(cell + 8, fg << 4 | bg, 8);
     put_cell(c, cell, blanked);
@@ -192,6 +193,7 @@ void gfx_init(void)
     vreg(5, VR_SAT >> 7);
     vreg(6, VR_SPAT >> 11);
     vfill(0, 0, 0x4000);
+    ART_BANK(ART_B);
     for (f = 0; f < N_FRAMES; ++f) {
         vwrite(VR_SPAT + (uint16_t)f * 64, spr_b[f], 32);
         vwrite(VR_SPAT + (uint16_t)f * 64 + 32, spr_a[f], 32);
@@ -299,9 +301,11 @@ void gfx_logo(uint8_t row)
     uint8_t r, i, line[LOGO_W];
     if (!logo_code) {
         logo_code = alloc_codes(LOGO_CELLS);
-        if (logo_code)
+        if (logo_code) {
+            ART_BANK(ART_B);
             for (i = 0; i < LOGO_CELLS; ++i)
                 put_cell(logo_code + i, logo_cells[i], blanked);
+        }
     }
     for (r = 0; r < 3; ++r) {
         gfx_row(row + r, ROW_GFX, PAL_TITLE);
@@ -316,9 +320,11 @@ void gfx_trophies(uint8_t row, uint8_t col, uint8_t n)
     uint8_t i, a[32], b[32], c = BIG_COL + col / 2;
     if (!trophy_code) {
         trophy_code = alloc_codes(4);
-        if (trophy_code)
+        if (trophy_code) {
+            ART_BANK(ART_B);
             for (i = 0; i < 4; ++i)
                 put_cell(trophy_code + i, trophy_cells[i], blanked);
+        }
     }
     gfx_row(row, ROW_GFX, PAL_GFX);
     gfx_row(row + 1, ROW_GFX, PAL_GFX);
@@ -346,6 +352,7 @@ void gfx_arena(void)
 {
     uint8_t i, r, line[32];
     charset_reset(BLACK);
+    ART_BANK(ART_A);
     for (i = 0; i < ARENA_CELLS; ++i)
         put_cell(i, arena_cells[i], 1);
     next_code = ARENA_CELLS;
@@ -460,13 +467,14 @@ static void put_sprite(uint8_t slot, uint8_t x, uint8_t y, uint8_t name, uint8_t
 /* The animated tiles' characters, redrawn for the phase: what this frame has time for. */
 static void anim_step(void)
 {
-    uint8_t ph = (frame_count >> 3) & 3, k, tries, budget = gfx_fast ? 2 : 1, j;
+    uint8_t ph = (frame_count >> 3) & 3, k, tries, budget = gfx_fast ? 2 : ANIM_SLOW, j;
     for (tries = 0; tries < N_ANIM && budget; ++tries) {
         k = anim_next;
         if (++anim_next >= N_ANIM)
             anim_next = 0;
         if (anim_ph[k] == ph)
             continue;
+        ART_BANK(ART_A);
         for (j = 0; j < 4; ++j)
             put_cell(ANIM_BASE + k * 4 + j, anim_cells[k][ph][j], gfx_fast);
         anim_ph[k] = ph;
