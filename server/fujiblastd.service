@@ -24,6 +24,7 @@ Environment=FUJIBLAST_STREAM_ADDR=:9910
 #Environment=FUJIBLAST_CLIENT_INTV=tnfs://fujinet.online/fujiblast/intv/fujiblst.rom
 #Environment=FUJIBLAST_CLIENT_ADAM=tnfs://fujinet.online/fujiblast/adam/fujiblst.ddp
 #Environment=FUJIBLAST_CLIENT_O2=tnfs://fujinet.online/fujiblast/o2/fujiblst.bin
+#Environment=FUJIBLAST_CLIENT_ARCADIA=tnfs://fujinet.online/fujiblast/arcadia/fujiblst.bin
 DynamicUser=yes
 Restart=on-failure
 RestartSec=5

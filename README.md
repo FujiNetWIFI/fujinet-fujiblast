@@ -38,6 +38,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/intv/` | The Intellivision client: the C client again in IntyBASIC, its hot loops in CP1610 assembly; the cartridge's mailbox. |
 | `src/adam/` | The Coleco Adam implementation: z88dk and zsdcc, Graphics II as a character map, two sprites a bomber, the SN76489, the FujiNet's DCB driven by hand. |
 | `src/o2/` | The Odyssey 2 client: the C client again in 8048 assembly, the 8244's grid as the arena's walls, the font's man as the bombers; the cartridge's mailbox. |
+| `src/arcadia/` | The Emerson Arcadia 2001 client: the C client again in 2650 assembly, a character a tile, the four sprites as the bombers; the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -71,11 +72,17 @@ make adam               # r2r/adam/fujiblst.ddp
 make o2                 # r2r/o2/fujiblst.bin
 ```
 
+```
+make arcadia            # r2r/arcadia/fujiblst.bin
+```
+
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
 
 `make adam` builds fujinet-lib (the pinned fujinet-lib-experimental in `~/Workspace`, `FNLIB_EXP`) with zsdcc into `build/fnlib-adam` and links the program, which must end below C800h (`tools/adam_end.py` checks); z88dk comes from the defoogi container unless installed. The art is `gfx/tms/*.png` (drawn by `tools/drawart_tms.py`, converted by `tools/mkgfx_tms.py`) and `gfx/namco.bin`. `make adam TEST_SCENE=1` builds an offline scene in (see Testing; `touch src/test.c` to go back).
 
 `make o2` runs `src/o2/build.sh`: Macroassembler AS (`~/asl/asl` and `p2bin`, or `ASL=`, `P2BIN=`) assembles a protocol 2 (APPBANK) image, a page at a time, and the checks in `tools/o2/` (from the O2 lobby and CONFIG) fail the build on a table read from the wrong page, a jump that tests the wrong instruction, a stack deeper than 8, and the like. `make o2-rig` builds `build/o2-rig/fujiblst.bin`, whose default server is the rig's.
+
+`make arcadia` runs `src/arcadia/build.sh`: AS again, `CPU 2650`, an assembly a page (each holds the fixed halves, which must come out the same), linked into a protocol 2 (APPBANK) image by `tools/arc/mkblast.py`. The checks (`tools/arc/`, from M.U.L.E.'s Arcadia client) fail the build on a call chain deeper than 7 (the 2650's return stack is 8 and wraps silently), a register read after a call that clobbers it, and a branch that tests a constant just loaded. `tools/arc/fixreach.py src/arcadia/build.sh src/arcadia/src` widens relative branches that no longer reach. The art is `gfx/arcadia/*.png` (drawn by `tools/arc/drawart_arc.py`, converted by `tools/arc/mkgfx_arc.py`); the sounds `tools/arc/mksnd_arc.py`. `LOOK=0`/`2` builds the spike's other colours. `make arcadia-rig` builds `build/arcadia-rig/fujiblst.bin`, whose default server is the rig's.
 
 The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`) and `gfx/namco.bin`, the Namco arcade font.
 
@@ -158,6 +165,19 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 - **Network:** the FujiNet's TCP socket, a mailbox transaction a frame (a WRITE of what is to be sent, else a READ; a STATUS now and then), never waited on. Every answer replaces the cartridge's reply, so a READ's bytes are decoded (COBS, the Fletcher sum, the patches straight into the state) before anything else is posted.
 - **Speed:** the game logic runs 60 times a second (PAL: six jiffies every five frames; a slow pass is made up); in live play against three bots MAME runs about a pass a frame. The grid's bands take about a third of the 8048.
 
+## The Emerson Arcadia 2001
+
+- **Machine:** an Arcadia 2001 (NTSC; its PAL clones are untested: MAME runs them all at 60 Hz) with the FujiNet cartridge (firmware speaking protocol 2, APPBANK): the program in pages of 2K behind a fixed 8K, 1K of RAM (the state lives there) and the network.
+- **Controls:** the left controller's disc walks (diagonals turn first, as everywhere); its side buttons are fire. CLEAR leaves the table, OPTION turns the sound off and on. A name is picked letter by letter: up and down turn the letter, fire or right takes it, left or CLEAR rubs out, ENTER (or START) ends.
+- **Screen:**
+  - The 2637's 13-row mode: 16 x 13 cells of 8 x 16 lines (each glyph row twice), about square on a TV. A tile is one cell, so the whole 13 x 11 arena shows, between black walls, with the HUD above (each seat's initial and wins, the clock) and our powers down the right.
+  - The look is the blue field: black pillars (the ROM's solid block), red bricks, black bombs with a sparking fuse, yellow flames (bands across and down, flickering thick and thin), green letters for the powerups (F B S K G). Those four glyphs are user glyphs, rewritten in the vertical blank when they animate.
+  - Each bomber is one of the four sprites, one colour each (white, green, red, yellow), 8 x 8 drawn twice as tall: walking four ways, cheering, knocked out. A sprite's picture is a user glyph too, rewritten when its frame changes. Kicked and thrown bombs are the bomb character, a tile at a time (no sprites are left).
+  - The title's logo is block graphics.
+- **Sound:** the one voice: effects, and the jingles an octave down (the divider is coarse up high); an effect cuts a jingle.
+- **Network:** the O2's link, transcribed: the FujiNet's TCP socket, a mailbox transaction a frame, never waited on; a READ's bytes decoded (COBS, the Fletcher sum, the patches streamed straight into the state in cart RAM) a few a pass before anything else is posted; the screen picked only at a commit.
+- **Speed:** the game logic runs 60 times a second (a slow pass is made up); in live play against three bots MAME runs about 0.9 passes a frame. Decoding the stream is the biggest cost (about 180 cycles a byte).
+
 ## Testing
 
 ```
@@ -235,4 +255,20 @@ O2SIM_DEBUG=1 ... (a `trace FILE N` step), then tools/o2sim/traceprof.py FILE bu
 - `o2sim.py` runs MAME's Odyssey 2 (`O2SIM_MACHINE=videopac`: the PAL Videopac) with the FujiNet cart device (`-cartslot fujinet`, from fujinet-firmware's `pico/o2/emu`): pictures, peeks, the stick and the keyboard. The scenes in `tools/o2sim/scenes` poke the test hook (`ipoke 36 A1`-`A4`): 1 the arena, 2 the waiting room, 3 a round's end, 4 the game's end, on test.c's state.
 - `o2rig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled (the cart's transactions take real time). A scenario presses fire at the title.
 - `traceprof.py` sums a MAME debugger trace into cycles per routine and page.
+
+For the Arcadia:
+
+```
+python3 tools/arcsim/arcsim.py tools/arcsim/scenes/scene1.txt OUTDIR r2r/arcadia/fujiblst.bin
+make arcadia-rig && tools/arcrig/rig.sh tools/arcsim/scenes/game.txt OUTDIR
+NAME= ROOM= TABLE=blast2 tools/arcrig/rig.sh tools/arcsim/scenes/nolobby.txt OUTDIR
+CONFIG=1 tools/arcrig/rig.sh tools/arcsim/scenes/config.txt OUTDIR
+ARCSIM_DEBUG=1 ... (a `cpu FILE N` step), then tools/arcsim/traceprof.py FILE build/arcadia-rig/obj
+python3 tools/arc/preview.py OUT.png SHOT.png ...
+```
+
+- `arcsim.py` (M.U.L.E.'s, for this build) runs MAME's Arcadia with the FujiNet cart device (`-cartslot fujinet`): pictures, peeks and traces by symbol, the disc, the keypad and the panel, the screen as text, `test 1`-`4` (the offline scenes). `ARCSIM_WAV` records the sound (`tools/arc/sndcheck.py`).
+- `arcrig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `arcadia/build/config.bin`) and the image from the SD. The scenes in `tools/arcsim/scenes` play a game (`game.txt`), host one (`host.txt`, `BOTS=0` and bots started late by `EXTRA`), leave (`leave.txt`), lose the link (`cut.txt`, `hello.txt`) and reset the console (`reset.txt`).
+- The counters `NBAD` (bad frames), `NLATE` and `NPASH:NPASL` (late and all arena passes) and `PDBG` (our walker's last jiffy) are for peeking.
+- `preview.py` scales MAME's snapshots to a TV's 4:3.
 

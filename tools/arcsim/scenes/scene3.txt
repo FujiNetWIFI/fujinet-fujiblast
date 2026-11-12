@@ -1,0 +1,5 @@
+# offline scene 3 (src/test.c): its picture and the screen as text
+test 3 0
+wait 120
+snap scene3
+text

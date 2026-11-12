@@ -1,0 +1,25 @@
+# no lobby keys: the name by the disc wheel (A, then B), the room list
+# (the second room), then the waiting room
+wait 120
+press fire
+wait 30
+snap name0
+press fire
+wait 20
+hold down 4
+wait 10
+press fire
+wait 20
+snap name1
+text
+press ent
+wait 200
+snap rooms
+text
+press down
+wait 10
+press fire
+until $0600 1 2400
+snap countdown
+peek MYNAME 9
+peek SRVTBL 9

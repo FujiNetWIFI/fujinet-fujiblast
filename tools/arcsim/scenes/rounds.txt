@@ -1,0 +1,16 @@
+# a live game of one round: the trophies after it
+wait 120
+press fire
+until $0600 2 2400
+until $0600 3 9000
+wait 40
+snap round
+text
+peek RESSEAT 2
+peek SHOWN 1
+peek $0600 6
+peek SCRATCH 16
+until $0600 4 3000
+wait 40
+snap final
+text

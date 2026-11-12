@@ -1,0 +1,12 @@
+# RESET mid-game, again and again until ARCSIM_SECONDS (MAME runs this
+# script again after each reset): every run comes back to the arena, the
+# seat back (server.log: "ARC in seat 3" once a run; PEEK MYSEAT 03)
+wait 120
+press fire
+until $0600 2 2400
+wait 90
+snap arena
+text
+peek MYSEAT 1
+peek NBAD 1
+reset

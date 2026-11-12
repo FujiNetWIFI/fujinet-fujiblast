@@ -1,0 +1,19 @@
+# through the cart's CONFIG (rig CONFIG=1, the Adam lesson: a cold-boot rig
+# can miss a CONFIG-boot hang): host 1 (the SD), FUJIBLST.BIN, booted;
+# then the title, the table, the arena
+wait 300
+press fire
+wait 200
+press down
+wait 30
+press fire
+wait 600
+snap booted
+text
+press fire
+until SHOWN 2 2400
+wait 60
+snap arena
+text
+peek MYSEAT 1
+peek NBAD 1

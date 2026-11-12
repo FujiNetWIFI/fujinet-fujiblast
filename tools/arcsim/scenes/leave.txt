@@ -1,0 +1,10 @@
+# CLEAR in the waiting room: the seat given up, the room key emptied, the
+# room list (the build's server's rooms)
+wait 120
+press fire
+until SHOWN 1 1200
+wait 60
+press clr
+wait 400
+snap list
+text

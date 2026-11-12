@@ -1,0 +1,9 @@
+# a CPU profile of play: 120 frames traced, walking
+wait 120
+press fire
+until $0600 2 2400
+wait 120
+down left
+cpu build/arcadia-rig/play.tr 120
+wait 130
+up left

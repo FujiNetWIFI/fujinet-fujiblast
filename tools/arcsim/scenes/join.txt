@@ -1,0 +1,14 @@
+# a live join: the title, the waiting room, the countdown, the arena
+wait 120
+snap title
+press fire
+wait 120
+snap joining
+text
+peek NLINK 4
+peek NKIND 2
+until $0600 1 1800
+snap countdown
+until $0600 2 600
+snap play
+text

@@ -1,0 +1,17 @@
+# the arena's passes a second, live: 30 s of play, walking
+wait 120
+press fire
+until $0600 2 2400
+wait 60
+peek NPASH 2
+peek FRMH 2
+peek NBAD 2
+hold left 300
+hold up 300
+hold right 300
+hold down 300
+hold left 300
+hold up 300
+peek NPASH 2
+peek FRMH 2
+peek NBAD 2

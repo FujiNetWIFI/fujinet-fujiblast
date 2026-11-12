@@ -1,0 +1,6 @@
+# the first frame lost (dropproxy): HELLO again, then the game
+wait 120
+press fire
+until $0600 1 2400
+snap countdown
+peek NBAD 2
