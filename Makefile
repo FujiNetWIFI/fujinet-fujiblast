@@ -3,6 +3,7 @@
 #   make atari                     r2r/atari/fujiblst.atr (48K Atari 400/800, XL/XE)
 #   make apple2                    r2r/apple2/fujiblst.po (128K //e, //c, IIgs; double hi-res)
 #   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA)
+#   make adam                      r2r/adam/fujiblst.ddp (Coleco Adam; TMS9918A)
 #   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
@@ -14,7 +15,7 @@
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
 
 PRODUCT = fujiblst
-PLATFORMS = atari apple2 msdos
+PLATFORMS = atari apple2 msdos adam
 
 SRC_DIRS = src src/%PLATFORM% gen/%PLATFORM%
 EXTRA_INCLUDE = src src/platform-specific gen
@@ -99,7 +100,43 @@ msdos/disk-post::
 	printf '@ECHO OFF\r\nFUJIBLST\r\n' > build/autoexec.bat
 	mcopy -o -i $(DISK) build/autoexec.bat "::AUTOEXEC.BAT"
 
-.PHONY: gen-atari gen-apple2 gen-msdos server proto intv FORCE
+# ---- Coleco Adam (the TMS9918A) ---------------------------------------------
+# z88dk's zcc with zsdcc, from the defoogi container unless installed
+# (tools/z80/z88dk). fujinet-lib is fujinet-lib-experimental built with
+# zsdcc (tools/z80/fnlib_adam.sh: the released Adam lib is sccz80, whose
+# arguments come in the other order). The program runs from 0000h and must
+# end below C800h, where the image's bootstrap sits (tools/adam_end.py);
+# the VDP's interrupt is the Z80's NMI, the frame clock (src/adam/nmi.asm).
+# Nothing prints, so z88dk's console (2.5K with its font) is left out.
+FNLIB_EXP ?= $(HOME)/Workspace/fujinet-lib-experimental
+FNLIB_COMMIT ?= a29e57f
+ifeq ($(PLATFORM),adam)
+  FUJINET_LIB := __UNDEFINED__
+  CC_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  AS_Z88DK = $(CURDIR)/tools/z80/z88dk z80asm
+  LD_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  EXTRA_INCLUDE += build/fnlib-adam/include gen/adam
+  LIBS += -Lbuild/fnlib-adam -lfujinet-adam
+endif
+# (zcc hands a define on through a shell: a string is quoted twice)
+CFLAGS_EXTRA_ADAM += -compiler=sdcc -SO3 -DQUIT_HINT='"\"ESC: LOBBY\""' -DTAGLINE='"\"BOMBS AND BLASTS FOR 2-4\""' \
+                     -DHINT_LR='"\"(L/R)\""' -DNAME_HELP='"\"LETTERS, DIGITS, THEN RETURN\""'
+LDFLAGS_EXTRA_ADAM += -compiler=sdcc -m -pragma-define:CRT_ENABLE_NMI=2 -pragma-define:CRT_INITIALIZE_BSS=1 \
+                      -pragma-define:CRT_ENABLE_STDIO=0 -pragma-define:CLIB_DEFAULT_SCREEN_MODE=-1 \
+                      -pragma-define:CLIB_EXIT_SCREEN_MODE=-1 -pragma-redirect:fputc_cons=l_ret
+EXECUTABLE_EXTRA_DEPS_ADAM += build/fnlib-adam/fujinet-adam.lib
+# an offline scene built in (src/test.c): make adam TEST_SCENE=1 (then touch src/test.c to go back)
+ifneq ($(TEST_SCENE),)
+  CFLAGS_EXTRA_ADAM += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+endif
+
+adam/r2r-post::
+	@python3 tools/adam_end.py r2r/adam/$(PRODUCT).map
+
+build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
+	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
+
+.PHONY: gen-atari gen-apple2 gen-msdos gen-adam server proto intv FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -109,6 +146,7 @@ intv:
 r2r/atari/$(PRODUCT): gen-atari
 r2r/apple2/$(PRODUCT): gen-apple2
 r2r/msdos/$(PRODUCT): gen-msdos
+r2r/adam/$(PRODUCT): gen-adam
 
 gen-atari: gen/config.h gen/atari/gfxdata.s
 
@@ -132,6 +170,12 @@ gen-msdos: gen/config.h gen/msdos/gfxdata.c
 gen/msdos/gfxdata.c: tools/mkgfx_cga.py tools/artlayout.py tools/png.py gfx/cga/tiles.png gfx/cga/sprites.png gfx/cga/logo.png gfx/cga/cells.png gfx/namco.bin
 	@mkdir -p gen/msdos
 	$(PYTHON) tools/mkgfx_cga.py gen/msdos
+
+gen-adam: gen/config.h gen/adam/gfxdata.c build/fnlib-adam/fujinet-adam.lib
+
+gen/adam/gfxdata.c: tools/mkgfx_tms.py tools/artlayout.py tools/png.py gfx/tms/tiles.png gfx/tms/sprites.png gfx/tms/logo.png gfx/tms/cells.png gfx/namco.bin
+	@mkdir -p gen/adam
+	$(PYTHON) tools/mkgfx_tms.py gen/adam
 
 gen/atari/gfxdata.s: tools/mkgfx_atari.py tools/artlayout.py tools/png.py gfx/tiles.png gfx/glyphs.png gfx/logo.png gfx/sprites.png
 	@mkdir -p gen/atari

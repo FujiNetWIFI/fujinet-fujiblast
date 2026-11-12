@@ -5,9 +5,10 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the Atari 400/800/XL/XE with 48K;
 - the Apple II in double hi-res (a 128K //e, //c or IIgs);
 - MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088;
-- the Intellivision, with the FujiNet cartridge.
+- the Intellivision, with the FujiNet cartridge;
+- the Coleco Adam (TMS9918A).
 
-All are played with a joystick (the Intellivision's hand controller); the Apple and the PC take the keyboard too.
+All are played with a joystick (the Intellivision's hand controller); the Apple, the PC and the Adam take the keyboard too.
 
 ## How to play
 
@@ -34,6 +35,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/apple2/` | The Apple II implementation: cc65, double hi-res on both pages, a blitter in the language card, SmartPort, the Mockingboard. |
 | `src/msdos/` | The MS-DOS implementation: Open Watcom, CGA's 320x200 4-colour mode, FUJINET.SYS's serial port driven by interrupt, the PC speaker. |
 | `src/intv/` | The Intellivision client: the C client again in IntyBASIC, its hot loops in CP1610 assembly; the cartridge's mailbox. |
+| `src/adam/` | The Coleco Adam implementation: z88dk and zsdcc, Graphics II as a character map, two sprites a bomber, the SN76489, the FujiNet's DCB driven by hand. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -59,7 +61,13 @@ defoogi make msdos      # r2r/msdos/fujiblst.img
 make intv               # r2r/intv/fujiblst.rom
 ```
 
+```
+make adam               # r2r/adam/fujiblst.ddp
+```
+
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
+
+`make adam` builds fujinet-lib (the pinned fujinet-lib-experimental in `~/Workspace`, `FNLIB_EXP`) with zsdcc into `build/fnlib-adam` and links the program, which must end below C800h (`tools/adam_end.py` checks); z88dk comes from the defoogi container unless installed. The art is `gfx/tms/*.png` (drawn by `tools/drawart_tms.py`, converted by `tools/mkgfx_tms.py`) and `gfx/namco.bin`. `make adam TEST_SCENE=1` builds an offline scene in (see Testing; `touch src/test.c` to go back).
 
 The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`) and `gfx/namco.bin`, the Namco arcade font.
 
@@ -117,6 +125,17 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
   - In live play against three bots, jzIntv redraws about 50 times a second.
   - The link's decoding, the walking, the bombers and the controller are CP1610 assembly (`src/intv/*.asm`); IntyBASIC alone took over two frames a pass.
 
+## The Coleco Adam
+
+- **Machine:** an Adam (64K) with the FujiNet, booted from the `.ddp` tape image the FujiNet mounts as a disk.
+- **Controls:** controller 1 (stick and either fire button) or the keyboard: the arrows walk, SPACE is fire, RETURN, ESCAPE (the lobby) and BACKSPACE as they say, M turns the sound off and on.
+- **Screen:** the TMS9918A in Graphics II used as a character map (32 x 24 cells, two colours in any 8 pixels). A tile is 2 x 2 cells, and the animated tiles' cells are redrawn in the frame's blank. Text is the Namco font, a cell a character, made in the colour wanted when first drawn. Each bomber is two 16 x 16 sprites: the seat's colour behind, a black visor and boots in front. When three bombers share lines they take turns at the front (the VDP shows four sprites a line).
+- **Sound:** the SN76489, stepped by the VDP's interrupt: jingles on one tone channel, effects on another and the noise channel.
+- **Network:** an N:TCP socket, its DCB driven by hand and never waited on (a status, then a read only when bytes wait, a write of what was queued), one call a frame at most. The frame layer (COBS, Fletcher sum) is the Apple II's.
+- **Speed:**
+  - The game logic runs 60 times a second (a pass behind is made up by one that doesn't wait or draw).
+  - In live play against three bots, adamcore redraws about 34 times a second.
+
 ## Testing
 
 ```
@@ -168,4 +187,16 @@ make -C src/intv rig && ROM=build/intv-rig/fujiblst.rom NAME= ROOM= TABLE=blast1
 
 - `intvsim.py` runs the test scenes (`test 1`-`4`) in jzIntv (`~/Workspace/jzintv-20200712-src`, the FujiNet build): pictures with the MOBs, the screen as text, the stack's use, and `prof`, the CPU cycles between two labels.
 - `intvrig/rig.sh` plays live in a namespace of its own (no gamepads either): the server, bots, a copy of fujinet-pc-rs232 on BoIP, and jzIntv's cartridge dialing it. `make -C src/intv rig` builds a ROM whose default server is the rig's.
+For the Adam:
+
+```
+make adam TEST_SCENE=1                  # 1 the arena, 2 the waiting room, 3 a round's end, 4 the game's end
+FRAMES=900 EVERY=300 SHOTDIR=OUTDIR tools/adamrig/run-adam.sh r2r/adam/fujiblst.ddp
+KEYS=keys.txt FRAMES=2400 tools/adamrig/rig.sh OUTDIR
+```
+
+- `adamrig/run-adam.sh` runs the image in adamcore (`~/Workspace/adamcore`) headless with a copy of fujinet-pc-adam, pictures every `EVERY` frames; `KEYS` types at it (lines `SECONDS TEXT`, `\n` RETURN, `\u \d \l \r` the arrows) and `EMUARGS=--pc-hist` prints where the Z80 spends its time.
+- `adamrig/rig.sh` plays live in a namespace of its own: the server, bots and that, with the lobby's appkeys seeded.
+- The counters `adam_passes`, `adam_late` and `adam_skip` (src/adam/plat.c) are in the RAM dump (`/tmp/fujiblast-adam.*/ram.bin`); the map says where.
+
 - `tools/rigs/dropproxy.py` loses the first frame; `tools/rigs/cutproxy.py` hangs up in the middle of a game (`EXTRA=`, `ROOM=` through it).

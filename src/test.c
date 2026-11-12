@@ -13,6 +13,10 @@
 #include "input.h"
 #include "plat.h"
 
+#ifndef TEST_ARG
+#define TEST_ARG 0
+#endif
+
 uint8_t test_hook[4];
 
 static void canned(void)
@@ -97,6 +101,11 @@ void test_check(void)
 {
     uint8_t n;
     test_hook[1] = 0xC3;
+#ifdef TEST_SCENE                        /* a rig that can't poke memory: built in */
+    test_hook[0] = 0x5A;
+    test_hook[2] = TEST_SCENE;
+    test_hook[3] = TEST_ARG;
+#endif
     for (n = 0; n < 20 && test_hook[0] != 0x5A; ++n)
         frame_wait();
     if (test_hook[0] != 0x5A)

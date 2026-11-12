@@ -12,6 +12,10 @@
 #include "plat.h"
 #include "sound.h"
 
+#ifndef HINT_LR
+#define HINT_LR "(LEFT/RIGHT)"
+#endif
+
 uint8_t prev_dir;
 
 void tick(void)
@@ -92,7 +96,7 @@ void wait_state(void)
     gfx_text(20, 12, "ROUNDS:", 0);
     gfx_number(20, 20, st[OFF_ROUNDS], 0);
     if (my_seat != NONE && my_seat == host)
-        gfx_text(20, 23, "(LEFT/RIGHT)", 0);
+        gfx_text(20, 23, HINT_LR, 0);
     gfx_clear_row(22);
     if (my_seat == NONE)
         centre(22, "WATCHING: THE ROOM IS FULL", 0, 40);

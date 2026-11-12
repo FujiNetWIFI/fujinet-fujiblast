@@ -61,6 +61,9 @@ func main() {
 		if u := os.Getenv("FUJIBLAST_CLIENT_INTV"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "intv", URL: u})
 		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_ADAM"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "adam", URL: u})
+		}
 		pub := lobby.New(cfg)
 		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Players: ti.Seated}) }
 		var ts []lobby.Table

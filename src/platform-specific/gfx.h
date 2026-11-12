@@ -7,6 +7,10 @@
 
 #define SCR_ROWS 25
 
+#ifdef __ADAM__
+#define TITLE_Y(n) (80 + (n) * 8)  /* the VDP shows 4 sprites a line: the bombers stagger */
+#endif
+
 /* row kinds */
 #define ROW_TEXT  0     /* 40 small characters */
 #define ROW_BIG   1     /* 20 big characters, each in one of the row's 4 colours */
