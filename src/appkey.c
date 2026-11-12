@@ -30,6 +30,11 @@ static uint8_t ak_read(uint8_t key)
     uint16_t count = 0;
     uint8_t ok;
     memset(akbuf, 0, sizeof(akbuf));
+#ifdef NO_APPKEYS                       /* a test build: no lib code (the 7800's bank 0 is small) */
+    (void)count;
+    (void)ok;
+    return 0;
+#else
     nst_pause();
     fuji_set_appkey_details(AK_CREATOR, AK_APP, DEFAULT);
     ok = fuji_read_appkey(key, &count, akbuf);
@@ -40,14 +45,20 @@ static uint8_t ak_read(uint8_t key)
         count = 64;
     akbuf[count] = 0;
     return (uint8_t)count;
+#endif
 }
 
 static void ak_write(uint8_t key, uint8_t n)
 {
+#ifdef NO_APPKEYS
+    (void)key;
+    (void)n;
+#else
     nst_pause();
     fuji_set_appkey_details(AK_CREATOR, AK_APP, DEFAULT);
     fuji_write_appkey(key, n, akbuf);
     nst_resume();
+#endif
 }
 
 /* "tcp://host:port/?table=id" (or host:port): the host, the port, the table

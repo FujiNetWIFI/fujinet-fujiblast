@@ -10,6 +10,7 @@
 #   make arcadia                   r2r/arcadia/fujiblst.bin (Emerson Arcadia 2001, the FujiNet cartridge)
 #   make astrocade                 r2r/astrocade/fujiblst.bin (Bally Astrocade, the FujiNet cartridge)
 #   make coleco                    r2r/coleco/fujiblst.col (ColecoVision, the FujiNet cartridge)
+#   make atari7800                 r2r/atari7800/fujiblst.a78 (Atari 7800, the FujiNet cartridge; MARIA 160B)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -20,7 +21,7 @@
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
 
 PRODUCT = fujiblst
-PLATFORMS = atari apple2 msdos adam msxrom
+PLATFORMS = atari apple2 msdos adam msxrom atari7800
 
 # the TMS9918A code (src/tms9918) is the Adam's and the MSX's
 PLATFORM_COMBOS = adam+=tms9918 msxrom+=tms9918,msx
@@ -143,7 +144,7 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig coleco coleco-rig FORCE
+.PHONY: gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig coleco coleco-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -222,7 +223,54 @@ msxrom/r2r-post::
 build/fnlib-msx/fujinet-msx.lib: tools/z80/fnlib_msx.sh tools/z80/msx-portio.c
 	tools/z80/fnlib_msx.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-msx
 
+# ---- Atari 7800 (the FujiNet 7800 cartridge) ---------------------------------
+# cc65, a SuperGame image with the cart's RAM, 128K in 16K banks
+# (src/atari7800/fujiblst-a78.cfg, DESIGN.md). The screen is MARIA's: 25 zones
+# of 8 lines, 160B cells (12 colours a pixel) for the arena and menu art, 320A
+# text, the bombers two 160A objects each from the pages in REPL, which every
+# bank has (tools/atari7800/mkrom.py copies it). fujinet-lib is
+# fujinet-lib-experimental's atari7800 target (tools/atari7800/mkfnlib.sh);
+# the link to the server is the cartridge's mailbox, driven by hand
+# (src/atari7800/nstrans.c). The test hook / scenes as everywhere (TEST_SCENE).
+FNLIB_7800 ?= $(HOME)/Workspace/fnlib-7800
+ifeq ($(PLATFORM),atari7800)
+  FUJINET_LIB := __UNDEFINED__
+  LIBS += build/fnlib-a78/fujinet-a78.lib
+  EXTRA_INCLUDE += gen/atari7800 src/atari7800 build/fnlib-a78/include
+endif
+CFLAGS_EXTRA_ATARI7800 += -Os -Cl -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"PAUSE"' -DQUIT_HINT='"SELECT: LOBBY"' \
+                          -DTAGLINE='"BOMBS AND BLASTS FOR 2-4"' -DHINT_LR='"(L/R)"' \
+                          -DNAME_HELP='"UP/DOWN: LETTER  FIRE: ADD  >: DONE"'
+CFLAGS_EXTRA_ATARI7800 += $(DBG)
+ifeq ($(NMILOG),1)
+  ASFLAGS += -Wa -DNMILOG
+endif
+LDFLAGS_EXTRA_ATARI7800 += -C src/atari7800/fujiblst-a78.cfg -m build/fujiblst-a78.map
+# the phases' code that doesn't run every frame: bank 0 (always the one in the window)
+A7OBJ = build/$(PRODUCT)/atari7800
+$(A7OBJ)/src/menus.o $(A7OBJ)/src/screens.o $(A7OBJ)/src/appkey.o $(A7OBJ)/src/test.o $(A7OBJ)/src/atari7800/gfxsetup.o: CFLAGS += --code-name OVERLAY1 --rodata-name OVL1RO
+# constants only the main thread reads (never the NMI, which may run with the art's bank in)
+$(A7OBJ)/gen/atari7800/gfxdata.o $(A7OBJ)/src/main.o $(A7OBJ)/src/play.o: CFLAGS += --rodata-name OVL1RO
+EXECUTABLE_EXTRA_DEPS_ATARI7800 += src/atari7800/fujiblst-a78.cfg build/fnlib-a78/fujinet-a78.lib gen/atari7800/gfxdata.c
+ifneq ($(TEST_SCENE),)
+  CFLAGS_EXTRA_ATARI7800 += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0) -DNO_APPKEYS -DNO_MENUS
+endif
+
+# REPL into every bank, the checks, the .a78 (r2r/atari7800/fujiblst.a78)
+atari7800/executable-post::
+	python3 tools/atari7800/mkrom.py build/fujiblst-a78.map $(EXECUTABLE) $(EXECUTABLE:.bin=.a78)
+
+build/fnlib-a78/fujinet-a78.lib: tools/atari7800/mkfnlib.sh $(wildcard $(FNLIB_7800)/common/*.c $(FNLIB_7800)/bus/atari7800/* $(FNLIB_7800)/include/*.h)
+	tools/atari7800/mkfnlib.sh $(FNLIB_7800) build/fnlib-a78
+
+gen-atari7800: gen/config.h gen/atari7800/gfxdata.c build/fnlib-a78/fujinet-a78.lib
+
+gen/atari7800/gfxdata.c: tools/mkgfx_a78.py tools/drawart_a78.py tools/drawart_dhgr.py tools/a78/palette.py gfx/namco.bin
+	@mkdir -p gen/atari7800
+	$(PYTHON) tools/mkgfx_a78.py gen/atari7800
+
 r2r/atari/$(PRODUCT): gen-atari
+r2r/atari7800/$(PRODUCT): gen-atari7800
 r2r/apple2/$(PRODUCT): gen-apple2
 r2r/msdos/$(PRODUCT): gen-msdos
 r2r/adam/$(PRODUCT): gen-adam

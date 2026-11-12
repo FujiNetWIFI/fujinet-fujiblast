@@ -11,9 +11,10 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the Magnavox Odyssey 2 / Philips Videopac, with the FujiNet cartridge;
 - the Emerson Arcadia 2001, with the FujiNet cartridge;
 - the Bally Astrocade, with the FujiNet cartridge;
-- the ColecoVision, with the FujiNet cartridge.
+- the ColecoVision, with the FujiNet cartridge;
+- the Atari 7800, with the FujiNet cartridge.
 
-All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the ColecoVision's stick); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
+All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the ColecoVision's stick, the 7800's); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -47,6 +48,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/arcadia/` | The Emerson Arcadia 2001 client: the C client again in 2650 assembly, a character a tile, the four sprites as the bombers; the cartridge's mailbox. |
 | `src/astrocade/` | The Bally Astrocade client: the C client again in Z80 assembly, a 2-bit bitmap recoloured band by band by the line interrupt, the bombers composed into it, all three tones and the noise; the cartridge's mailbox. |
 | `src/coleco/` | The ColecoVision client: the Adam's screen, art and sound in Z80 assembly (the console has 1K of RAM), the Astrocade's game logic and link; the cartridge's mailbox. |
+| `src/atari7800/` | The Atari 7800 client: cc65 and ca65 on MARIA, 160B cells (12 colours a pixel) for the arena, the bombers two 160A layers, 320A Namco text; the cartridge's mailbox. `DESIGN.md` is its spec. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -91,6 +93,10 @@ make astrocade          # r2r/astrocade/fujiblst.bin
 
 ```
 make coleco             # r2r/coleco/fujiblst.col (and .rom)
+```
+
+```
+make atari7800          # r2r/atari7800/fujiblst.a78
 ```
 
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
@@ -233,6 +239,15 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 - **Network:** the Astrocade's link: the FujiNet's TCP socket, a mailbox transaction a frame, never waited on; a STATUS says how many bytes wait and a READ takes exactly those (a short read loses its bytes on older firmware); the stream's frames decoded (COBS, the Fletcher sum, the patches straight into the state) a few a pass.
 - **Speed:** the game logic runs 60 times a second (a slow pass makes up to 8 jiffies). In MAME, against three bots with everyone walking, a pass takes about one and a half frames.
 
+## The Atari 7800
+
+- **Machine:** an Atari 7800 (NTSC or PAL; the clock is the frame's DLI, 60 jiffies a second on both) with the FujiNet cartridge: a SuperGame image with 16K of cart RAM (a "FUJI" claim of kind 5), 128K in eight banks. The program is the fixed bank plus bank 0 (menus, screens, the setup of a screen); the art is in banks 5 and 6, copied into RAM when a screen needs it; REPL (the first 8K of the window, the same in every bank) is the bombers' pixel pages, which MARIA reads whichever bank is in.
+- **Controls:** the stick walks, fire (button 1 or 2) drops and throws. SELECT or RESET leaves the table, PAUSE turns the sound off and on. A name is turned out on a wheel: up and down change the letter (the last stop is `>`, done), fire or right takes it, left rubs out.
+- **Screen:** MARIA, 25 zones of 8 lines, a zone a row of the Atari 800 port's screen. The arena and the menus' art are 160B cells (4 x 8 pixels, two bytes a line): each pixel picks one of 12 colours, so a tile has what the Apple II's has (the floor is the background, which costs nothing). Text is the Namco font in 320A, forty columns, the HUD's names each in its seat's colour. The bombers are two 160A objects (the seat's colour behind, black and the visor in front) read from the pages in REPL, so they move by changing a header, not by copying. A DLI where a zone's mode, character set or background differs (and the arena's four sets turn over every four jiffies).
+- **Sound:** the cart's POKEY (the Atari's tunes, two voices stepped from the frame DLI).
+- **Network:** the cartridge's mailbox driven by hand (a STATUS says how many bytes wait, a READ takes exactly those), under the Adam's COBS frame layer.
+- **Speed:** in MAME, against three bots with everyone walking and bombs going off, about three passes of the game loop in four a frame (the logic catches up; a pass skips drawing when behind).
+
 ## Testing
 
 ```
@@ -353,6 +368,20 @@ ASTROSIM_DEBUG=1 ... (a `cpu FILE N` step), then MARK=200D tools/astrosim/tracep
 - `astrosim.py` (the Arcadia's arcsim, for MAME's astrocde with the FujiNet cart device) holds keypad 1 at the BIOS's menu, then plays the scenario: pictures, peeks and traces by symbol, the handle and the keypad, the screen as text (the 4x6 font read back from the pixels), `test 1`-`4` (the offline scenes), `test 5` the title, `test 6` the sound board (every sound in turn). `cpu` traces lead each line with the page mapped.
 - `astrorig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `astrocade/build/config.bin`) and the image from the SD. The scenes in `tools/astrosim/scenes` play a game (`game.txt`), host one (`host.txt`, `BOTS=0` and bots started late by `EXTRA`), the lobby-less path (`nolobby.txt`), lose the link (`cut.txt` with `tools/rigs/cutproxy.py`, `hello.txt` with `dropproxy.py`) and reset the console (`reset.txt`).
 - The counters `NBAD` (bad frames) and `PDBG` (our walker's jiffies: a count, the handle, x, y, dir, acc) are for peeking.
+
+For the Atari 7800:
+
+```
+tools/a78sim/build.sh [TEST_SCENE=n]        # a clean build (make doesn't see the flags change)
+tools/a78sim/shot.sh r2r/atari7800/fujiblst.a78 OUT 700     # run in MAME, snapshot at frame 700 (DUMP="addr:len ..." prints memory)
+python3 tools/a78sim/a78sim.py r2r/atari7800/fujiblst.a78 build/fujiblst-a78.map tools/a78sim/scenes/scene1.txt OUT   # offline scenes
+tools/a78sim/rig.sh tools/a78sim/scenes/game.txt OUT         # live: server, bots, fujinet-pc, MAME in a namespace
+NAME= ROOM= tools/a78sim/rig.sh tools/a78sim/scenes/nolobby.txt OUT
+A78SIM_SYSTEM=a7800p tools/a78sim/rig.sh ...                 # a PAL console
+```
+
+- A test build (`TEST_SCENE=1`-`5`) leaves out the menus and the lib's appkeys: bank 0 is full. A production build has no scenes. `make atari7800 NMILOG=1` logs the DLIs' times (`nlog`); `DBG=-DDBGBG` / `-DDBGORD` colour the background by zone / DLI.
+- `tools/a78sim/probe160b` is the MARIA probe that sized the display: what fits a line.
 
 For the ColecoVision:
 

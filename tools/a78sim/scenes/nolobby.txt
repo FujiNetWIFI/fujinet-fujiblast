@@ -1,0 +1,25 @@
+# no appkeys (NAME= ROOM=): the name wheel, then the default server's list
+wait 600
+press
+wait 120
+snap name0
+press
+wait 20
+hold d
+wait 4
+hold none
+wait 10
+press
+wait 20
+snap name1
+hold u
+wait 4
+hold none
+wait 10
+hold u
+wait 4
+hold none
+wait 10
+press
+wait 240
+snap rooms

@@ -2,6 +2,19 @@
  * menus.c -- the screens before a table: the title, the name, the rooms.
  * (The Apple II keeps them in an overlay: src/apple2/overlay.c.)
  */
+#ifdef NO_MENUS                         /* a test build takes no menus (the 7800's bank 0 is small) */
+#include "game.h"
+void title(void)
+{
+}
+void name_entry(void)
+{
+}
+uint8_t table_list(void)
+{
+    return 0;
+}
+#else
 #include <string.h>
 #include "game.h"
 #include "gfx.h"
@@ -57,6 +70,50 @@ void title(void)
     spr_hide_all();
 }
 
+#ifdef PLAT_NAME_WHEEL
+/* No keyboard: the stick up and down turns a wheel (letters, digits, then
+ * the end), fire or right takes the one at the cursor, left backs up. */
+void name_entry(void)
+{
+    static const char wheel[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    uint8_t n = 0, w = 0;
+    char b[2];
+    gfx_begin();
+    gfx_row(6, ROW_BIG, PAL_MENU);
+    centre(6, "WHAT IS YOUR NAME?", 0, 20);
+    gfx_row(10, ROW_BIG, PAL_MENU);
+    centre(14, NAME_HELP, 0, 40);
+    gfx_show();
+    my_name[0] = 0;
+    b[1] = 0;
+    for (;;) {
+        gfx_clear_row(10);
+        gfx_text(10, 6, my_name, 1);
+        if (n < NAME_LEN) {
+            b[0] = w == 36 ? '>' : wheel[w];
+            gfx_text(10, 6 + n, b, 0);
+        }
+        prev_dir = inp_dir;
+        tick();
+        if (pressed(IN_UP))
+            w = w ? w - 1 : 36;
+        if (pressed(IN_DOWN))
+            w = w < 36 ? w + 1 : 0;
+        if (pressed(IN_LEFT) && n)
+            my_name[--n] = 0;
+        if (ev_btn || pressed(IN_RIGHT)) {
+            if (w == 36) {
+                if (n >= 2)
+                    break;
+            } else if (n < NAME_LEN) {
+                my_name[n++] = wheel[w];
+                my_name[n] = 0;
+                snd_play(SND_SELECT);
+            }
+        }
+    }
+}
+#else
 void name_entry(void)
 {
     uint8_t n = 0;
@@ -86,6 +143,7 @@ void name_entry(void)
         }
     }
 }
+#endif
 
 static void phase_name(char *b, uint8_t ph)
 {
@@ -143,3 +201,4 @@ uint8_t table_list(void)
     srv_table[TABLE_LEN] = 0;
     return 1;
 }
+#endif

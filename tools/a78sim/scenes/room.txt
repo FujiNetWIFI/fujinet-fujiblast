@@ -1,0 +1,5 @@
+# the waiting room, live (BOTS=3: we are the host; text arrives after the show)
+wait 600
+press
+wait 200
+snap room

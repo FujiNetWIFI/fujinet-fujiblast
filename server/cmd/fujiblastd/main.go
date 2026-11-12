@@ -85,6 +85,9 @@ func main() {
 		if u := os.Getenv("FUJIBLAST_CLIENT_COLECO"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "coleco", URL: u})
 		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_ATARI7800"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "atari7800", URL: u})
+		}
 		pub := lobby.New(cfg)
 		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Players: ti.Seated}) }
 		var ts []lobby.Table

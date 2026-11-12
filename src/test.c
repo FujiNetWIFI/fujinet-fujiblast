@@ -8,6 +8,14 @@
  *   5  four walking, for timing (tools/a2rig/bench4.txt)
  * An explosion goes off in the arena every 4 seconds (5: two rows, every second).
  */
+#if defined(PLAT_NO_TEST) && !defined(TEST_SCENE)
+/* a build that takes no scenes (the 7800's bank 0 is small) */
+#include "game.h"
+uint8_t test_hook[4];
+void test_check(void)
+{
+}
+#else
 #include <string.h>
 #include "game.h"
 #include "gfx.h"
@@ -194,3 +202,4 @@ void test_check(void)
             results_frame();
     }
 }
+#endif

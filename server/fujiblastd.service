@@ -29,6 +29,7 @@ Environment=FUJIBLAST_STREAM_ADDR=:9910
 #Environment=FUJIBLAST_CLIENT_ARCADIA=tnfs://fujinet.online/fujiblast/arcadia/fujiblst.bin
 #Environment=FUJIBLAST_CLIENT_ASTROCADE=tnfs://fujinet.online/fujiblast/astrocade/fujiblst.bin
 #Environment=FUJIBLAST_CLIENT_COLECO=tnfs://fujinet.online/fujiblast/coleco/fujiblst.col
+#Environment=FUJIBLAST_CLIENT_ATARI7800=tnfs://fujinet.online/fujiblast/atari7800/fujiblst.a78
 DynamicUser=yes
 Restart=on-failure
 RestartSec=5

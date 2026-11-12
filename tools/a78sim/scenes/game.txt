@@ -1,0 +1,9 @@
+# a live game: title, fire to join the lobby's table, a minute of play
+wait 600
+snap title
+press
+wait 300
+snap join
+wait 900
+snap game
+wcount 300 inp_dir

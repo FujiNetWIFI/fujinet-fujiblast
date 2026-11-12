@@ -26,3 +26,5 @@ __pycache__/
 tools/a2rig/a2rig
 tools/a2rig/*.o
 /gfx/intv/preview/
+tools/a78sim/snap/
+tools/a78sim/probe160b/build/
