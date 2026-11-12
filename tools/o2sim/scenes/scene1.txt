@@ -1,0 +1,8 @@
+wait 5
+ipoke 36 A1
+wait 200
+snap scene1
+hold right 40
+hold down 30
+wait 10
+snap scene1b

@@ -5,6 +5,7 @@
 #   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA)
 #   make adam                      r2r/adam/fujiblst.ddp (Coleco Adam; TMS9918A)
 #   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
+#   make o2                        r2r/o2/fujiblst.bin (Odyssey 2 / Videopac, the FujiNet cartridge)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -136,12 +137,22 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari gen-apple2 gen-msdos gen-adam server proto intv FORCE
+.PHONY: gen-atari gen-apple2 gen-msdos gen-adam server proto intv o2 o2-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
 intv:
 	$(MAKE) -C src/intv $(if $(SERVER),SERVER=$(SERVER))
+
+# ---- Odyssey 2 / Videopac (the FujiNet cartridge) ---------------------------
+# 8048 assembly (Macroassembler AS), not mekkogx: src/o2/build.sh builds the
+# APPBANK image and runs its checks. o2-rig: a copy whose default server is
+# the rig's (build/o2-rig/fujiblst.bin), gen/server left alone.
+o2:
+	$(if $(SERVER),DEFSRV=$(SERVER)) src/o2/build.sh
+
+o2-rig:
+	DEFSRV=127.0.0.1:9910 OUT=build/o2-rig/obj R2R=build/o2-rig src/o2/build.sh
 
 r2r/atari/$(PRODUCT): gen-atari
 r2r/apple2/$(PRODUCT): gen-apple2

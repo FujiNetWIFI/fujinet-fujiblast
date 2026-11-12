@@ -1,0 +1,16 @@
+; arena.a48 -- the arena's overlay (ov_arena.inc) assembled on its own, at
+; $600-$7FF over the same core and state pages as every page's: build.sh
+; takes its bytes for the swap (ov.inc) and its symbols for the pages
+; (arena_sym.inc, tools/o2/symexp.py).
+
+    cpu 8048
+    include "g7000.h"
+    include "flags.inc"
+    include "proto.inc"
+    include "sprfr.inc"
+    include "equ.inc"
+    include "ram.inc"
+    include "page.inc"
+    include "core.inc"
+    include "st.inc"
+    include "ov_arena.inc"

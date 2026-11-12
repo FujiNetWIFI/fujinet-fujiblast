@@ -6,9 +6,10 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the Apple II in double hi-res (a 128K //e, //c or IIgs);
 - MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088;
 - the Intellivision, with the FujiNet cartridge;
-- the Coleco Adam (TMS9918A).
+- the Coleco Adam (TMS9918A);
+- the Magnavox Odyssey 2 / Philips Videopac, with the FujiNet cartridge.
 
-All are played with a joystick (the Intellivision's hand controller); the Apple, the PC and the Adam take the keyboard too.
+All are played with a joystick (the Intellivision's hand controller); the Apple, the PC and the Adam take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -36,6 +37,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/msdos/` | The MS-DOS implementation: Open Watcom, CGA's 320x200 4-colour mode, FUJINET.SYS's serial port driven by interrupt, the PC speaker. |
 | `src/intv/` | The Intellivision client: the C client again in IntyBASIC, its hot loops in CP1610 assembly; the cartridge's mailbox. |
 | `src/adam/` | The Coleco Adam implementation: z88dk and zsdcc, Graphics II as a character map, two sprites a bomber, the SN76489, the FujiNet's DCB driven by hand. |
+| `src/o2/` | The Odyssey 2 client: the C client again in 8048 assembly, the 8244's grid as the arena's walls, the font's man as the bombers; the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -65,9 +67,15 @@ make intv               # r2r/intv/fujiblst.rom
 make adam               # r2r/adam/fujiblst.ddp
 ```
 
+```
+make o2                 # r2r/o2/fujiblst.bin
+```
+
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
 
 `make adam` builds fujinet-lib (the pinned fujinet-lib-experimental in `~/Workspace`, `FNLIB_EXP`) with zsdcc into `build/fnlib-adam` and links the program, which must end below C800h (`tools/adam_end.py` checks); z88dk comes from the defoogi container unless installed. The art is `gfx/tms/*.png` (drawn by `tools/drawart_tms.py`, converted by `tools/mkgfx_tms.py`) and `gfx/namco.bin`. `make adam TEST_SCENE=1` builds an offline scene in (see Testing; `touch src/test.c` to go back).
+
+`make o2` runs `src/o2/build.sh`: Macroassembler AS (`~/asl/asl` and `p2bin`, or `ASL=`, `P2BIN=`) assembles a protocol 2 (APPBANK) image, a page at a time, and the checks in `tools/o2/` (from the O2 lobby and CONFIG) fail the build on a table read from the wrong page, a jump that tests the wrong instruction, a stack deeper than 8, and the like. `make o2-rig` builds `build/o2-rig/fujiblst.bin`, whose default server is the rig's.
 
 The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`) and `gfx/namco.bin`, the Namco arcade font.
 
@@ -136,6 +144,20 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
   - The game logic runs 60 times a second (a pass behind is made up by one that doesn't wait or draw).
   - In live play against three bots, adamcore redraws about 34 times a second.
 
+## The Odyssey 2
+
+- **Machine:** an Odyssey 2 or a Videopac G7000 (NTSC or PAL) with the FujiNet cartridge (firmware speaking protocol 2, APPBANK), which carries the program in pages of 2K, its RAM and the network.
+- **Controls:** the left joystick walks; its button is fire. On the keyboard CLEAR leaves the table and M turns the sound off and on; a name is typed in (letters and digits, CLEAR rubs out, ENTER).
+- **Screen:**
+  - The arena's walls are the 8244's grid in fill mode: a band at every tile row writes the grid's ten columns afresh, so the grid shows our 11 rows of 16 x 16 tiles, each with a seam of 4 lines at its top. Ten of the thirteen columns fit; the view moves a column at a time to keep our bomber 3 to 6 columns in. A pillar and a block look alike; flames and burning blocks blink.
+  - Each bomber is one of the four sprites, drawn as the 8244 font's man (standing and walking right and left, facing us, mirrored), in the seat's colour.
+  - Bombs, duds and powerups (F, B, S, K, G) are the font's characters; the clock and the trophies are the HUD above the arena.
+  - The text screens are 16 characters at the top and seven rows of twelve below, re-pointed by a band between rows.
+  - The fixed half of the cartridge's image is RAM: its upper 512 bytes are the arena's display or the text screens', copied in when the screen changes.
+- **Sound:** the 8244's one voice: effects, and short jingles note by note; an effect cuts a jingle.
+- **Network:** the FujiNet's TCP socket, a mailbox transaction a frame (a WRITE of what is to be sent, else a READ; a STATUS now and then), never waited on. Every answer replaces the cartridge's reply, so a READ's bytes are decoded (COBS, the Fletcher sum, the patches straight into the state) before anything else is posted.
+- **Speed:** the game logic runs 60 times a second (PAL: six jiffies every five frames; a slow pass is made up); in live play against three bots MAME runs about a pass a frame. The grid's bands take about a third of the 8048.
+
 ## Testing
 
 ```
@@ -200,3 +222,17 @@ KEYS=keys.txt FRAMES=2400 tools/adamrig/rig.sh OUTDIR
 - The counters `adam_passes`, `adam_late` and `adam_skip` (src/adam/plat.c) are in the RAM dump (`/tmp/fujiblast-adam.*/ram.bin`); the map says where.
 
 - `tools/rigs/dropproxy.py` loses the first frame; `tools/rigs/cutproxy.py` hangs up in the middle of a game (`EXTRA=`, `ROOM=` through it).
+
+For the Odyssey 2:
+
+```
+python3 tools/o2sim/o2sim.py tools/o2sim/scenes/scene1.txt OUTDIR r2r/o2/fujiblst.bin
+tools/o2rig/rig.sh SCENARIO OUTDIR
+make o2-rig && ROM=build/o2-rig/fujiblst.bin NAME= ROOM= tools/o2rig/rig.sh SCENARIO OUTDIR
+O2SIM_DEBUG=1 ... (a `trace FILE N` step), then tools/o2sim/traceprof.py FILE build/o2
+```
+
+- `o2sim.py` runs MAME's Odyssey 2 (`O2SIM_MACHINE=videopac`: the PAL Videopac) with the FujiNet cart device (`-cartslot fujinet`, from fujinet-firmware's `pico/o2/emu`): pictures, peeks, the stick and the keyboard. The scenes in `tools/o2sim/scenes` poke the test hook (`ipoke 36 A1`-`A4`): 1 the arena, 2 the waiting room, 3 a round's end, 4 the game's end, on test.c's state.
+- `o2rig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled (the cart's transactions take real time). A scenario presses fire at the title.
+- `traceprof.py` sums a MAME debugger trace into cycles per routine and page.
+
