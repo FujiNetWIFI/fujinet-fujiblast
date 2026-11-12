@@ -35,6 +35,7 @@ from png import Image  # noqa: E402
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 DH = os.path.join(ROOT, "gfx", "dhgr")
 AUX_BASE = 0x6000           # src/apple2/fujiblst.cfg: AUXGFX
+SPR_BASE = 0x0800           # and AUXSPR (page aligned: dh_bomber's pointers)
 
 # drawart_dhgr.py's palette and roles
 PAL16 = [
@@ -202,6 +203,12 @@ def main():
         shl += [(f << s) & 0x7F for f in range(128)]
         shl += [(f << s) >> 7 for f in range(128)]
     aux.append(("ax_shl", shl, "by shift: low 128, high 128"))
+    # a byte's 7 dots moved r dots up (dh_bomber's shift: 4 dots a pixel, r = 4s mod 7)
+    dsh = []
+    for r in range(7):
+        dsh += [(v << r) & 0x7F for v in range(128)]
+        dsh += [v >> (7 - r) for v in range(128)]
+    aux.append(("ax_dsh", dsh, "by r: low 128, high 128"))
     ctab_cols = []
     for body, shade in SEAT_COLOURS:
         for c in (body, shade):
@@ -263,6 +270,26 @@ def main():
     aux.append(("ax_spr", spr, "16 lines of mask, body, shade, visor"))
     aux.append(("ax_sprbig", big, "16 lines of 4 planes, each 2 halves (14 px)"))
 
+    # bombers, coloured: by frame, then seat, 16 lines of 4 data bytes; and by
+    # frame the coverage, 16 lines of 4 (dh_bomber shifts both)
+    bspr, bmask = [], []
+    for i in range(len(SPRITES)):
+        planes = sprite_planes(spr_img, i)
+        for body, shade in SEAT_COLOURS:
+            for m, b, sh, v in planes:
+                px = []
+                for x in range(7):
+                    c = 0
+                    if m >> x & 1:
+                        c = body if b >> x & 1 else shade if sh >> x & 1 else VISOR if v >> x & 1 else 0
+                    px.append(c)
+                bspr += pack_pixels(px)
+        for m, b, sh, v in planes:
+            bmask += pack_mask([m >> x & 1 for x in range(7)])
+    assert len(bspr) == len(SPRITES) * 256
+    spraux = [("ax_bspr", bspr, "frame, seat, 16 lines of 4 bytes, in colour"),
+              ("ax_bmask", bmask, "frame, 16 lines of 4 bytes: the covered bits")]
+
     # logo: 140x24
     lg = []
     lc = colours(logo_img, 0, 0, logo_img.width, 24)
@@ -301,6 +328,16 @@ def main():
         s.append(asm_bytes(data))
         sizes.append((lab, addr, len(data)))
         addr += len(data)
+    assert dict((l, a) for l, a, _ in sizes)["ax_dsh"] % 256 == 0     # dh_bomber's pages
+    s += ["", '        .segment "AUXSPR"', "        .export " + ", ".join("_" + lab for lab, _, _ in spraux)]
+    saddr = SPR_BASE
+    for lab, data, note in spraux:
+        s.append(f"; {note} (${saddr:04X}, {len(data)} bytes)")
+        s.append(f"_{lab}:")
+        s.append(asm_bytes(data))
+        sizes.append((lab, saddr, len(data)))
+        saddr += len(data)
+    assert saddr <= 0x2000
     s += ["", '        .segment "LC"', "; a group all in colour c: its 4 bytes (dh_frags, dh_fill)", "_colpat:"]
     s.append(asm_bytes([b for c in range(16) for b in colpat(c)]))
     s += ["", "        .rodata", "; by line, then character (ASCII 32-95): font3[line * 64 + c]", "_font3:"]

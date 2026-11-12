@@ -41,7 +41,7 @@ void gfx_render(void);
 void gfx_clear_pages(void);
 void snd_tick(void);
 
-extern uint8_t _AUXGFX__[], _AUXG_LAST__[];
+extern uint8_t _AUXGFX__[], _AUXG_LAST__[], _AUXSPR_LOAD__[], _AUXSPR_RUN__[];
 
 /* kept in DATA: the constructor runs before BSS is cleared */
 static uint8_t boot_mode = 0xFF;
@@ -105,8 +105,9 @@ static uint8_t load_gfx(void)
     static struct { uint8_t n; char *path; uint8_t *buf; uint8_t ref; } p_open = { 3, path, IOBUF, 0 };
     static struct { uint8_t n, ref; uint8_t *buf; uint16_t req, got; } p_read = { 4, 0, TEMP, 0x2000, 0 };
     static struct { uint8_t n, ref; } p_close = { 1, 0 };
-    uint8_t *aux = _AUXGFX__, err = 0;
-    uint16_t total = 0;
+    uint8_t err = 0;
+    uint16_t total = 0, n, m;
+    uint16_t split = _AUXSPR_LOAD__ - _AUXGFX__;       /* the file's last part goes to $0800 */
     if (mli(0xC8, &p_open))             /* OPEN */
         return 0;
     p_read.ref = p_close.ref = p_open.ref;
@@ -114,9 +115,17 @@ static uint8_t load_gfx(void)
         err = mli(0xCA, &p_read);       /* READ */
         if (err || !p_read.got)
             break;
-        aux_put(aux, TEMP, p_read.got);
-        aux += p_read.got;
-        total += p_read.got;
+        n = p_read.got;
+        m = 0;
+        if (total < split) {
+            m = split - total;
+            if (m > n)
+                m = n;
+            aux_put(_AUXGFX__ + total, TEMP, m);
+        }
+        if (m < n)
+            aux_put(_AUXSPR_RUN__ + (total + m - split), TEMP + m, n - m);
+        total += n;
     } while (p_read.got == 0x2000);
     mli(0xCC, &p_close);                /* CLOSE */
     return total == (uint16_t)(_AUXG_LAST__ - _AUXGFX__);

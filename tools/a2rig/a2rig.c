@@ -29,7 +29,8 @@
  *   prof N FILE       N frames, the PC at each frame's end to OUTDIR/FILE
  *                     (tools/a2rig/prof.py maps them to functions)
  *   xprof N FILE      N frames single-stepped: every instruction's PC, counted
- *                     ("PC COUNT" lines; prof.py takes them too). SmartPort
+ *                     ("PC COUNT" lines; prof.py takes them too; FILE.cyc has
+ *                     the cycles a PC took instead). SmartPort
  *                     calls take no emulated time here, as in a2rig always.
  *   xtrace N FILE     N frames single-stepped, every PC to OUTDIR/FILE as
  *                     "PC: " lines (tools/a2sim/gaps.py reads them)
@@ -368,18 +369,21 @@ int main(int argc, char **argv)
             fclose(pf);
             say("prof %s (frame %ld)\n", path, frames);
         } else if (!strcmp(w[0], "xprof")) {
-            static uint32_t hist[65536];
+            static uint32_t hist[65536], chist[65536];
             long k = num(w[1]);
             char path[512];
             FILE *pf;
             apple2host_regs r;
-            unsigned long cyc = 0, goal = (unsigned long)k * 17030;
+            unsigned long cyc = 0, goal = (unsigned long)k * 17030, c;
             unsigned a;
             memset(hist, 0, sizeof(hist));
+            memset(chist, 0, sizeof(chist));
             while (cyc < goal) {
                 apple2host_get_regs(&r);
                 hist[r.pc]++;
-                cyc += apple2host_step_instruction();
+                c = apple2host_step_instruction();
+                chist[r.pc] += c;
+                cyc += c;
             }
             frames += k;
             snprintf(path, sizeof(path), "%s/%s", outdir, w[2]);
@@ -387,6 +391,12 @@ int main(int argc, char **argv)
             for (a = 0; a < 65536; ++a)
                 if (hist[a])
                     fprintf(pf, "%04X %u\n", a, hist[a]);
+            fclose(pf);
+            strcat(path, ".cyc");           /* the same, in cycles */
+            pf = fopen(path, "w");
+            for (a = 0; a < 65536; ++a)
+                if (chist[a])
+                    fprintf(pf, "%04X %u\n", a, chist[a]);
             fclose(pf);
             clock_gettime(CLOCK_MONOTONIC, &next);
             say("xprof %s (frame %ld)\n", path, frames);

@@ -24,10 +24,10 @@
         .exportzp       _dh_big, _dh_bg, _dh_tb, _dh_ts, _dh_tv
         .exportzp       _flip, _vbl_mode, _btn_latch, src2, shp
         .export         _frame_tick, _dh_tile, _dh_lines, _dh_frags, _dh_fill
-        .export         _dh_sprite, _dh_mover
+        .export         _dh_sprite, _dh_mover, _dh_bomber
         .export         _rowlo, _rowhi
         .import         _frame_count, _colpat, _fragbuf, _fgbuf
-        .import         _ax_exp, _ax_nexp, _ax_shl
+        .import         _ax_exp, _ax_nexp, _ax_shl, _ax_dsh, _ax_bspr, _ax_bmask
 
 RAMRDOFF  := $C002
 RAMRDON   := $C003
@@ -92,7 +92,17 @@ co:       .res 12       ; the bytes to set
 
 _frame_tick:
         lda     _vbl_mode
-        cmp     #2
+        bne     others
+        lda     RDVBLBAR        ; the //e, the usual case: no edge, out at once
+        and     #$80            ; (the buttons are latched at each edge)
+        cmp     last
+        bne     :+
+        rts
+:       sta     last
+        tax
+        bne     buttons         ; drawing began
+        jmp     blank
+others: cmp     #2
         beq     iic
         lda     RDVBLBAR
         ldx     _vbl_mode
@@ -671,6 +681,149 @@ _dh_mover:
         dec     _dh_n
         bne     @line
 @done:  rts
+
+; ---------------------------------------------------------------------------
+; dh_bomber: a bomber, 16 lines, at pixel dh_x (below 133) from line dh_y:
+; frame dh_g1, seat dh_bg. The art is coloured already (ax_bspr: 4 bytes a
+; line, by frame and seat; ax_bmask: the covered bits, by frame), so a line
+; is just those 4 bytes moved up by 4s dots (s = dh_x mod 7) through ax_dsh,
+; into 5 of 8 bytes (two groups), and merged: screen = screen and not mask,
+; or data. Moving whole pixels keeps each dot's colour bit.
+bdp     = _dh_tb                ; the data's and the mask's pointers (aux)
+bmp     = _dh_ts
+bq      = t2                    ; the byte shift: 4s dots = 7 q + r
+bh      = t1
+
+; line's source in ptr (4 bytes) -> out[q .. q+4], through shp (low) and shp2 (high)
+.macro  PLANE ptr, out
+        ldx     bq
+        ldy     #0
+        lda     (ptr),y
+        tay
+        lda     (shp),y
+        sta     out,x
+        lda     (shp2),y
+        sta     bh
+.repeat 3, I
+        ldy     #(I + 1)
+        lda     (ptr),y
+        tay
+        lda     (shp),y
+        ora     bh
+        inx
+        sta     out,x
+        lda     (shp2),y
+        sta     bh
+.endrepeat
+        inx
+        lda     bh
+        sta     out,x
+.endmacro
+
+; byte j of the 8 into screen byte y, unless nothing of it is covered
+.macro  MERGE j, yv
+        .local  skip
+        lda     nm+j
+        beq     skip
+        eor     #$7F
+        ldy     #yv
+        and     (scr),y
+        ora     co+j
+        sta     (scr),y
+skip:
+.endmacro
+
+_dh_bomber:
+        lda     _dh_x           ; group and shift
+        ldx     #0
+:       cmp     #7
+        bcc     :+
+        sbc     #7
+        inx
+        bne     :-
+:       stx     _dh_g
+        tax
+        lda     qtab,x
+        sta     bq
+        lda     rtab,x          ; the page of ax_dsh for r
+        clc
+        adc     #>_ax_dsh
+        sta     shp+1
+        sta     shp2+1
+        lda     #<_ax_dsh
+        sta     shp
+        clc
+        adc     #$80
+        sta     shp2
+        bcc     :+
+        inc     shp2+1
+:       lda     _dh_bg          ; data: page of the frame + 64 a seat
+        and     #3
+        lsr     a
+        ror     a
+        ror     a
+        sta     bdp
+        lda     #>_ax_bspr
+        clc
+        adc     _dh_g1
+        sta     bdp+1
+        lda     _dh_g1          ; mask: 64 a frame
+        and     #3
+        lsr     a
+        ror     a
+        ror     a
+        sta     bmp
+        lda     _dh_g1
+        lsr     a
+        lsr     a
+        clc
+        adc     #>_ax_bmask
+        sta     bmp+1
+        lda     #0              ; the 3 bytes outside q..q+4 stay 0
+        ldx     #7
+:       sta     co,x
+        sta     nm,x
+        dex
+        bpl     :-
+bomb_line:  lda     _dh_y
+        cmp     #192
+        bcc     :+
+        rts
+:       sta     RAMRDON
+        PLANE   bdp, co
+        PLANE   bmp, nm
+        lda     _dh_g
+        asl     a
+        jsr     setscr
+        sta     RAMWRTON
+        MERGE   0, 0
+        MERGE   2, 1
+        MERGE   4, 2
+        MERGE   6, 3
+        sta     RAMRDOFF
+        sta     RAMWRTOFF
+        MERGE   1, 0
+        MERGE   3, 1
+        MERGE   5, 2
+        MERGE   7, 3
+        lda     bdp             ; (the low bytes can't carry: seat * 64 + 60)
+        clc
+        adc     #4
+        sta     bdp
+        lda     bmp
+        clc
+        adc     #4
+        sta     bmp
+        inc     _dh_y
+        jsr     _frame_tick
+        dec     _dh_n
+        beq     :+
+        jmp     bomb_line
+:       rts
+
+qtab:   .byte   0, 0, 1, 1, 2, 2, 3     ; 4s div 7
+rtab:   .byte   0, 4, 1, 5, 2, 6, 3     ; 4s mod 7
+.assert <_ax_dsh = 0 .and <_ax_bspr = 0 .and <_ax_bmask = 0, lderror, "dh_bomber's tables must be page aligned"
 
 ; ---------------------------------------------------------------------------
 ; The lines' addresses within a page.

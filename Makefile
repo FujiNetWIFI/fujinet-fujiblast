@@ -51,8 +51,8 @@ ifeq ($(PLATFORM),apple2)
 endif
 
 # Where the modules go: the room's screens, test scenes, main, start-up and
-# the link below the DHGR pages; the menus and appkeys in an overlay; input
-# in the language card beside the blitter.
+# the link below the DHGR pages; the menus and appkeys in an overlay. (The
+# language card, beside the blitter, has no room for input too.)
 A2OBJ = build/$(PRODUCT)/apple2/src
 $(A2OBJ)/screens.o $(A2OBJ)/test.o $(A2OBJ)/main.o $(A2OBJ)/apple2/plat.o $(A2OBJ)/apple2/nstrans.o: CFLAGS += --code-name LOWCODE --rodata-name LOWDATA
 # the menus and the appkeys: an overlay, under other names (src/apple2/overlay.c)
@@ -60,7 +60,6 @@ A2OVL = -Dtitle=ov_title -Dname_entry=ov_name_entry -Dtable_list=ov_table_list \
         -Dappkey_load=ov_appkey_load -Dappkey_save_name=ov_appkey_save_name \
         -Dappkey_save_room=ov_appkey_save_room -Dappkey_clear_room=ov_appkey_clear_room
 $(A2OBJ)/menus.o $(A2OBJ)/appkey.o: CFLAGS += --code-name OVERLAY --rodata-name OVERLAY $(A2OVL)
-$(A2OBJ)/apple2/input.o: CFLAGS += --code-name LC
 
 # FUJIBLST.SYSTEM is our own loader (tools/a2loader): it skips the DHGR
 # pages' zeros in the file, so the program can run up to $BE00.

@@ -52,6 +52,7 @@ void dh_lines(void);
 void dh_frags(void);
 void dh_fill(void);
 void dh_sprite(void);
+void dh_bomber(void);
 void dh_mover(void);
 void frame_tick(void);
 
@@ -117,6 +118,7 @@ static uint8_t dr_x[2 * SLOTS], dr_f[2 * SLOTS], dr_s[2 * SLOTS];   /* what it w
 static uint8_t keep[SLOTS];             /* this render: as it is on the page */
 static uint8_t redrawn[SCR_ROWS];
 static uint8_t hud_sh[2 * 20];          /* the HUD's cells as each page has them */
+static uint8_t hud_ver[2];              /* and row 0's version then */
 #define ANIMS 24
 static uint8_t anim_t[ANIMS], anim_n;   /* the tiles that animate (bombs, duds) */
 
@@ -547,9 +549,16 @@ static void sprites(uint8_t so, uint8_t phase)
             continue;
         }
         dr_f[j] = sp_fr[k] | sp_big[k] << 7;
-        s = sp_seat[k] * 2;
         dh_x = sp_x[k];
         dh_n = 16;
+        if (!sp_big[k] && dh_x < 133) {     /* the usual: coloured art (dhgr.s) */
+            dh_g1 = sp_fr[k];
+            dh_bg = sp_seat[k];
+            dh_bomber();
+            dr_g[j] = dh_g;
+            continue;
+        }
+        s = sp_seat[k] * 2;
         dh_big = sp_big[k];
         dh_src = sp_big[k] ? AX_SPRBIG + sp_fr[k] * 128 : AX_SPR + sp_fr[k] * 64;
         dh_tb = AX_CTAB + ctab_of[s] * 512;
@@ -571,14 +580,17 @@ static uint8_t meet(uint8_t a, uint8_t b)
  * now, and nothing drawn over them this time. */
 static void keepers(uint8_t so, uint8_t phase)
 {
-    uint8_t k, j, m, r, c, c0, c1, r0, r1;
+    uint8_t k, j, m, r, c, c0, c1, r0, r1, any = 0;
     const uint8_t *shown = so ? tile_shown1 : tile_shown0;
     for (k = 0; k < SLOTS; ++k) {
         j = k + so;
         keep[k] = sp_on[k] && dr_on[j] && dr_x[j] == sp_x[k] && dr_y[j] == sp_y[k] &&
                   dr_s[j] == sp_seat[k] &&
                   dr_f[j] == (k >= MOVER ? sp_fr[k] * 4 + phase : sp_fr[k] | sp_big[k] << 7);
+        any |= keep[k];
     }
+    if (!any)                           /* (all moving: nothing to check) */
+        return;
     for (k = 0; k < SLOTS; ++k) {
         frame_tick();
         if (!keep[k])
@@ -652,9 +664,11 @@ void gfx_render(void)
         const uint8_t *c = cellp[0];
         if (row_force[ro]) {
             row_force[ro] = 0;
+            hud_ver[pg] = row_ver[0];
             draw_row(0, 0, 7, 0, 19);
             memcpy(sh, c, 20);
-        } else {
+        } else if (hud_ver[pg] != row_ver[0]) {     /* (nothing written since: no compare) */
+            hud_ver[pg] = row_ver[0];
             for (g = 0; g < 20; ++g) {
                 if (sh[g] == c[g])
                     continue;
