@@ -1,0 +1,13 @@
+# bench4.txt -- the four-walker timing scene (src/test.c scene 5), offline:
+#   BOTS=0 ROOM= tools/a2rig/rig.sh tools/a2rig/bench4.txt OUTDIR
+# then redraws a second = (second renders - first) / 10, and
+#   tools/a2rig/prof.py build/fujiblst-apple2.map OUTDIR/bench.hist.cyc
+until @test_hook+1 0xC3 2400
+poke @test_hook+2 5
+poke @test_hook 0x5A
+wait 300
+snap bench
+peek @renders 2
+wait 600
+peek @renders 2
+xprof 300 bench.hist

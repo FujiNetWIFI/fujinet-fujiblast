@@ -7,7 +7,9 @@
         .export         _tp_l0, _tp_n
         .export         _ptx_cells, _ptx_line, _ptx_fg, _ptx_hi
         .export         _tm_page, _tm_phase, _tile_want, _tile_shown0, _tile_shown1
-        .export         _tqn0, _tqn1
+        .export         _tqn0, _tqn1, _spr_arena_m
+        .import         _sp_on, _sp_x, _sp_y, _sp_fr, _sp_seat, _sp_big
+        .import         _spr_ax, _spr_ay, _spr_af, _spr_as
         .import         _fragbuf, _fgbuf, _font3, _tile_first, _tile_n
         .import         _dh_tile, _ax_tiles, _frame_tick
         .importzp       _dh_g, _dh_y, _dh_n, _dh_src, src2, shp
@@ -178,6 +180,40 @@ colour: lda     (zp_a),y
         lda     _ptx_fg
         rts
 :       lda     _ptx_hi
+        rts
+
+; ---------------------------------------------------------------------------
+; spr_arena_m(A): sprite A at arena x spr_ax, y spr_ay (16 units a tile), in
+; frame spr_af and seat spr_as's colours (gfx.h's spr_arena). x * 7 / 16 to
+; pixels: (x - x / 8) / 2.
+_spr_arena_m:
+        tay
+        jsr     _frame_tick     ; (keeps Y)
+        lda     _spr_ax
+        lsr     a
+        lsr     a
+        lsr     a
+        sta     tmp
+        lda     _spr_ax
+        sec
+        sbc     tmp
+        lsr     a
+        clc
+        adc     #28             ; the arena's first pixel (gfx.c AR_X)
+        sta     _sp_x,y
+        lda     _spr_ay
+        clc
+        adc     #12             ; and line (AR_Y)
+        sta     _sp_y,y
+        lda     _spr_af
+        sta     _sp_fr,y
+        lda     _spr_as
+        and     #3
+        sta     _sp_seat,y
+        lda     #0
+        sta     _sp_big,y
+        lda     #1
+        sta     _sp_on,y
         rts
 
 ; ---------------------------------------------------------------------------

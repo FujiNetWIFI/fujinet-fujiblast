@@ -51,7 +51,16 @@ uint8_t map_next(const uint8_t *map, const uint8_t *drawn, uint8_t from);
 
 /* Sprites: n 0-3, in seat's colour. spr_arena takes arena units; spr_at
  * the screen's own (x 0-159, y 0-199). big: twice the size. */
+#ifdef __APPLE2__
+/* The Apple's takes its arguments in memory: cc65 would stack each one,
+ * for four seats every jiffy (src/apple2/gfxa.s). */
+extern uint8_t spr_ax, spr_ay, spr_af, spr_as;
+void __fastcall__ spr_arena_m(uint8_t n);
+#define spr_arena(n, x, y, frame, seat) \
+    (spr_ax = (x), spr_ay = (y), spr_af = (frame), spr_as = (seat), spr_arena_m(n))
+#else
 void spr_arena(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat);
+#endif
 void spr_at(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat, uint8_t big);
 void spr_hide(uint8_t n);
 void spr_hide_all(void);

@@ -50,11 +50,11 @@ ifeq ($(PLATFORM),apple2)
   DISK_BASIC_SYSTEM =
 endif
 
-# Where the modules go: the room's screens, test scenes, main, start-up and
+# Where the modules go: the room's screens, test scenes, main and
 # the link below the DHGR pages; the menus and appkeys in an overlay. (The
 # language card, beside the blitter, has no room for input too.)
 A2OBJ = build/$(PRODUCT)/apple2/src
-$(A2OBJ)/screens.o $(A2OBJ)/test.o $(A2OBJ)/main.o $(A2OBJ)/apple2/plat.o $(A2OBJ)/apple2/nstrans.o: CFLAGS += --code-name LOWCODE --rodata-name LOWDATA
+$(A2OBJ)/screens.o $(A2OBJ)/test.o $(A2OBJ)/main.o $(A2OBJ)/apple2/nstrans.o: CFLAGS += --code-name LOWCODE --rodata-name LOWDATA
 # the menus and the appkeys: an overlay, under other names (src/apple2/overlay.c)
 A2OVL = -Dtitle=ov_title -Dname_entry=ov_name_entry -Dtable_list=ov_table_list \
         -Dappkey_load=ov_appkey_load -Dappkey_save_name=ov_appkey_save_name \

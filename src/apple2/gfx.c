@@ -104,7 +104,8 @@ static uint8_t *const cellp[SCR_ROWS] = {
 
 static uint8_t row_kind[SCR_ROWS], row_pal[SCR_ROWS], row_ver[SCR_ROWS];
 static uint8_t showing, arena, stat_want[5], round_want;
-static uint8_t sp_on[SLOTS], sp_x[SLOTS], sp_y[SLOTS], sp_fr[SLOTS], sp_seat[SLOTS], sp_big[SLOTS];
+uint8_t sp_on[SLOTS], sp_x[SLOTS], sp_y[SLOTS], sp_fr[SLOTS], sp_seat[SLOTS], sp_big[SLOTS];  /* (gfxa.s sets them too) */
+uint8_t spr_ax, spr_ay, spr_af, spr_as;  /* spr_arena's arguments (gfx.h) */
 
 /* what each page has: index k + page * count */
 static uint8_t back = 1;                /* the page drawn next (page 1 shows) */
@@ -322,11 +323,6 @@ void spr_at(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat, uint8_
         sp_on[n] = 0;
     else
         spr_set(n, px, y - 8, frame, seat, big);
-}
-
-void spr_arena(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat)
-{
-    spr_set(n, AR_X + ((uint8_t)(x - (x >> 3)) >> 1), AR_Y + y, frame, seat, 0);    /* x * 7 / 16 */
 }
 
 void spr_hide(uint8_t n)

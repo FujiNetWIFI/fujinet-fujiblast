@@ -5,7 +5,8 @@
  * test_hook[0], the scene into [2] and its argument into [3]:
  *   1  the arena, seat 0 walking (the stick through inp_hook), [3] its powers
  *   2  the waiting room       3  a round's end       4  the game's end
- * An explosion goes off in the arena every 4 seconds.
+ *   5  four walking, for timing (tools/a2rig/bench4.txt)
+ * An explosion goes off in the arena every 4 seconds (5: two rows, every second).
  */
 #include <string.h>
 #include "game.h"
@@ -97,6 +98,57 @@ static void arena(uint8_t powers)
     }
 }
 
+/* Scene 5: seat 0 walks the left lane by the stick, seats 1-3 go back and
+ * forth on theirs (the bottom row, the right lane, row 2), and two rows
+ * blow up and clear every second: a busy four-player round, the same each
+ * time. */
+static const uint8_t wk_x[3] = { MAX_X, MAX_X, 0 }, wk_y[3] = { MAX_Y, 0, 2 * UNIT };
+static const uint8_t wk_d[3] = { DIR_LEFT, DIR_DOWN, DIR_RIGHT };
+static const uint8_t wk_row[2] = { 0, 8 * ARENA_W };
+
+static void walkers(void)
+{
+    uint8_t t = 0, i, k, p = 0, back = 0, on = 0, *pl;
+    for (i = 0; i < ARENA_H; ++i) {
+        pl = st + OFF_MAP + i * ARENA_W;
+        pl[0] = pl[ARENA_W - 1] = T_FLOOR;
+    }
+    memset(st + OFF_MAP + 10 * ARENA_W, T_FLOOR, ARENA_W);
+    memset(st + OFF_MAP + 2 * ARENA_W, T_FLOOR, ARENA_W);
+    st[OFF_ALIVE] = 0x0F;
+    my_seat = 0;
+    play_enter();
+    for (;;) {
+        frame_wait();
+        if (!mv_y)
+            inp_hook_dir = IN_DOWN;
+        else if (mv_y >= MAX_Y)
+            inp_hook_dir = IN_UP;
+        input_poll();
+        input_take();
+        p += back ? -1 : 1;
+        if (p == 160 || !p)
+            back ^= 1;
+        for (k = 0; k < 3; ++k) {       /* x falls, y rises, x rises */
+            pl = &PL(k + 1, 0);
+            pl[P_X] = wk_x[k] + (k == 0 ? -p : k == 2 ? p : 0);
+            pl[P_Y] = wk_y[k] + (k == 1 ? p : 0);
+            pl[P_DIR] = (wk_d[k] ^ (back << 1)) | P_DIR_MOVING;
+        }
+        if (++t == 60) {
+            t = 0;
+            on ^= 1;
+            for (k = 0; k < 2; ++k)
+                for (i = 1; i < ARENA_W - 1; ++i)
+                    MAPT(wk_row[k] + i) = on ? T_FLAME_H :
+                        (k ? i == 4 || i == 8 : i > 2 && i < 10) ? T_BLOCK : T_FLOOR;
+            net_map = 1;
+            play_state();
+        }
+        play_frame();
+    }
+}
+
 void test_check(void)
 {
     uint8_t n;
@@ -116,6 +168,8 @@ void test_check(void)
     strcpy(srv_table, "blast1");
     inp_hook = 1;
     switch (test_hook[2]) {
+    case 5:
+        walkers();
     case 1:
         arena(test_hook[3]);
     case 2:
