@@ -1,0 +1,9 @@
+# offline: the arena (TEST_SCENE=1 build), the stick walks seat 0
+wait 200
+snap a
+hold d
+wait 60
+snap b
+hold r
+wait 60
+snap c

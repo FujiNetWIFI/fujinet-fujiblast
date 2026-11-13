@@ -11,17 +11,21 @@
  * our player walks at 60 steps a second as the server's bots do. Every
  * MAX_SKIP passes it draws all the same.
  */
-#ifdef __ATARI__
+#if defined(__ATARI__) || defined(__ATARI5200__)
 
 #include "plat.h"
 #include "gfx.h"
 #include "input.h"
 #include "sound.h"
 #include "nstrans.h"
+#include "atari.h"
+#ifdef __ATARI5200__
+#include "fujinet-atari5200.h"
+#endif
 
-#define RTCLOK (*(volatile uint8_t *)0x14)
-#define PAL    (*(volatile uint8_t *)0xD014)
-#define RANDOM (*(volatile uint8_t *)0xD20A)
+#define RTCLOK (*(volatile uint8_t *)RTCLOK_ADDR)
+#define PAL    GTIA_PAL
+#define RANDOM POKEY_RANDOM
 #define SOUNDR (*(volatile uint8_t *)0x41)
 
 #define CATCH_UP 30             /* jiffies behind: past this (a stall), let them go */
@@ -33,7 +37,9 @@ static uint8_t last_rt, pal_n, is_pal;
 void plat_init(void)
 {
     is_pal = (PAL & 0x0E) == 0;         /* GTIA: 1 on NTSC, 0 on PAL */
+#ifndef __ATARI5200__
     SOUNDR = 0;                         /* SIO quiet: no beeps over the game */
+#endif
     last_rt = RTCLOK;
     snd_init();
     input_init();
@@ -43,7 +49,11 @@ void plat_init(void)
 void plat_quit(void)
 {
     nst_close();
+#ifdef __ATARI5200__
+    fuji_a5200_config();                /* the cart's CONFIG */
+#else
     asm("jmp $E477");                   /* COLDSV */
+#endif
 }
 
 static void catch_up(void)

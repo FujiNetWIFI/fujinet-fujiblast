@@ -11,6 +11,7 @@
 #   make astrocade                 r2r/astrocade/fujiblst.bin (Bally Astrocade, the FujiNet cartridge)
 #   make coleco                    r2r/coleco/fujiblst.col (ColecoVision, the FujiNet cartridge)
 #   make atari7800                 r2r/atari7800/fujiblst.a78 (Atari 7800, the FujiNet cartridge; MARIA 160B)
+#   make atari5200                 r2r/atari5200/fujiblst.a52 (Atari 5200, the FujiNet cartridge; the 800's screens)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -21,7 +22,7 @@
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
 
 PRODUCT = fujiblst
-PLATFORMS = atari apple2 msdos adam msxrom atari7800
+PLATFORMS = atari apple2 msdos adam msxrom atari7800 atari5200
 
 # the TMS9918A code (src/tms9918) is the Adam's and the MSX's
 PLATFORM_COMBOS = adam+=tms9918 msxrom+=tms9918,msx
@@ -144,7 +145,7 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig coleco coleco-rig FORCE
+.PHONY: gen-atari5200 gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig coleco coleco-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -269,7 +270,46 @@ gen/atari7800/gfxdata.c: tools/mkgfx_a78.py tools/drawart_a78.py tools/drawart_d
 	@mkdir -p gen/atari7800
 	$(PYTHON) tools/mkgfx_a78.py gen/atari7800
 
+# ---- Atari 5200 (the FujiNet 5200 cartridge) ----------------------------------
+# cc65, a flat 32K cart image (src/atari5200/fujiblst-a52.cfg) that the 5200
+# CONFIG boots. The screens are the Atari 800's (src/atari, assembled for the
+# 5200 by hw.inc/atari.h): the same display list, charsets and players, the
+# charsets copied from the cart into RAM by the crt0 (src/atari5200/crt0.s).
+# fujinet-lib is fujinet-lib-experimental's atari5200 target
+# (tools/atari5200/mkfnlib.sh); the link to the server is the cartridge's
+# mailbox, driven by hand (src/atari5200/nstrans.c). TEST_SCENE as everywhere.
+FNLIB_5200 ?= $(HOME)/Workspace/fnlib-5200
+ifeq ($(PLATFORM),atari5200)
+  FUJINET_LIB := __UNDEFINED__
+  LIBS += build/fnlib-a52/fujinet-a52.lib
+  EXTRA_INCLUDE += gen/atari5200 build/fnlib-a52/include
+endif
+CFLAGS_EXTRA_ATARI5200 += -Os -Cl -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"START"' -DQUIT_HINT='"*: LOBBY"' \
+                          -DTAGLINE='"BOMBS AND BLASTS FOR 2-4"' -DHINT_LR='"(L/R)"' \
+                          -DNAME_HELP='"UP/DOWN: LETTER  FIRE: ADD  >: DONE"'
+CFLAGS_EXTRA_ATARI5200 += $(DBG)
+LDFLAGS_EXTRA_ATARI5200 += -C src/atari5200/fujiblst-a52.cfg -m build/fujiblst-a52.map
+EXECUTABLE_EXTRA_DEPS_ATARI5200 += src/atari5200/fujiblst-a52.cfg build/fnlib-a52/fujinet-a52.lib gen/atari5200/gfxdata.s
+ifneq ($(TEST_SCENE),)
+  CFLAGS_EXTRA_ATARI5200 += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+endif
+
+# the checks, the .a52 (r2r/atari5200/fujiblst.a52)
+atari5200/executable-post::
+	python3 tools/atari5200/mkrom.py build/fujiblst-a52.map $(EXECUTABLE) $(EXECUTABLE:.bin=.a52)
+
+build/fnlib-a52/fujinet-a52.lib: tools/atari5200/mkfnlib.sh $(wildcard $(FNLIB_5200)/common/*.c $(FNLIB_5200)/bus/atari5200/* $(FNLIB_5200)/include/*.h)
+	tools/atari5200/mkfnlib.sh $(FNLIB_5200) build/fnlib-a52
+
+gen-atari5200: gen/config.h gen/atari5200/gfxdata.s build/fnlib-a52/fujinet-a52.lib
+
+# the same art as the 800's
+gen/atari5200/gfxdata.s: tools/mkgfx_atari.py tools/artlayout.py tools/png.py gfx/tiles.png gfx/glyphs.png gfx/logo.png gfx/sprites.png
+	@mkdir -p gen/atari5200
+	$(PYTHON) tools/mkgfx_atari.py gen/atari5200
+
 r2r/atari/$(PRODUCT): gen-atari
+r2r/atari5200/$(PRODUCT): gen-atari5200
 r2r/atari7800/$(PRODUCT): gen-atari7800
 r2r/apple2/$(PRODUCT): gen-apple2
 r2r/msdos/$(PRODUCT): gen-msdos

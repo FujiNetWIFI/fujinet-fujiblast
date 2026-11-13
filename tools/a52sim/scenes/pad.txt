@@ -1,0 +1,25 @@
+# the real controller (MAME's ports, input.c's own reading): live game, no hook
+wait 600
+pad 1
+wait 6
+pad none
+wait 300
+snap joined
+pad r
+wait 40
+pad none
+snap right
+pad 2
+wait 5
+pad none
+wait 40
+snap bomb
+pad hash
+wait 6
+pad none
+wait 60
+pad star
+wait 6
+pad none
+wait 120
+snap quit

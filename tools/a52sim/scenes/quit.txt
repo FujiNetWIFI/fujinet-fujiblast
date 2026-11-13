@@ -1,0 +1,6 @@
+# the title's * quits to the cart's CONFIG (plat_quit -> fuji_a5200_config):
+# the game's clock stops there, so count MAME's frames (swaps)
+wait 600
+swaps 1
+pad star
+swaps 900

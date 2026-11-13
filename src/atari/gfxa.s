@@ -34,7 +34,11 @@
         .export _rw_chb, _rw_bk, _rw_c0, _rw_c1, _rw_c2, _rw_c3
         .export _spr_x, _spr_y, _spr_fr, _spr_big, _spr_col, _spr_flush
         .import _snd_vbi, _spr_frames, _spr_visor, _spr_visor_x
+.ifdef __ATARI5200__
+        .import vbi_body, vbi_exit      ; crt0.s: the BIOS's VBI past its pushes; its end
+.else
         .constructor clrlow, 30
+.endif
 
         .include "hw.inc"
 
@@ -93,8 +97,10 @@ sh_sizem: .res 1
 
         .code
 
+.ifndef __ATARI5200__
 ; Low memory ($0480-$09FF: LOWBSS, BSS2) holds variables cc65 doesn't
-; clear; picoboot used part of it while loading.
+; clear; picoboot used part of it while loading. (The 5200's crt0 clears
+; all its RAM.)
 clrlow: lda     #0
         tax
 @a:     sta     $0480,x
@@ -109,6 +115,7 @@ clrlow: lda     #0
         dex
         bpl     @b
         rts
+.endif
 
 ; void dsp_init(void)
 _dsp_init:
@@ -124,10 +131,17 @@ _dsp_init:
         sta     SDLSTL
         lda     #>_dlist
         sta     SDLSTL+1
+.ifdef __ATARI5200__
+        lda     #<vbi           ; the BIOS jumps through these (crt0.s);
+        sta     VVBLKI          ; the deferred one stays the crt0's exit
+        lda     #>vbi
+        sta     VVBLKI+1
+.else
         lda     #6              ; immediate VBI
         ldy     #<vbi
         ldx     #>vbi
         jsr     SETVBV
+.endif
         lda     #$C0
         sta     NMIEN
         rts
@@ -135,6 +149,22 @@ _dsp_init:
 ; A row's DLI stores the next row's registers, ready since the last DLI
 ; (or the VBI): little runs before the WSYNC, or the stores would miss the
 ; next row's first line. Then it readies the row after.
+.ifdef __ATARI5200__
+; (MAME's ANTIC takes CHBASE at the display-list fetch, and the BIOS's NMI
+; has spent cycles already: little before the WSYNC, CHBASE right after.)
+dli:    pha
+        lda     nx_c2
+        sta     WSYNC
+        sta     COLPF0+2
+        lda     nx_chb
+        sta     CHBASE
+        lda     nx_bk
+        sta     COLBK
+        txa
+        pha
+        lda     nx_c1
+        sta     COLPF0+1
+.else
 dli:    pha
         txa
         pha
@@ -147,6 +177,7 @@ dli:    pha
         sta     COLPF0+1
         lda     nx_chb
         sta     CHBASE
+.endif
         lda     nx_c0
         sta     COLPF0
         lda     nx_c3
@@ -182,7 +213,15 @@ prep:   ldx     dli_idx
         sta     nx_c3
         rts
 
-vbi:    tsx                     ; the stack: Y X A P PCL PCH
+vbi:
+.ifdef __ATARI5200__
+        pha                     ; (the BIOS's NMI pushes nothing)
+        txa
+        pha
+        tya
+        pha
+.endif
+        tsx                     ; the stack: Y X A P PCL PCH
         lda     $0104,x
         and     #$04
         bne     @irq
@@ -215,7 +254,9 @@ vbi:    tsx                     ; the stack: Y X A P PCL PCH
         bne     @c
         lda     anim_page
 @c:     sta     CHBASE
+.ifndef __ATARI5200__
         sta     CHBAS
+.endif
         lda     _rw_bk
         sta     COLBK
         sta     COLOR4
@@ -233,7 +274,9 @@ vbi:    tsx                     ; the stack: Y X A P PCL PCH
         sta     COLOR0+3
         lda     #$11            ; players over the playfield; missiles in PF3
         sta     PRIOR
+.ifndef __ATARI5200__
         sta     GPRIOR
+.endif
         jsr     prep            ; the first DLI's row
         lda     flip            ; the players drawn by spr_flush: show them
         beq     @nf
@@ -260,12 +303,16 @@ vbi:    tsx                     ; the stack: Y X A P PCL PCH
         lda     #0
         sta     flip
 @nf:    jsr     _snd_vbi
+.ifdef __ATARI5200__
+        jmp     vbi_body        ; the clock, the pots, the shadows we also set
+.else
         lda     KEYDEL          ; the keyboard's debounce, stage 2's job
         beq     @kd
         dec     KEYDEL
 @kd:    lda     #1              ; no stage 2: run late (after this VBI and the
         sta     CRITIC          ; serial IRQs), its DLISTL copy restarts the
         jmp     SYSVBV          ; display list mid-screen. We set it all here.
+.endif
 
 ; ---- the players -----------------------------------------------------------
 

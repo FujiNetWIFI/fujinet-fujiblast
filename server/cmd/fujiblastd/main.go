@@ -88,6 +88,9 @@ func main() {
 		if u := os.Getenv("FUJIBLAST_CLIENT_ATARI7800"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "atari7800", URL: u})
 		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_ATARI5200"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "atari5200", URL: u})
+		}
 		pub := lobby.New(cfg)
 		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Players: ti.Seated}) }
 		var ts []lobby.Table

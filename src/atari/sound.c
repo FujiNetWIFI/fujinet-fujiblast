@@ -3,7 +3,7 @@
  * (snd.s). AUDF at POKEY's 64 kHz clock: 63921 / (2 (N + 1)) Hz. AUDC: $A0
  * a pure tone, $80 noise, $C0 a buzz; the low nibble the volume.
  */
-#ifdef __ATARI__
+#if defined(__ATARI__) || defined(__ATARI5200__)
 
 #include "sound.h"
 

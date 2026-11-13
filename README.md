@@ -12,9 +12,10 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the Emerson Arcadia 2001, with the FujiNet cartridge;
 - the Bally Astrocade, with the FujiNet cartridge;
 - the ColecoVision, with the FujiNet cartridge;
-- the Atari 7800, with the FujiNet cartridge.
+- the Atari 7800, with the FujiNet cartridge;
+- the Atari 5200, with the FujiNet cartridge.
 
-All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the ColecoVision's stick, the 7800's); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
+All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the ColecoVision's stick, the 7800's, the 5200's); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -48,6 +49,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/arcadia/` | The Emerson Arcadia 2001 client: the C client again in 2650 assembly, a character a tile, the four sprites as the bombers; the cartridge's mailbox. |
 | `src/astrocade/` | The Bally Astrocade client: the C client again in Z80 assembly, a 2-bit bitmap recoloured band by band by the line interrupt, the bombers composed into it, all three tones and the noise; the cartridge's mailbox. |
 | `src/coleco/` | The ColecoVision client: the Adam's screen, art and sound in Z80 assembly (the console has 1K of RAM), the Astrocade's game logic and link; the cartridge's mailbox. |
+| `src/atari5200/` | The Atari 5200 client: the Atari 800's screens (`src/atari`, assembled for the 5200) on a flat 32K cart, its own crt0, analog stick and keypad, the cartridge's mailbox. |
 | `src/atari7800/` | The Atari 7800 client: cc65 and ca65 on MARIA, 160B cells (12 colours a pixel) for the arena, the bombers two 160A layers, 320A Namco text; the cartridge's mailbox. `DESIGN.md` is its spec. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
@@ -97,6 +99,10 @@ make coleco             # r2r/coleco/fujiblst.col (and .rom)
 
 ```
 make atari7800          # r2r/atari7800/fujiblst.a78
+```
+
+```
+make atari5200          # r2r/atari5200/fujiblst.a52 (the lib: tools/atari5200/mkfnlib.sh ~/Workspace/fnlib-5200 build/fnlib-a52, outside defoogi)
 ```
 
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
@@ -248,6 +254,15 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 - **Network:** the cartridge's mailbox driven by hand (a STATUS says how many bytes wait, a READ takes exactly those), under the Adam's COBS frame layer.
 - **Speed:** in MAME, against three bots with everyone walking and bombs going off, about three passes of the game loop in four a frame (the logic catches up; a pass skips drawing when behind).
 
+## The Atari 5200
+
+- **Machine:** an Atari 5200 (NTSC) with the FujiNet cartridge: a flat 32K image (a "FUJI" claim of kind 0, the size), the cart's mailbox at `$B000-$B7FF`. Everything ANTIC reads is in the 16K of RAM (the crt0 copies the charsets there) but the BIOS font, which the text rows use.
+- **Screen:** the Atari 800 port's, unchanged: `src/atari/gfx.c` and `gfxa.s` assemble for both (`hw.inc` and `atari.h` hold the addresses). The 5200's BIOS keeps no shadows in the 800's places, so the VBI ends in the crt0's (`vbi_body`) and the DLI stores CHBASE right after the WSYNC, as M.U.L.E.'s does.
+- **Controls:** the analog stick walks, either fire button is fire. On the keypad START is RETURN (start, finish), `*` leaves the table (at the title, quits to CONFIG), `#` or PAUSE turns the sound off and on. A name is turned out on a wheel as on the 7800.
+- **Sound:** POKEY, the Atari's tunes (two voices from the VBI; the serial clock's voices are free here).
+- **Network:** the cartridge's mailbox driven by hand (`src/atari5200/nstrans.c`: `fn_regwr` and `fn_tx` make the hotspot reads), under the 7800's COBS frame layer.
+- **Speed:** in MAME, against three bots, one pass of the game loop a frame.
+
 ## Testing
 
 ```
@@ -368,6 +383,18 @@ ASTROSIM_DEBUG=1 ... (a `cpu FILE N` step), then MARK=200D tools/astrosim/tracep
 - `astrosim.py` (the Arcadia's arcsim, for MAME's astrocde with the FujiNet cart device) holds keypad 1 at the BIOS's menu, then plays the scenario: pictures, peeks and traces by symbol, the handle and the keypad, the screen as text (the 4x6 font read back from the pixels), `test 1`-`4` (the offline scenes), `test 5` the title, `test 6` the sound board (every sound in turn). `cpu` traces lead each line with the page mapped.
 - `astrorig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `astrocade/build/config.bin`) and the image from the SD. The scenes in `tools/astrosim/scenes` play a game (`game.txt`), host one (`host.txt`, `BOTS=0` and bots started late by `EXTRA`), the lobby-less path (`nolobby.txt`), lose the link (`cut.txt` with `tools/rigs/cutproxy.py`, `hello.txt` with `dropproxy.py`) and reset the console (`reset.txt`).
 - The counters `NBAD` (bad frames) and `PDBG` (our walker's jiffies: a count, the handle, x, y, dir, acc) are for peeking.
+
+For the Atari 5200:
+
+```
+tools/a52sim/build.sh [TEST_SCENE=n]        # a clean build (the lib first: tools/atari5200/mkfnlib.sh, outside defoogi)
+tools/a52sim/shot.sh r2r/atari5200/fujiblst.a52 OUT 700     # run in MAME (~/Workspace/mame-a5200), snapshot at frame 700
+tools/a52sim/rig.sh tools/a52sim/scenes/game.txt OUT         # live: server, bots, fujinet-pc, MAME in a namespace
+NAME= ROOM= tools/a52sim/rig.sh tools/a52sim/scenes/nolobby.txt OUT
+tools/a52sim/rig.sh tools/a52sim/scenes/pad.txt OUT          # the real stick, buttons and keypad (MAME's ports)
+```
+
+- `a52sim.py` is the 7800's scenario driver on MAME's a5200 (`pad` with the analog stick and keypad, `swaps N` the cart's swaps after a quit to CONFIG). `quit.txt` quits from the title.
 
 For the Atari 7800:
 

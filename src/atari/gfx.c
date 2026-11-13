@@ -8,25 +8,26 @@
  * from column 6), the player's stats to the left, the round to the right.
  * A tile is 2x2 cells (8 colour clocks by 16 lines), as wide as a player.
  */
-#ifdef __ATARI__
+#if defined(__ATARI__) || defined(__ATARI5200__)
 
 #include <string.h>
 #include "gfx.h"
 #include "plat.h"
 #include "proto.h"
 #include "gfxcodes.h"
+#include "atari.h"
 
-#define SCREEN   ((uint8_t *)0xA400)
-#define PMG      0xB800
-#define PMG2     0xB000
-#define CHB_ROM  0xE0
-#define CHB_MENU 0xA0
+#define SCREEN   ((uint8_t *)SCREEN_ADDR)
+#define PMG      PMG_ADDR
+#define PMG2     PMG2_ADDR
+#define CHB_ROM  CHB_ROM_PG
+#define CHB_MENU CHB_MENU_PG
 #define CHB_ANIM 0xFF
 #define AR_COL   7              /* the arena's first cell column */
 #define AR_ROW   2              /* and row */
 
 #define PMBASE  (*(volatile uint8_t *)0xD407)
-#define GRACTL  (*(volatile uint8_t *)0xD01D)
+#define GRACTL  GTIA_GRACTL
 
 /* gfxa.s */
 void dsp_init(void);
@@ -68,7 +69,7 @@ static uint8_t *line(uint8_t row)
 
 void gfx_init(void)
 {
-    is_pal = (*(volatile uint8_t *)0xD014 & 0x0E) == 0;
+    is_pal = (GTIA_PAL & 0x0E) == 0;
     memset(SCREEN, 0, SCR_ROWS * 40);
     memset((void *)(PMG + 0x300), 0, 0x500);    /* missiles, players: both copies */
     memset((void *)(PMG2 + 0x300), 0, 0x500);

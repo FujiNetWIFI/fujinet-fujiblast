@@ -8,8 +8,7 @@
 ;
         .export _snd_vbi, _snd_ptr, _snd_left, _snd_mute
 
-AUDF1   = $D200
-AUDC1   = $D201
+        .include "hw.inc"
 
         .segment "ZEROPAGE"
 _snd_ptr:  .res 4       ; voice 1 at +0, voice 2 at +2 (0 high: none)
