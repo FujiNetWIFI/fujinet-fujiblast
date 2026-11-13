@@ -1,0 +1,16 @@
+# the link cut mid-game (ROOM=tcp://127.0.0.1:9911/?table=dev1
+# EXTRA="python3 tools/rigs/cutproxy.py 9911 9910 30"): LINK LOST, then back
+# at the table, the same seat
+wait 240
+press 5
+until SHOWS 2 2000
+snap play
+peek MYSEAT
+until NLINK 0 3000
+snap lost
+until SHOWS 0 3000
+until SHOWS 2 4000
+wait 60
+snap back
+peek MYSEAT
+peek NBAD

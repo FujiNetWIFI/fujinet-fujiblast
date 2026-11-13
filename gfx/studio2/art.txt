@@ -1,0 +1,645 @@
+# art.txt -- FujiBlast's pictures for the RCA Studio II, 1 bit a pixel.
+# tools/s2/mkart_s2.py turns them into build/studio2/art.inc and previews.
+#
+# On a TV a Studio II pixel is about 3.3 lines wide: a tile here is 4
+# pixels by 10 lines, near square. X lit, . dark. Every object class has a
+# texture no other class uses (the user's brief: all players and objects
+# distinct on a monochrome screen).
+#
+# @tile NAME        a 4 x 10 tile (stamped, SET mode: the floor erases)
+# @icon NAME W      a W-wide picture, any height (the HUD, the trophy)
+# @gear SEAT VIEW   rows 0-3 of a bomber, ORed over the head (VIEW: front,
+#                   back, side -- side faces right; left is its mirror)
+# @head VIEW        rows 2-6: the head and the neck
+# @body SEAT VIEW   rows 7-10
+# @legs VIEW N      rows 11-13, walk frame N (0 standing, 1, 2)
+# @frame SEAT NAME  a whole 14-row figure (knocked out, cheering); SEAT *
+#                   = every seat, with that seat's gear ORed over rows 0-3
+#                   where the frame says `gear` (a line of its own).
+
+# ---------------------------------------------------------------- tiles
+@tile floor
+....
+....
+....
+....
+....
+....
+....
+....
+....
+....
+
+# a stone block: solid, a dark seam on top so rows read as rows
+@tile pillar
+....
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+
+# bricks: two big bricks a tile, the joints staggered (the pillar is one
+# solid block; a line pattern would read as a banded bomber)
+@tile block
+XXX.
+XXX.
+XXX.
+XXX.
+....
+X.XX
+X.XX
+X.XX
+X.XX
+....
+
+# a burning brick: the courses broken into crumbs, two frames
+@tile burn0
+X.X.
+....
+.X.X
+....
+X..X
+....
+.X..
+....
+X.X.
+....
+
+@tile burn1
+....
+.X.X
+....
+X.X.
+....
+..X.
+....
+X..X
+....
+.X.X
+
+# a bomb: a ring, its fuse, the spark blinking
+@tile bomb0
+..X.
+..X.
+.X..
+.XX.
+X..X
+X..X
+X..X
+X..X
+.XX.
+....
+
+@tile bomb1
+....
+.X..
+.X..
+.XX.
+X..X
+X..X
+X..X
+X..X
+.XX.
+....
+
+# a dud: the ring dotted, no spark
+@tile dud
+....
+....
+....
+.X..
+...X
+X...
+...X
+X...
+..X.
+....
+
+# flames: the brightest things there are, ragged edged
+@tile flameC
+.XX.
+.XX.
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+.XX.
+.XX.
+
+@tile flameH
+....
+....
+X.X.
+XXXX
+XXXX
+XXXX
+XXXX
+.X.X
+....
+....
+
+@tile flameV
+.XX.
+XXX.
+.XX.
+.XXX
+.XX.
+XXX.
+.XX.
+.XXX
+.XX.
+XXX.
+
+@tile flameL
+....
+....
+..X.
+.XXX
+XXXX
+XXXX
+.XXX
+..X.
+....
+....
+
+@tile flameR
+....
+....
+.X..
+XXX.
+XXXX
+XXXX
+XXX.
+.X..
+....
+....
+
+@tile flameU
+....
+....
+....
+.X..
+.XX.
+XXX.
+.XX.
+.XXX
+.XX.
+XXX.
+
+@tile flameD
+.XX.
+XXX.
+.XX.
+.XXX
+.XX.
+.XXX
+..X.
+....
+....
+....
+
+# power-ups: a letter between two bars; the bars blink
+@tile fire0
+XXXX
+....
+XXX.
+X...
+XX..
+X...
+X...
+....
+XXXX
+....
+
+@tile fire1
+....
+....
+XXX.
+X...
+XX..
+X...
+X...
+....
+....
+....
+
+@tile bombup0
+XXXX
+....
+XX..
+X.X.
+XX..
+X.X.
+XX..
+....
+XXXX
+....
+
+@tile bombup1
+....
+....
+XX..
+X.X.
+XX..
+X.X.
+XX..
+....
+....
+....
+
+@tile speed0
+XXXX
+....
+.XX.
+X...
+.X..
+..X.
+XX..
+....
+XXXX
+....
+
+@tile speed1
+....
+....
+.XX.
+X...
+.X..
+..X.
+XX..
+....
+....
+....
+
+@tile kick0
+XXXX
+....
+X.X.
+X.X.
+XX..
+X.X.
+X.X.
+....
+XXXX
+....
+
+@tile kick1
+....
+....
+X.X.
+X.X.
+XX..
+X.X.
+X.X.
+....
+....
+....
+
+@tile glove0
+XXXX
+....
+.XX.
+X...
+X.X.
+X.X.
+.XX.
+....
+XXXX
+....
+
+@tile glove1
+....
+....
+.XX.
+X...
+X.X.
+X.X.
+.XX.
+....
+....
+....
+
+# ---------------------------------------------------------------- the HUD
+# each seat's head, in the score band (lines 0-4)
+@icon head0 4
+.X..
+.XX.
+XXXX
+X..X
+XXXX
+
+@icon head1 4
+X..X
+XXXX
+XXXX
+X..X
+XXXX
+
+@icon head2 4
+XXXX
+XXXX
+XXXX
+X..X
+XXXX
+
+@icon head3 4
+....
+.XX.
+XXXX
+X..X
+XXXX
+
+@icon trophy 4
+XXXX
+XXXX
+XXXX
+.XX.
+.XX.
+XXXX
+
+# ---------------------------------------------------------------- bombers
+# seat 1: antenna, solid; 2: horns, banded; 3: helmet, hollow; 4: round, checked
+@gear 0 front
+.X..
+.X..
+....
+....
+@gear 0 back
+.X..
+.X..
+....
+....
+@gear 0 side
+..X.
+.X..
+....
+....
+@gear 1 front
+X..X
+X..X
+....
+....
+@gear 1 back
+X..X
+X..X
+....
+....
+@gear 1 side
+.X.X
+.X.X
+....
+....
+@gear 2 front
+....
+XXXX
+XXXX
+XXXX
+@gear 2 back
+....
+XXXX
+XXXX
+XXXX
+@gear 2 side
+....
+XXXX
+.XXX
+.XXX
+@gear 3 front
+....
+....
+....
+....
+@gear 3 back
+....
+....
+....
+....
+@gear 3 side
+....
+....
+....
+....
+
+@head front
+.XX.
+XXXX
+X..X
+XXXX
+.XX.
+@head back
+.XX.
+XXXX
+XXXX
+XXXX
+.XX.
+@head side
+.XX.
+.XXX
+.X.X
+.XXX
+..X.
+
+@body 0 front
+XXXX
+XXXX
+XXXX
+XXXX
+@body 0 back
+XXXX
+XXXX
+XXXX
+XXXX
+@body 0 side
+.XXX
+.XXX
+.XXX
+.XXX
+@body 1 front
+XXXX
+....
+XXXX
+....
+@body 1 back
+XXXX
+....
+XXXX
+....
+@body 1 side
+.XXX
+....
+.XXX
+....
+@body 2 front
+X..X
+X..X
+X..X
+XXXX
+@body 2 back
+X..X
+X..X
+X..X
+XXXX
+@body 2 side
+.X.X
+.X.X
+.X.X
+.XXX
+@body 3 front
+X.X.
+.X.X
+X.X.
+.X.X
+@body 3 back
+X.X.
+.X.X
+X.X.
+.X.X
+@body 3 side
+.X.X
+..X.
+.X.X
+..X.
+
+@legs front 0
+.XX.
+X..X
+X..X
+@legs front 1
+.XX.
+X..X
+X...
+@legs front 2
+.XX.
+X..X
+...X
+@legs back 0
+.XX.
+X..X
+X..X
+@legs back 1
+.XX.
+X..X
+...X
+@legs back 2
+.XX.
+X..X
+X...
+@legs side 0
+..X.
+.X.X
+.X.X
+@legs side 1
+..X.
+..XX
+.X..
+@legs side 2
+..X.
+.XX.
+...X
+
+# knocked out: dizzy, sinking, flat, gone. `gear N`: the seat's front gear
+# ORed at rows N-N+3, so a seat stays itself as it goes down.
+@frame * die0
+gear 0
+....
+....
+.XX.
+XXXX
+X.X.
+XXXX
+.XX.
+XXXX
+X..X
+X..X
+XXXX
+.XX.
+X..X
+X..X
+@frame * die1
+gear 3
+....
+....
+....
+....
+....
+.XX.
+XXXX
+X.X.
+XXXX
+.XX.
+XXXX
+X..X
+XXXX
+X..X
+@frame * die2
+gear 7
+....
+....
+....
+....
+....
+....
+....
+....
+....
+.XX.
+XXXX
+X.X.
+XXXX
+XXXX
+@frame * die3
+....
+....
+....
+....
+....
+....
+....
+....
+....
+....
+....
+X..X
+.X.X
+X.X.
+
+# cheering: arms up (the results screen)
+@frame * win0
+gear 0
+....
+....
+.XX.
+XXXX
+X..X
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+XXXX
+.XX.
+X..X
+X..X
+@frame * win1
+gear 0
+....
+....
+.XX.
+XXXX
+X..X
+XXXX
+.XX.
+XXXX
+XXXX
+XXXX
+XXXX
+.XX.
+X..X
+X..X

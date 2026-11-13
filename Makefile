@@ -11,6 +11,7 @@
 #   make atari2600                 r2r/atari2600/fujiblst.bin (Atari 2600, the FujiNet cartridge; PAL=1 for PAL)
 #   make astrocade                 r2r/astrocade/fujiblst.bin (Bally Astrocade, the FujiNet cartridge)
 #   make channelf                  r2r/channelf/fujiblst.bin (Fairchild Channel F, the FujiNet cartridge)
+#   make studio2                   r2r/studio2/fujiblst.st2 (RCA Studio II, the FujiNet cartridge's protocol 2)
 #   make coleco                    r2r/coleco/fujiblst.col (ColecoVision, the FujiNet cartridge)
 #   make atari7800                 r2r/atari7800/fujiblst.a78 (Atari 7800, the FujiNet cartridge; MARIA 160B)
 #   make atari5200                 r2r/atari5200/fujiblst.a52 (Atari 5200, the FujiNet cartridge; the 800's screens)
@@ -253,7 +254,7 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari5200 gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig atari2600 atari2600-rig astrocade astrocade-rig channelf channelf-rig coleco coleco-rig FORCE
+.PHONY: gen-atari5200 gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig atari2600 atari2600-rig astrocade astrocade-rig channelf channelf-rig studio2 studio2-rig coleco coleco-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -312,6 +313,18 @@ channelf:
 
 channelf-rig:
 	DEFSRV=127.0.0.1:9910 OUT=build/channelf-rig/obj R2R=build/channelf-rig bash src/channelf/build.sh
+
+# ---- RCA Studio II (the FujiNet cartridge, protocol 2) -------------------------
+# CDP1802 assembly (Macroassembler AS): src/studio2/build.sh builds the ST2
+# image (the cart draws: its graphics layer) and runs its checks (DEBUG=1:
+# the walk trace for tools/s2sim/walkparity.py). studio2-rig: a copy whose
+# default server is the rig's (build/studio2-rig/fujiblst.st2), gen/server
+# left alone.
+studio2:
+	$(if $(SERVER),DEFSRV=$(SERVER)) bash src/studio2/build.sh
+
+studio2-rig:
+	DEFSRV=127.0.0.1:9910 OUT=build/studio2-rig/obj R2R=build/studio2-rig bash src/studio2/build.sh
 
 # ---- ColecoVision (the FujiNet cartridge) -------------------------------------
 # Z80 assembly (zmac 1.3), not mekkogx: src/coleco/build.sh builds the APPBANK

@@ -1,0 +1,24 @@
+# game: joined, our bomber walks and bombs; two rounds against 3 bots; the
+# trophies, the game's end, back to the room
+wait 240
+press 5
+suntil ST+0 2 2400
+snap g_play
+hold 8 20
+press 5
+hold 2 30
+hold 6 30
+snap g_walk
+peek MYWARP
+suntil ST+0 3 6000
+snap g_round
+wait 200
+snap g_round2
+suntil ST+0 4 9000
+wait 240
+snap g_end
+suntil ST+0 0 2000
+wait 120
+snap g_room
+peek NBAD
+peek PASSES 2

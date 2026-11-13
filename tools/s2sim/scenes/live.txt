@@ -1,0 +1,19 @@
+# live: the rig's keys seed the name and the room; joined, 3 bots, the game
+wait 240
+snap title
+press 5           # (the title waits for 5)
+wait 600
+snap join
+peek NLINK
+peek NBAD
+peek MYSEAT
+wait 900
+snap play1
+sprites
+peek NBAD
+peek PASSES 2
+wait 1200
+snap play2
+peek NBAD
+peek NKIND
+peek PASSES 2

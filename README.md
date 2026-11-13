@@ -19,9 +19,10 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the TRS-80 Color Computer: the CoCo 1/2 (artifact colour) and the CoCo 3 (16 colours), from one disk;
 - the Nintendo NES, with the FujiNet NES cartridge;
 - the Sega Master System, with the FujiNet SMS cartridge;
-- the Heathkit H89, under CP/M or HDOS.
+- the Heathkit H89, under CP/M or HDOS;
+- the RCA Studio II, with the FujiNet cartridge (protocol 2).
 
-All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the Channel F's hand controller, the ColecoVision's stick, the 7800's, the 5200's); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
+All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the Channel F's hand controller, the ColecoVision's stick, the 7800's, the 5200's; the Studio II's keypads); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -65,6 +66,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/nes/` | The Nintendo NES client: cc65 on an MMC3 image for the FujiNet NES cartridge, a name table of 8x8 cells at 2 bits a pixel with the status bar split by the scanline interrupt, two 8x16 sprites a bomber, the APU, the cartridge's mailbox. |
 | `src/h89/` | The Heathkit H89 client: z88dk and zsdcc for CP/M or HDOS, the H19 terminal's characters sent by difference over its 9600-baud line, the H89-ESP32 card's 82C55, the hot paths in Z80 assembly. |
 | `src/sms/` | The Sega Master System client: z88dk and zsdcc, Mode 4 (4 bits a pixel, two 16-colour palettes) in the Adam's 32x24 layout, four 8x8 sprites a bomber, the SN76489, the frame interrupt as the clock, the cartridge's mailbox. |
+| `src/studio2/` | The RCA Studio II client: the C client again in CDP1802 assembly; the cart draws (protocol 2's graphics layer: the tiles stamped into its background, the bombers and bombs in flight its sprites), the state in the cart's RAM, the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -148,6 +150,8 @@ make nes               # r2r/nes/fujiblst.nes (the lib: tools/nes/mkfnlib.sh ~/W
 `make astrocade` runs `src/astrocade/build.sh`: zmac 1.3 (built from `~/Workspace/zmac-1.3` with a bigger symbol table, `build/zmac/zmac`), one assembly, every page `PHASE`d to 2000H, padded into a protocol 2 (APPBANK) image and claimed. The checks (`tools/astro/`, from M.U.L.E.'s Astrocade client) fail the build on a page over 4K, the resident half over 2816 bytes, the variables running into the stack, and a jump from one page into another (`checkcalls.py`: only `FARCALL` crosses). The art is `gfx/astrocade/*.png` (drawn by `tools/astro/drawart_astro.py`, converted by `tools/astro/mkgfx_astro.py`); the sounds `tools/astro/mksnd_astro.py` (from `src/apple2/sndtab.s`, plus the jingles' new harmony and bass parts). `LOOK=1`/`2` builds the spike's other colours, `FOOTER=0` drops the gradient under the arena. `make astrocade-rig` builds `build/astrocade-rig/fujiblst.bin`, whose default server is the rig's.
 
 `make channelf` runs `src/channelf/build.sh`: AS, `CPU F3850`, one assembly: the fixed 16K at 0800H, then six 8K pages each `PHASE`d to 4800H (the art page to C000H: it is copied to RAM at boot), a 64K protocol 2 (APPBANK) image with the claim at 47FCH. The checks (`tools/chf/`, from M.U.L.E.'s Channel F client) fail the build on a page over 8K, the art's copy running into the images, RAM past F000H, a page calling, jumping to or reading the data of another page (`checkcalls.py`), and code reading the accumulator after a `PI`, `JMP` or `ENTER` that destroyed it, or the flags after a `LEAVE` (`checkacc.py`). The art is `gfx/channelf/*.png` (drawn by `tools/chf/drawart_chf.py`, which also renders the looks' previews with `--preview DIR`; converted by `tools/chf/mkgfx_chf.py`, which fails the build when a bomber's step or a tile's animation writes more pixels than its budget); the sounds `tools/chf/mksnd_chf.py` (from `src/apple2/sndtab.s`). `LOOK=1`/`2` builds the other floors, `SETTLE=bios` the BIOS's longer wait after each pixel's strobe (see the Channel F section). `make channelf-rig` builds `build/channelf-rig/fujiblst.bin`, whose default server is the rig's.
+
+`make studio2` runs `src/studio2/build.sh`: AS, `CPU 1802`, one assembly into an ST2 image (`tools/s2/mkst2.py`): the runtime at 0400H with the "FUJI" claim, the code from 0C00H (never in an `x000H-x3FFH` page: the cart won't claim them), the bombers' frames at B400H, the cart's RAM pages at D400H. The checks (`tools/s2/`, from M.U.L.E.'s Studio II client) fail the build on a 3-cycle instruction (it costs the display a byte), RF read other than by `LDN` or anything stored through RB (the cart's RAM is written by POKE), a routine bigger than its `RFIT` (`fitfix.py` sets them), and a value in D lost to a pointer load. The art is `gfx/studio2/art.txt` (`tools/s2/mkart_s2.py`, which composes each seat's frames from its head and body parts and renders previews with `--preview DIR`; the title's logo is `gfx/logo.png` resampled); the sounds `tools/s2/mksnd_s2.py` (from `src/apple2/sndtab.s`). `DEBUG=1` adds the walk trace. `make studio2-rig` builds `build/studio2-rig/fujiblst.st2`, whose default server is the rig's.
 
 `make coleco` runs `src/coleco/build.sh`: zmac 1.3 again, one assembly of a fixed 16K (the screen, the sprites, the sound, the link's mailbox, the main loop), the art in a fixed 6K, and 4K pages two to an 8K image page (page 0 the boot page, whose C000H is mapped at power-on), padded into an APPBANK image of 56K and claimed. The art is the Adam's (`gfx/tms/*.png` and `gfx/namco.bin`, `tools/coleco/mkgfx_coleco.py` turning the Adam's generated tables into zmac includes) and its tunes (`tools/coleco/mksnd_coleco.py` reads `src/adam/sound.c`). The checks (`tools/coleco/`, from M.U.L.E.'s ColecoVision client) fail the build on a region past its budget, the variables running into the stack, the mailbox pages not clear, or a label defined twice. `make coleco-rig` builds `build/coleco-rig/fujiblst.rom`, whose default server is the rig's.
 
@@ -365,6 +369,20 @@ An MMC3 image (mapper 4, 128K PRG, 16K CHR-RAM, 8K WRAM) that the FujiNet NES ca
 - **Controls:** the keypad: 8 2 4 6 walk and keep walking, 7 9 1 3 turn at the next opening, 5 stops; SPACE drops a bomb (again on your own bomb with the glove: throw); ESC leaves; M or f1 sound (the H19's bell, for blasts, deaths and the countdown); f5 or ERASE draws the screen again.
 - **Link:** the H89-ESP32 card's 82C55 at D0h, FujiBus by hand and never waited on (`src/h89/nstrans.c`: a STATUS every 6 jiffies, a READ of the bytes waiting, queued WRITEs); fujinet-lib opens, closes and reads the appkeys, its `fuji_bus_call` replaced by `src/h89/fbport.c`'s, which times out on a card that doesn't answer.
 
+## The RCA Studio II
+
+- **Machine:** an RCA Studio II (NTSC) with the FujiNet cartridge, firmware speaking protocol 2 (fujinet-firmware #2187: banks, writable pages, the graphics layer). The console cannot write to the cartridge (its edge has no write strobe): every byte reaches the cart in the address of a read. The 1802 runs the game and the link; the cart draws.
+- **Controls:** either keypad. 2, 4, 6, 8 walk (1, 3, 7, 9 the diagonals, the turn first as everywhere); 5 drops a bomb (or throws the one underfoot with the glove), starts the game (the host; 4 and 6 set the rounds) and picks from a list; 0 leaves the table. A name is turned out on a wheel: 2 and 8 turn the letter, 5 or 6 takes it, 4 rubs out, `>` then 5 is done.
+- **Screen:**
+  - 64 x 120 pixels at 1 bit, a pixel about 3.3 lines wide on a TV. A tile is 4 pixels by 10 lines (near square), so the whole 13 x 11 arena shows, walled left and right, under a 5-line band (each seat's head, its wins, the clock; ours inverted) with our power-ups down the right.
+  - Everything is told apart without colour: each object class has a texture no other has. Pillars are solid blocks, bricks staggered courses, a bomb a ring with a blinking spark, a dud a dotted ring, flames full-bright bands and crosses, a power-up a letter between two blinking bars. A blast shakes the picture a line; a round's end freezes the arena inverted for a moment.
+  - The bombers are 14 lines tall, the head rising into the tile above (a blank line over it keeps the walls behind it clean), and each seat has its own head and its own body: 1 an antenna and solid, 2 horns and banded, 3 a helmet and hollow, 4 round and checked. The band, the waiting room and the trophies show each seat as its bomber. Ours blinks through the countdown.
+  - The tiles are stamped into the cart's background (only those that change, a few a pass); the bombers are four of its sprites, re-sorted by height so the lower one is in front, each with its own image slot, re-uploaded when its frame changes (a seat's walk is out of step with the others' so the uploads spread out); bombs in flight are four more. A pass's drawing is held (`HOLD`) so the cart shows it whole.
+- **Sound:** the console's one fixed tone: the cues are rhythms (the jingles keep FujiBlast's), the ISR holding the tone on.
+- **Network:** the Channel F's link, transcribed: the FujiNet's TCP socket, a mailbox transaction a pass, never waited on (a STATUS, then a READ of only the bytes waiting); the bytes decoded from the cart's reply window itself (COBS, the Fletcher sum), the patches POKEd into the state in the cart's RAM, the map's changes queued for drawing; nothing posted while bytes are undecoded (every transaction repaints the window). The screen is picked only at a commit.
+- **Speed:** the 1802 has about 1,300 instructions a frame once the display has taken its DMA. The game logic runs 60 times a second (a slow pass makes up to 8 jiffies); in MAME against three bots, about 23 passes a second, each drawn. The walker matches `src/move.c` jiffy for jiffy (`tools/s2sim/walkparity.py`: 937 jiffies, none differ).
+- **Not done:** a real console and cartridge (none exists yet), the Go Studio II desktop, CONFIG booting it from TNFS.
+
 ## Testing
 
 ```
@@ -500,6 +518,22 @@ python3 tools/chfsim/traceprof.py OUTDIR/TRACE build/channelf/fujiblst.lst
 - `chfsim.py` (M.U.L.E.'s, for this game) plays a scenario in MAME's channelf with the FujiNet cart device: pictures, peeks, pokes and watches by symbol, the stick and the console keys through the input hook, `test 1`-`4` (the offline scenes), `test 6` the sound board, `test 7 N` the benchmark (four walkers at N units a jiffy). `vcheck` compares VRAM with the engine's copy (any difference is a bug), `strobes N` counts the pixel writes against the pixels that changed (the redundant ones should be 0) and the passes the game ran, `iowatch PORT MASK` prints who writes a port, `trace FILE` logs every instruction with the page mapped (`traceprof.py` charges them to the listing's labels in F8 clocks).
 - `chfrig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled; `walk.txt`, `game.txt`, `livespeed.txt` play a game.
 - `sndview.py FILE.wav` shows a recording a 50 ms letter at a time (H, M, B: the tone; `.` quiet).
+
+For the RCA Studio II:
+
+```
+make studio2 && python3 tools/s2sim/s2sim.py SCENE OUTDIR          # a scene of `test N`
+make studio2-rig && tools/s2rig/rig.sh tools/s2sim/scenes/live.txt OUTDIR
+NAME= ROOM= tools/s2rig/rig.sh tools/s2sim/scenes/nolobby.txt OUTDIR
+ROOM=tcp://127.0.0.1:9911/?table=dev1 EXTRA="python3 tools/rigs/cutproxy.py 9911 9910 30" tools/s2rig/rig.sh tools/s2sim/scenes/cut.txt OUTDIR
+S2SIM_DEBUG=1 tools/s2rig/rig.sh tools/s2sim/scenes/livetrace.txt OUTDIR && python3 tools/s2sim/traceprof.py OUTDIR/live.tr build/studio2-rig/obj/fujiblst.lst
+DEBUG=1 OUT=build/studio2-dbg/obj R2R=build/studio2-dbg src/studio2/build.sh && cc -I src -o build/walkref tools/s2sim/walkref.c && python3 tools/s2sim/walkparity.py OUTDIR
+SDL_AUDIODRIVER=dummy S2SIM_WAV=FILE.wav python3 tools/s2sim/s2sim.py SCENE OUTDIR   # (a scene of `test 6`)
+```
+
+- `s2sim.py` (M.U.L.E.'s, for this game) plays a scenario in MAME's studio2 with the FujiNet cart device (protocol 2): pictures at a TV's aspect, the sprites, peeks and pokes of console RAM by symbol, `speek`/`suntil` for the cart's RAM (the state), the keypads, `test 1` the arena (keypad walking, a blast every 4 seconds), `2`-`4` the waiting room and the trophies, `5` the bench (four walkers, two rows blasting a second), `6` the sound board; `trace FILE N` (with `S2SIM_DEBUG=1`) logs every instruction, which `traceprof.py` charges to the listing's routines (with how often each is entered).
+- `s2rig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. The scenes in `tools/s2sim/scenes`: `live.txt`, `game.txt` (a whole game), `walk.txt`, `livetrace.txt`, `nolobby.txt`, `leave.txt`, `cut.txt` and `hello.txt` (with the proxies).
+- `walkparity.py` walks a DEBUG build round the canned arena, reads the walk trace from the cart's RAM and replays each jiffy through `src/move.c` (`walkref.c`).
 
 For the Atari 5200:
 

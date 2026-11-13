@@ -1,0 +1,8 @@
+# the first HELLO lost (ROOM=tcp://127.0.0.1:9911/?table=dev1
+# EXTRA="python3 tools/rigs/dropproxy.py 9911 9910"): it is said again
+wait 240
+press 5
+until SHOWS 2 2400
+snap in
+peek MYSEAT
+peek NBAD

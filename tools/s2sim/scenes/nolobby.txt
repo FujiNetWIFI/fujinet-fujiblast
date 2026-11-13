@@ -1,0 +1,27 @@
+# no keys (NAME= ROOM=): the title, the name wheel ("AB"), the room list, join
+wait 600
+snap title
+press 5
+wait 120
+snap name0
+press 5
+wait 20
+press 8
+wait 20
+press 5
+wait 20
+press 2
+wait 20
+press 2
+wait 20
+press 5
+wait 20
+snap name1
+peek MYNAME 4
+wait 600
+snap rooms
+press 5
+until SHOWS 2 2400
+snap joined
+peek MYSEAT
+peek SRVTBL 5

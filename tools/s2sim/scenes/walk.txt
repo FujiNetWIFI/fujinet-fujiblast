@@ -1,0 +1,23 @@
+# walking against the server: our warp must not move while we walk (the
+# server believed every step: move.c and move.go agree). Seat 3 starts in
+# the bottom-left corner; up the left lane, across, a diagonal, back.
+wait 240
+press 5
+suntil ST+2 2 2400
+wait 30
+speek ST+55 1
+peek MYWARP
+hold 2 40
+hold 6 30
+hold 9 40
+hold 3 40
+hold 4 30
+hold 8 50
+hold 1 30
+hold 6 20
+wait 30
+speek ST+46 2
+peek WX 2
+speek ST+55 1
+peek MYWARP
+snap walked

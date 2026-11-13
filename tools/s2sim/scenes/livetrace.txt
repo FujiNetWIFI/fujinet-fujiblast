@@ -1,0 +1,8 @@
+# livetrace: in play against 3 bots, 120 frames traced (S2SIM_DEBUG=1)
+wait 240
+press 5
+wait 900
+peek PASSES 2
+trace live.tr 120
+peek PASSES 2
+peek NBAD
