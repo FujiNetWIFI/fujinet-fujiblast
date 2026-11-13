@@ -5,7 +5,7 @@
 //
 // Lobby listing is off unless FUJIBLAST_LOBBY is qa, prod or a lobby URL;
 // then FUJIBLAST_SERVER_URL (tcp://host:9910/) and FUJIBLAST_CLIENT_ATARI
-// (tnfs://host/path/fujiblst.atr), _APPLE2, _MSDOS, _INTV, _ADAM, _O2, _ARCADIA, _ASTROCADE, _COLECO, _ATARI2600, _ATARI7800, _ATARI5200 and _COCO
+// (tnfs://host/path/fujiblst.atr), _APPLE2, _MSDOS, _INTV, _ADAM, _O2, _ARCADIA, _ASTROCADE, _COLECO, _ATARI2600, _ATARI7800, _ATARI5200, _COCO, _NES, _SMS and _H89
 // say what it lists.
 //
 // House bots (-bots / FUJIBLAST_BOTS, default blast1=1,blast2=2,blast3=3) sit
@@ -99,6 +99,12 @@ func main() {
 		}
 		if u := os.Getenv("FUJIBLAST_CLIENT_NES"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "nes", URL: u})
+		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_SMS"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "sms", URL: u})
+		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_H89"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "h89", URL: u})
 		}
 		pub := lobby.New(cfg)
 		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Players: ti.Seated}) }

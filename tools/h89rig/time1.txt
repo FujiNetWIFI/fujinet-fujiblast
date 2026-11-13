@@ -1,0 +1,14 @@
+start
+wait 60
+type \x20
+wait 1200
+peek h89_nt 4
+peek h89_ncalls 2
+peek h89_draw_ticks 2
+peek h89_passes 2
+wait 300
+peek h89_nt 4
+peek h89_ncalls 2
+peek h89_draw_ticks 2
+peek h89_passes 2
+rate 300

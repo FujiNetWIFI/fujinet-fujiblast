@@ -1,0 +1,11 @@
+start
+wait 60
+type \x20
+wait 1200
+peek nst_req 6
+peek nst_bytes 2
+peek nst_bad 2
+wait 300
+peek nst_req 6
+peek nst_bytes 2
+peek nst_bad 2

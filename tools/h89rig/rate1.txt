@@ -1,0 +1,6 @@
+start
+wait 60
+type \x20
+wait 1200
+rate 600
+snap arena

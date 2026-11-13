@@ -1,0 +1,216 @@
+/*
+ * fbport.c -- the H89's FujiNet card: its 82C55 at D0h, port A in mode 2
+ * (both ways), handshaken by port C (from M.U.L.E.'s client):
+ *
+ *   PC7  /OBF  high: the byte we wrote has been taken (or none waits)
+ *   PC5  IBF   high: a byte from the ESP32 waits in port A
+ *
+ * Port A runs straight to the ESP32, which drives it through /ACK, so
+ * nothing here sets a direction (the card has no 74LVC245: DIR and /OE are
+ * never touched). The ESP32 hands over a reply byte at a time and waits up
+ * to a second for each to be taken, so a reply can be read over several
+ * frames (nstrans.c), but not left for long.
+ *
+ * A write waits for the byte before it to be taken, a little: if the card
+ * never takes it (stuck, or gone), the rest of the request goes unwaited
+ * and the reply's timeout gives up on it.
+ *
+ * fuji_bus_call, the call every fujinet-lib function makes (the open, the
+ * close, the appkeys), is here too, on the same wire: fujinet-lib's own
+ * (bus/h89) is then never linked in. It is 1.6K that repeats what this
+ * does, and its writes wait for ever on a card that doesn't answer.
+ */
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "fujinet-bus.h"        /* (fuji_bus_call is fuji_bus_call_portio in newer libs) */
+#include "h89.h"
+
+__sfr __at 0xD0 PPI_PA;
+__sfr __at 0xD2 PPI_PC;
+__sfr __at 0xD3 PPI_CR;
+
+#define OBF_HIGH 0x80
+#define IBF      0x20
+#define TAKE_WAIT 30            /* ticks (60 ms) for a byte to be taken */
+
+static uint8_t sending, stuck, card_up, card_ok;
+
+/* The card's 82C55 set up, as fujinet-lib's port_init does: port A mode 2,
+ * port B an input. The ESP32 doesn't see the mode word (EN isn't wired to
+ * PC2 since card rev 1.1), so it is always sent. Then PC0, wired to
+ * nothing, must follow a bit set/reset, or there is no 82C55: an empty
+ * port reads FFh, and every wait for a byte would see one at once. */
+uint8_t plat_net_probe(void)
+{
+    uint8_t ok;
+    PPI_CR = 0xC2;
+    PPI_CR = 0x01;              /* PC0 set */
+    ok = PPI_PC & 0x01;
+    PPI_CR = 0x00;              /* PC0 reset */
+    ok = ok && !(PPI_PC & 0x01);
+    PPI_CR = 0xC2;
+    return ok;
+}
+
+static void taken(void)
+{
+    uint16_t t;
+    if (stuck || (PPI_PC & OBF_HIGH))
+        return;
+    t = ticks_now();
+    while (!(PPI_PC & OBF_HIGH))
+        if ((uint16_t)(ticks_now() - t) > TAKE_WAIT) {
+            stuck = 1;
+            return;
+        }
+}
+
+void fb_putc(uint8_t c)
+{
+    if (!sending) {
+        sending = 1;
+        stuck = 0;
+    }
+    taken();
+    PPI_PA = c;
+}
+
+void fb_sent(void)
+{
+    taken();
+    sending = 0;
+}
+
+uint8_t fb_stuck(void)
+{
+    return stuck;
+}
+
+uint8_t fb_ready(void)
+{
+    return PPI_PC & IBF;
+}
+
+uint8_t fb_getc(void)
+{
+    return PPI_PA;
+}
+
+/* ---- fuji_bus_call: a whole call, waited on --------------------------- */
+#define SL_END    0xC0
+#define SL_ESC    0xDB
+#define SL_ESCEND 0xDC
+#define SL_ESCESC 0xDD
+#define F_REPLY   0x10          /* FUJI_FIELD_REPLY: data comes back */
+#define FIRST_WAIT 7500         /* ticks (15 s) for a reply to begin */
+#define NEXT_WAIT  500          /* and 1 s between its bytes */
+
+static uint16_t fold(uint16_t chk, const uint8_t *p, uint16_t n)
+{
+    while (n--) {
+        chk += *p++;
+        chk = (chk >> 8) + (chk & 0xFF);
+    }
+    return chk;
+}
+
+static void out(uint8_t c)
+{
+    if (c == SL_END || c == SL_ESC) {
+        fb_putc(SL_ESC);
+        c = c == SL_END ? SL_ESCEND : SL_ESCESC;
+    }
+    fb_putc(c);
+}
+
+/* A byte of the reply, or -1 if none comes in wait ticks. */
+static int get(uint16_t wait)
+{
+    uint16_t t = ticks_now();
+    while (!(PPI_PC & IBF)) {
+        if ((uint16_t)(ticks_now() - t) > wait)
+            return -1;
+        con_pump();
+    }
+    return PPI_PA;
+}
+
+bool fuji_bus_call(uint8_t device, uint8_t fuji_cmd, uint8_t fields,
+                   uint8_t aux1, uint8_t aux2, uint8_t aux3, uint8_t aux4,
+                   const void *buf, size_t buf_length)
+{
+    static uint8_t h[10];
+    static volatile uint8_t junk;
+    uint8_t n, rd = fields & F_REPLY, *dst = (uint8_t *)buf;
+    uint16_t len, got, sum, i;
+    int k;
+
+    if (!card_up) {
+        card_ok = plat_net_probe();
+        card_up = 1;
+    }
+    if (!card_ok)
+        return false;               /* no card: nothing to wait for */
+    n = 6 + fuji_field_numbytes_table[fields & 7];
+    len = n + (rd ? 0 : buf_length);
+    h[0] = device;
+    h[1] = fuji_cmd;
+    h[2] = (uint8_t)len;
+    h[3] = len >> 8;
+    h[4] = 0;
+    h[5] = fields;
+    h[6] = aux1;
+    h[7] = aux2;
+    h[8] = aux3;
+    h[9] = aux4;
+    sum = fold(0, h, n);
+    if (!rd)
+        sum = fold(sum, dst, buf_length);
+    h[4] = (uint8_t)sum;
+    for (i = 0; fb_ready() && i < 512; ++i)    /* what's left of a reply gone by */
+        junk = fb_getc();
+    fb_putc(SL_END);
+    for (i = 0; i < n; ++i)
+        out(h[i]);
+    if (!rd)
+        for (i = 0; i < buf_length; ++i)
+            out(dst[i]);
+    fb_putc(SL_END);
+    fb_sent();
+    if (stuck)
+        return false;
+
+    /* the reply, from its first byte that isn't an END (its opening END
+     * may be lost), judged once its header's length is in (its last END
+     * isn't waited for) */
+    do {
+        if ((k = get(FIRST_WAIT)) < 0)
+            return false;
+    } while (k == SL_END);
+    got = sum = 0;
+    for (;;) {
+        if (k == SL_END)
+            break;
+        if (k == SL_ESC) {
+            if ((k = get(NEXT_WAIT)) < 0)
+                return false;
+            k = k == SL_ESCEND ? SL_END : k == SL_ESCESC ? SL_ESC : k;
+        }
+        if (got < 6)
+            h[got] = (uint8_t)k;
+        else if (rd && got - 6 < buf_length)
+            dst[got - 6] = (uint8_t)k;
+        if (got != 4) {                 /* (the checksum is taken as 0) */
+            sum += (uint8_t)k;
+            sum = (sum >> 8) + (sum & 0xFF);
+        }
+        ++got;
+        if (got >= 6 && got == (h[2] | (uint16_t)h[3] << 8))
+            break;
+        if ((k = get(NEXT_WAIT)) < 0)
+            return false;
+    }
+    return got >= 6 && got == (h[2] | (uint16_t)h[3] << 8) && (uint8_t)sum == h[4] &&
+           h[0] == device && h[1] == 0x06;
+}

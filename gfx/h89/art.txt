@@ -1,0 +1,152 @@
+# FujiBlast's H89 art: the H19 terminal's characters (tools/mkgfx_h89.py
+# turns this into gen/h89). The game's own art, drawn for the H19; no
+# Bomberman (see the README).
+#
+# A cell item is a [NAME] line, then a line a row:   |chars| mask
+#   chars  the bytes sent in graphics mode: 20h-5Dh print as themselves
+#          (upper case, digits, punctuation); these are graphics:
+#            `  vertical line        a  horizontal line     b  cross
+#            c  corner, upper right  d  lower right          e  lower left
+#            f  upper left           i  checkerboard         l m n o  one
+#            quadrant: LR LL UL UR   p  upper half           q  right half
+#            r  filled triangle, upper left    _  ... upper right
+#            s t u v  tees: stem down, left, up, right       w  diagonal cross
+#            x  /    y  \    z  bar along the top    {  bar along the bottom
+#            |  bar along the left   }  ... the right   ^  bullet
+#          @  (sprites) the seat's digit
+#   mask   one letter a cell (missing: all normal): . normal, R reversed
+#          (reversed p: the lower half; r: the lower-right triangle...),
+#          T see-through (sprites)
+#
+# A bitmap item is a [NAME bitmap] line, then rows of X (on) and . (off),
+# two a cell row: each cell becomes a half block (p, reversed p, reversed
+# space).
+
+# ---- tiles: 5 x 2 (T_* order) ------------------------------------------
+[T_FLOOR]
+|     |
+|     |
+[T_PILLAR]
+|     | RRRRR
+|     | RRRRR
+[T_BLOCK]
+|iiiii|
+|iiiii|
+[T_BURN]
+|wiwiw|
+|iwiwi|
+[T_BOMB]
+| r _^| .RRR.
+| _ r | ..R..
+[T_DUD]
+| ri_ | .R.R.
+| _ir |
+[T_FLAME_C]
+|*****| RRRRR
+|*****| RRRRR
+[T_FLAME_H]
+|*****| RRRRR
+|*****| RRRRR
+[T_FLAME_V]
+| *** | .RRR.
+| *** | .RRR.
+[T_FLAME_L]
+|  ***| ..RRR
+|  ***| ..RRR
+[T_FLAME_R]
+|***  | RRR..
+|***  | RRR..
+[T_FLAME_U]
+|  *  | ..R..
+| *** | .RRR.
+[T_FLAME_D]
+| *** | .RRR.
+|  *  | ..R..
+[T_FIRE]
+|FIRE | RRRRR
+|zzzzz|
+[T_BOMBUP]
+|BOMB+| RRRRR
+|zzzzz|
+[T_SPEED]
+|SPEED| RRRRR
+|zzzzz|
+[T_KICK]
+|KICK | RRRRR
+|zzzzz|
+[T_GLOVE]
+|GLOVE| RRRRR
+|zzzzz|
+
+# ---- bombers: 3 x 2 (FR_* order) ---------------------------------------
+[FR_DOWN0]
+|(@)|
+|xuy|
+[FR_DOWN1]
+|(@)|
+|`uy|
+[FR_DOWN2]
+|(@)|
+|xu`|
+[FR_UP0]
+|[@]|
+|xuy|
+[FR_UP1]
+|[@]|
+|`uy|
+[FR_UP2]
+|[@]|
+|xu`|
+[FR_RIGHT0]
+|(@>|
+|xuy|
+[FR_RIGHT1]
+|(@>|
+|`u`|
+[FR_RIGHT2]
+|(@>|
+|xuy|
+[FR_LEFT0]
+|<@)|
+|xuy|
+[FR_LEFT1]
+|<@)|
+|`u`|
+[FR_LEFT2]
+|<@)|
+|xuy|
+[FR_WIN0]
+|y@x|
+| u |
+[FR_WIN1]
+|a@a|
+|xuy|
+[FR_DIE0]
+|*@*|
+|xuy|
+[FR_DIE1]
+|w@w|
+|xuy|
+[FR_DIE2]
+| w |
+|wiw|
+[FR_DIE3]
+|   |
+| i |
+
+# ---- menus -----------------------------------------------------------------
+# the title's logo, 3 rows
+[LOGO bitmap]
+XXXXX.XX.XX....XX.XXXX.XXXX..XX.....XXX...XXXX.XXXXXX
+XX....XX.XX....XX..XX..XX.XX.XX....XX.XX.XX......XX..
+XXXX..XX.XX....XX..XX..XXXX..XX....XX.XX..XXX....XX..
+XX....XX.XX....XX..XX..XX.XX.XX....XXXXX....XX...XX..
+XX....XX.XX.XX.XX..XX..XX.XX.XX....XX.XX....XX...XX..
+XX.....XXX...XXX..XXXX.XXXX..XXXXX.XX.XX.XXXX....XX..
+
+# a trophy, 2 rows
+[TROPHY bitmap]
+X.X
+XXX
+.X.
+XXX

@@ -256,7 +256,9 @@ void gfx_big_line(uint8_t row, const char *s, const uint8_t *colour)
 void gfx_text(uint8_t row, uint8_t col, const char *s, uint8_t colour)
 {
     uint8_t line[32], n = 0, big = row_kind[row] == ROW_BIG, p, i;
-    int16_t pos = big ? BIG_COL + col : (int16_t)col - TEXT_SHIFT, start = -1;
+    /* text that starts left of the centred 32 (the room list and its cursor)
+     * is shifted by 2 instead, so it all shows */
+    int16_t pos = big ? BIG_COL + col : (int16_t)col - (col < TEXT_SHIFT ? 2 : TEXT_SHIFT), start = -1;
     p = text_palette(row, colour);
     for (; *s; ++s, ++pos) {
         if (pos < 0)

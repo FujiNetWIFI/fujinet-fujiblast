@@ -13,8 +13,12 @@
 #   make coleco                    r2r/coleco/fujiblst.col (ColecoVision, the FujiNet cartridge)
 #   make atari7800                 r2r/atari7800/fujiblst.a78 (Atari 7800, the FujiNet cartridge; MARIA 160B)
 #   make atari5200                 r2r/atari5200/fujiblst.a52 (Atari 5200, the FujiNet cartridge; the 800's screens)
+#   make sms                       r2r/sms/fujiblst.sms (Sega Master System, the FujiNet SMS cartridge; Mode 4, 4 bits a pixel)
 #   make nes                       r2r/nes/fujiblst.nes (NES, the FujiNet NES cartridge; 2 bits a pixel, a status bar split)
 #   make coco                      r2r/coco/fujiblst.dsk (TRS-80 CoCo 1/2 artifact colour and CoCo 3 16 colours, one disk)
+#   make h89-cpm                   r2r/h89-cpm/fujiblst.h8d (Heathkit H89, CP/M: FUJIBLST.COM on an H17 disk; the H19's characters)
+#   make h89-boot                  r2r/h89-cpm/fujiblst-boot.h8d (the same on a bootable 64K CP/M disk)
+#   make h89-hdos                  r2r/h89-hdos/fujiblst.h8d (Heathkit H89, HDOS 2.0: FUJIBLST.ABS on an H17 disk)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -25,10 +29,11 @@
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
 
 PRODUCT = fujiblst
-PLATFORMS = atari apple2 msdos adam msxrom atari7800 atari5200 nes coco
+PLATFORMS = atari apple2 msdos adam msxrom atari7800 atari5200 nes sms coco h89-cpm h89-hdos
 
-# the TMS9918A code (src/tms9918) is the Adam's and the MSX's
-PLATFORM_COMBOS = adam+=tms9918 msxrom+=tms9918,msx
+# the TMS9918A code (src/tms9918) is the Adam's and the MSX's; src/h89 and
+# gen/h89 are both H89 systems'
+PLATFORM_COMBOS = adam+=tms9918 msxrom+=tms9918,msx h89-cpm+=h89 h89-hdos+=h89
 
 SRC_DIRS = src src/%PLATFORM% gen/%PLATFORM%
 EXTRA_INCLUDE = src src/platform-specific gen
@@ -336,6 +341,144 @@ msxrom/r2r-post::
 build/fnlib-msx/fujinet-msx.lib: tools/z80/fnlib_msx.sh tools/z80/msx-portio.c
 	tools/z80/fnlib_msx.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-msx
 
+# ---- Sega Master System (the FujiNet SMS cartridge) ----------------------------
+# z88dk +sms with zsdcc, from defoogi unless installed (tools/z80/z88dk). A
+# Sega-mapper image (src/sms/blast.asm, tools/sms/mkrom.py): the program in
+# banks 0-1 (0000h-7FD7h), the art in two banks that take turns in slot 2
+# (8000h-AFFFh), the cartridge's mailbox at B000h over them. The screen is
+# Mode 4, 4 bits a pixel, 32 x 24 cells of the Adam's layout (src/sms/gfx.c;
+# tools/drawart_sms.py has the art and the rules, tools/mkgfx_sms.py turns
+# it into gen/sms); the link to the server is the mailbox driven by hand
+# (src/sms/nstrans.c). fujinet-lib is fujinet-lib-experimental's add-sms
+# branch (FNLIB_SMS, a worktree) built with zsdcc (tools/z80/mkfnlib.sh).
+# TEST_SCENE as everywhere.
+FNLIB_SMS ?= $(HOME)/Workspace/fnlib-sms
+ifeq ($(PLATFORM),sms)
+  FUJINET_LIB := __UNDEFINED__
+  CC_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  AS_Z88DK = $(CURDIR)/tools/z80/z88dk z80asm
+  LD_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  EXTRA_INCLUDE += build/fnlib-sms/include gen/sms src/tms9918
+  LIBS += -Lbuild/fnlib-sms -lfujinet-sms
+endif
+CFLAGS_EXTRA_SMS += -compiler=sdcc -SO3 -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"\"PAUSE\""' \
+                    -DQUIT_HINT='"\"2+PAUSE: QUIT\""' -DTAGLINE='"\"BOMBS AND BLASTS FOR 2-4\""' \
+                    -DHINT_LR='"\"(L/R)\""' -DNAME_HELP='"\"UP/DOWN: LETTER  1: ADD  >: DONE\""'
+LDFLAGS_EXTRA_SMS += -compiler=sdcc -m -pragma-define:CRT_ENABLE_STDIO=0 -pragma-define:CLIB_FOPEN_MAX=0 \
+                     -pragma-define:CRT_INITIALIZE_BSS=1 -pragma-redirect:fputc_cons=l_ret
+EXECUTABLE_EXTRA_DEPS_SMS += build/fnlib-sms/fujinet-sms.lib src/sms/blast.asm
+ifneq ($(TEST_SCENE),)
+  CFLAGS_EXTRA_SMS += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+endif
+SMOBJ = build/$(PRODUCT)/sms
+$(SMOBJ)/gen/sms/gfxart1.o: CFLAGS += --constseg=ART1
+$(SMOBJ)/gen/sms/gfxart2.o: CFLAGS += --constseg=ART2
+
+sms/r2r-post::
+	python3 tools/sms/mkrom.py r2r/sms $(PRODUCT)
+
+build/fnlib-sms/fujinet-sms.lib: tools/z80/mkfnlib.sh $(wildcard $(FNLIB_SMS)/common/*.c $(FNLIB_SMS)/bus/sms/* $(FNLIB_SMS)/include/*.h)
+	tools/z80/mkfnlib.sh $(FNLIB_SMS) build/fnlib-sms sms
+
+.PHONY: gen-sms
+gen-sms: gen/config.h gen/sms/gfxdata.c build/fnlib-sms/fujinet-sms.lib
+
+gen/sms/gfxdata.c gen/sms/gfxdata.h gen/sms/gfxcodes.h gen/sms/gfxart1.c gen/sms/gfxart2.c&: tools/mkgfx_sms.py tools/drawart_sms.py tools/drawart_nes.py tools/artlayout.py tools/png.py gfx/namco.bin gfx/sms/tiles.png gfx/sms/sprites.png gfx/sms/bigwin.png gfx/sms/logo.png gfx/sms/cells.png gfx/sms/trophy.png
+	@mkdir -p gen/sms
+	$(PYTHON) tools/mkgfx_sms.py gen/sms
+
+# ---- Heathkit H89: CP/M 2.2.04 or HDOS 2.0, the H19 terminal ----------------
+# z88dk with zsdcc, from defoogi unless installed (tools/z80/z88dk).
+# FUJIBLST.COM (CP/M) or FUJIBLST.ABS (HDOS) on a 100K H17 disk (hz89, the
+# format Heath's CP/M gives a hard-sectored disk); h89-boot makes a bootable
+# 64K CP/M disk with the game on it (the lobby's). The screen is the H19's
+# characters, sent by difference over its 9600-baud line (src/h89/h19.c,
+# gfx.c; art gfx/h89/art.txt, tools/mkgfx_h89.py). The link to the server
+# is the H89-ESP32 card's 82C55, FujiBus by hand, never waited on
+# (src/h89/fbport.c, nstrans.c); fujinet-lib (FNLIB_H89, with bus/h89) opens
+# and closes, built with zsdcc (tools/z80/mkfnlib.sh), its fuji_bus_call
+# replaced by fbport.c's. The console, clock and keyboard layers are
+# M.U.L.E.'s client's (src/h89/h89io.asm, input.c). No overlays: the
+# variables must end under D806H (the 62K CP/M FNDISK needs; a stack too)
+# and D090H (HDOS with FN: loaded): tools/h89/h89check.py says how close.
+#   HDOS: the program at H89_HDOS_ORG, its stack under it from 2280H (the
+#   startup pops a word it never pushed: SP two under); the variables after
+#   the image, out of the file (src/h89/tpa.asm checks and clears them).
+# H89_RIG_KEYS=1: ` is ESC (for the rig). H89_PROF=1: the clock interrupt
+# keeps the PCs it interrupted (h89sim pcprof). TEST_SCENE as everywhere.
+H89_HDOS_ORG = 0x2480
+FNLIB_H89 ?= $(HOME)/Workspace/fujinet-lib
+Z80_TOOLS = $(CURDIR)/tools/z80
+ifneq ($(filter h89-cpm h89-hdos,$(PLATFORM)),)
+  FUJINET_LIB := __UNDEFINED__
+  CC_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  AS_Z88DK = $(CURDIR)/tools/z80/z88dk z80asm
+  LD_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
+  EXTRA_INCLUDE += src/h89 gen/h89 build/fnlib-h89/include
+  LIBS += -Lbuild/fnlib-h89 -lfujinet-h89
+endif
+H89_CFLAGS = -compiler=sdcc -SO3 -D__H89__ -DMOVE_EVERY=6 -DPLAT_SEATS_WHEN_DRAWN -DTOWARD_STEP=UNIT -DPLAT_MAP_NEXT -DPLAT_COMMIT_SPAN \
+             -DQUIT_HINT='"\"ESC: QUIT\""' \
+             -DTAGLINE='"\"BOMBS AND BLASTS FOR 2-4\""' -DNAME_HELP='"\"LETTERS, DIGITS, THEN RETURN\""'
+ifeq ($(H89_RIG_KEYS),1)
+  H89_CFLAGS += -DH89_RIG_KEYS
+endif
+ifneq ($(TEST_SCENE),)
+  H89_CFLAGS += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+endif
+H89_ASFLAGS = $(if $(filter 1,$(H89_PROF)),-DH89_PROF=1)
+H89_LDFLAGS = -compiler=sdcc -m -pragma-define:CRT_ENABLE_STDIO=0 -pragma-define:CLIB_FOPEN_MAX=0 \
+              -pragma-define:CRT_ENABLE_COMMANDLINE=0
+CFLAGS_EXTRA_H89_CPM   += $(H89_CFLAGS)
+ASFLAGS_EXTRA_H89_CPM  += $(H89_ASFLAGS)
+LDFLAGS_EXTRA_H89_CPM  += $(H89_LDFLAGS) -pragma-define:CRT_INITIALIZE_BSS=1 -pragma-define:noprotectmsdos=1
+CFLAGS_EXTRA_H89_HDOS  += $(H89_CFLAGS)
+ASFLAGS_EXTRA_H89_HDOS += $(H89_ASFLAGS) -DH89_HDOS
+LDFLAGS_EXTRA_H89_HDOS += $(H89_LDFLAGS) -pragma-define:CRT_ORG_CODE=$(H89_HDOS_ORG) \
+                          -pragma-define:REGISTER_SP=$(shell printf '0x%X' $$(($(H89_HDOS_ORG) - 2))) \
+                          -pragma-define:CLIB_EXIT_STACK_SIZE=0 \
+                          -pragma-define:CRT_INITIALIZE_BSS=0 -pragma-define:CRT_TRIM_BSS=1
+EXECUTABLE_EXTRA_DEPS_H89_CPM  += build/fnlib-h89/fujinet-h89.lib
+EXECUTABLE_EXTRA_DEPS_H89_HDOS += build/fnlib-h89/fujinet-h89.lib
+
+# 0D806H: the BDOS of a 62K CP/M, the one FNDISK needs (a 64K one has E006H)
+h89-cpm/r2r-post::
+	@mkdir -p $(CACHE_PLATFORM)/disk
+	python3 tools/h89/h89check.py $(R2R_PD)/$(PRODUCT) --os cpm --top 0xD806
+	rm -f $(R2R_PD)/FUJIBLST.COM            # (-create-app's, the variables still on: not the one)
+	cp $(R2R_PD)/$(PRODUCT).com $(CACHE_PLATFORM)/disk/FUJIBLST.COM
+	cd $(CACHE_PLATFORM)/disk && rm -f disk && $(Z80_TOOLS)/z88dk z88dk-appmake +cpmdisk -f hz89 \
+	  --container raw --no-com-file -b FUJIBLST.COM -o disk
+	python3 -I tools/h89/cpm-dir-fixup.py $(CACHE_PLATFORM)/disk/disk
+	mv $(CACHE_PLATFORM)/disk/disk $(R2R_PD)/$(PRODUCT).h8d
+
+# 0D090H: what HDOS 2.0 leaves with FN: loaded (S.SYSM - S.OMAX; CB0DH with LP:
+# too: src/h89/tpa.asm says so on the machine)
+h89-hdos/r2r-post::
+	@mkdir -p $(CACHE_PLATFORM)/disk
+	python3 tools/h89/h89check.py $(R2R_PD)/$(PRODUCT) --os hdos --top 0xD090
+	cp $(R2R_PD)/$(PRODUCT).abs $(CACHE_PLATFORM)/disk/disk.bin
+	cd $(CACHE_PLATFORM)/disk && rm -f disk.h8d && $(Z80_TOOLS)/z88dk z88dk-appmake +hdos --dumb \
+	  -b disk.bin -o FUJIBLST.ABS
+	python3 -I tools/h89/hdos-dir-fixup.py $(CACHE_PLATFORM)/disk/disk.h8d FUJIBLST.ABS $(CACHE_PLATFORM)/disk/disk.bin
+	mv $(CACHE_PLATFORM)/disk/disk.h8d $(R2R_PD)/$(PRODUCT).h8d
+
+# A disk that boots: fujinet-go-h89-desktop's 64K CP/M system disk with the
+# development tools taken off and FUJIBLST.COM put on, by CP/M itself in
+# that project's headless H89 (tools/h89/mkboot.sh; it needs the rig, built).
+.PHONY: h89-boot gen-h89
+h89-boot: r2r/h89-cpm/$(PRODUCT)
+	tools/h89/mkboot.sh r2r/h89-cpm/$(PRODUCT).com r2r/h89-cpm/$(PRODUCT)-boot.h8d
+
+build/fnlib-h89/fujinet-h89.lib: tools/z80/mkfnlib.sh $(wildcard $(FNLIB_H89)/common/*.c $(FNLIB_H89)/bus/h89/* $(FNLIB_H89)/include/*.h)
+	tools/z80/mkfnlib.sh $(FNLIB_H89) build/fnlib-h89 h89
+
+gen-h89: gen/config.h gen/h89/gfxdata.c build/fnlib-h89/fujinet-h89.lib
+
+gen/h89/gfxdata.c gen/h89/gfxcodes.h&: tools/mkgfx_h89.py gfx/h89/art.txt
+	@mkdir -p gen/h89
+	$(PYTHON) tools/mkgfx_h89.py gen/h89
+
 # ---- Atari 7800 (the FujiNet 7800 cartridge) ---------------------------------
 # cc65, a SuperGame image with the cart's RAM, 128K in 16K banks
 # (src/atari7800/fujiblst-a78.cfg, DESIGN.md). The screen is MARIA's: 25 zones
@@ -471,6 +614,9 @@ gen/nes/gfxdata.c gen/nes/gfxdata.h gen/nes/gfxcodes.h&: tools/mkgfx_nes.py tool
 
 r2r/atari/$(PRODUCT): gen-atari
 r2r/nes/$(PRODUCT): gen-nes
+r2r/sms/$(PRODUCT): gen-sms
+r2r/h89-cpm/$(PRODUCT): gen-h89
+r2r/h89-hdos/$(PRODUCT): gen-h89
 # CoCo: the CoCo 1/2 disk takes the CoCo 3 build too (second pass, coco3.mk)
 r2r/coco/$(PRODUCT): gen-coco r2r/coco3/$(PRODUCT)
 r2r/coco3/$(PRODUCT): gen-coco3 FORCE

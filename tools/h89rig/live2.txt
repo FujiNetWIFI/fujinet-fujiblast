@@ -1,0 +1,27 @@
+# a live game against the bots: join, walk with the keypad, bomb, watch
+start
+wait 60
+type \x20
+wait 400
+snap room
+wait 600
+snap arena1
+keyname right
+wait 40
+snap walk1
+keyname down
+wait 40
+type \x20
+wait 10
+keyname up
+wait 30
+keyname home
+wait 60
+snap bombed
+peek nst_bad 2
+wait 1200
+snap later1
+wait 1800
+snap later2
+peek nst_bad 2
+peek my_seat

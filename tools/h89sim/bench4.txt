@@ -1,0 +1,7 @@
+start
+wait 200
+peek tx_held
+rate 300
+peek tx_held
+pcprof 300
+snap bench

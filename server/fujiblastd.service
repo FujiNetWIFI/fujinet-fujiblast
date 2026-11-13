@@ -34,6 +34,8 @@ Environment=FUJIBLAST_STREAM_ADDR=:9910
 #Environment=FUJIBLAST_CLIENT_ATARI5200=tnfs://fujinet.online/fujiblast/atari5200/fujiblst.a52
 #Environment=FUJIBLAST_CLIENT_COCO=tnfs://fujinet.online/fujiblast/coco/fujiblst.dsk
 #Environment=FUJIBLAST_CLIENT_NES=tnfs://fujinet.online/fujiblast/nes/fujiblst.nes
+#Environment=FUJIBLAST_CLIENT_SMS=tnfs://fujinet.online/fujiblast/sms/fujiblst.sms
+#Environment=FUJIBLAST_CLIENT_H89=tnfs://fujinet.online/fujiblast/h89/fujiblst-boot.h8d
 DynamicUser=yes
 Restart=on-failure
 RestartSec=5

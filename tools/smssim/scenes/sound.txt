@@ -1,0 +1,5 @@
+# a live game, then the sound counters (NESWAV=out.wav records it)
+wait 400
+press
+wait 1200
+peek sms_passes 2

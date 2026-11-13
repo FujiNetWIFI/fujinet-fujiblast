@@ -1,0 +1,4 @@
+start
+wait 10
+raw debug mem 0xF62E 0x100
+raw debug mem 0xF72E 0x80

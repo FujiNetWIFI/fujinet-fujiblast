@@ -1,0 +1,4 @@
+start
+wait 120
+snap title
+rate 300

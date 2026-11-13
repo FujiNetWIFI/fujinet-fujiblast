@@ -1,0 +1,4 @@
+start
+wait 60
+pcprof 300
+rate 120

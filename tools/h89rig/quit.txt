@@ -1,0 +1,7 @@
+# ESC at the title: back to CP/M, the terminal as it was
+start
+wait 120
+keyname esc
+sleep 3000
+raw until A>
+raw screen

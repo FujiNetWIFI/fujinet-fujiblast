@@ -25,6 +25,10 @@ static uint16_t sent_t, bump_t;
 static uint8_t hud_timer, hud_alive, hud_wins[SEATS], stats[5], last_phase;
 static uint8_t scan;                    /* drawn[] has holes: compare all the tiles */
 
+#ifdef PLAT_SEATS_WHEN_DRAWN
+extern uint8_t plat_will_draw;          /* the platform: this pass will be drawn */
+#endif
+
 #ifndef MOVE_EVERY
 #define MOVE_EVERY 3            /* jiffies between our moves, at least (a slow
                                  * link sends fewer) */
@@ -250,14 +254,17 @@ static const uint8_t fr_walk[4] = { 0, 1, 0, 2 };
 static uint8_t walk_f;                  /* this jiffy's walking frame, 0-2 */
 #define FRAME_OF(dir, moving) (fr_base[(dir) & 3] + ((moving) ? walk_f : 0))
 
+#ifndef TOWARD_STEP
+#define TOWARD_STEP 3           /* units a jiffy another player is drawn moving */
+#endif
 static uint8_t tw_at, tw_to;            /* toward(): from tw_at a step to tw_to */
 static uint8_t toward(void)
 {
     uint8_t at = tw_at, to = tw_to, d = at > to ? at - to : to - at;
     if (d > UNIT)
         return to;
-    if (d > 3)
-        d = 3;
+    if (d > TOWARD_STEP)
+        d = TOWARD_STEP;
     return at > to ? at - d : at + d;
 }
 
@@ -309,6 +316,17 @@ void play_frame(void)
         scan = 1;
     }
 
+#ifdef PLAT_SEATS_WHEN_DRAWN
+    /* (a platform that draws a few times a second, the logic's other passes
+     * all it can afford: the seats are laid out only for a pass it will
+     * draw; the deaths' clocks run on every one) */
+    if (!plat_will_draw) {
+        for (s = 0; s < SEATS; ++s)
+            if (die_t[s] && die_t[s] < 48)
+                ++die_t[s];
+        return;
+    }
+#endif
     walk_f = fr_walk[((uint8_t)frame_count >> 3) & 3];
     for (s = 0; s < SEATS; ++s) {
         if (!INPLAY(s)) {

@@ -1,0 +1,8 @@
+start
+wait 200
+peek h89_tt 8
+peek h89_draw_ticks 2
+wait 600
+peek h89_tt 8
+peek h89_draw_ticks 2
+peek h89_drawn 2

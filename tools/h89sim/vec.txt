@@ -1,0 +1,3 @@
+start
+wait 10
+raw debug mem 0x5B9D 3

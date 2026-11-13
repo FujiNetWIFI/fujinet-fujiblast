@@ -1,0 +1,7 @@
+start
+wait 60
+type \x20
+wait 1200
+rate 300
+pcprof 300
+rate 300

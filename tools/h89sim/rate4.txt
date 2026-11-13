@@ -1,0 +1,4 @@
+start
+wait 200
+rate 600
+snap bench

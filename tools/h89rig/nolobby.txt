@@ -1,0 +1,20 @@
+# no lobby appkeys (NAME= ROOM=): the name, then the default server's rooms
+# (fujinet.online is the private server in the rig)
+start
+wait 60
+type \x20
+wait 120
+snap name
+type ann
+wait 30
+keyname backspace
+type n2
+wait 30
+snap typed
+type \r
+wait 600
+snap rooms
+type \x20
+wait 900
+snap joined
+peek my_seat

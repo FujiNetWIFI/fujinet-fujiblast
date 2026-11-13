@@ -73,6 +73,13 @@ void __fastcall__ spr_arena_m(uint8_t n);
 extern uint8_t w_on[4], w_x[4], w_y[4], w_fr[4], w_seat[4], w_big[4];
 #define spr_arena(n, x, y, frame, seat) \
     (w_on[n] = 1, w_x[n] = SPR_X0 + ((x) >> SPR_XS), w_y[n] = SPR_Y0 + (y), w_fr[n] = (frame), w_seat[n] = (seat), w_big[n] = 0)
+#elif defined(__H89__)
+/* The H89's sets the bomber's wants too, laid out only when the screen is
+ * sent (src/h89/gfx.c): a 2 MHz Z80 can't afford a call of five arguments
+ * for each seat every jiffy. */
+extern uint8_t w_on[4], w_x[4], w_y[4], w_fr[4], w_seat[4];
+#define spr_arena(n, x, y, frame, seat) \
+    (w_on[n] = 1, w_x[n] = (x), w_y[n] = (y), w_fr[n] = (frame), w_seat[n] = (seat))
 #else
 void spr_arena(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat);
 #endif

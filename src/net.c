@@ -24,6 +24,11 @@ uint8_t tables[MAX_TABLES][TABLE_REC];
 uint8_t net_err, net_heard;
 uint8_t net_map;                /* a commit since play_state looked changed the map */
 static uint8_t stage_map;       /* a patch to the staged state touched the map */
+#ifdef PLAT_COMMIT_SPAN
+/* (a slow CPU: a commit copies only what the patches since the last one
+ * touched, not all 247 bytes; st and stage are the same outside it) */
+static uint8_t span_lo, span_hi = STATE_SIZE;
+#endif
 
 static uint8_t link, joined, seq, credited, resync_hold, resync_owed;
 static uint8_t table_n, table_have;
@@ -113,6 +118,10 @@ void net_hello(void)
     quiet = q_ping = q_ask = 0;
     resync_owed = 0;
     memset(stage, 0, sizeof(stage));
+#ifdef PLAT_COMMIT_SPAN
+    span_lo = 0;
+    span_hi = STATE_SIZE;
+#endif
     hello_frame();
 }
 
@@ -150,13 +159,26 @@ uint8_t net_poll(void)
                 if (p + len > n || off + len > STATE_SIZE)
                     break;
                 memcpy(stage + off, nst_buf + p, len);
+#ifdef PLAT_COMMIT_SPAN
+                if (off < span_lo)
+                    span_lo = off;
+                if (off + len > span_hi)
+                    span_hi = off + len;
+#endif
                 if (off < OFF_MAP + TILES && off + len > OFF_MAP)
                     stage_map = 1;
             }
             break;
         case CS_COMMIT:
             if (joined) {
+#ifdef PLAT_COMMIT_SPAN
+                if (span_lo < span_hi)
+                    memcpy(st + span_lo, stage + span_lo, span_hi - span_lo);
+                span_lo = STATE_SIZE;
+                span_hi = 0;
+#else
                 memcpy(st, stage, STATE_SIZE);
+#endif
                 net_map |= stage_map;
                 stage_map = 0;
                 net_heard = 1;

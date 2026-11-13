@@ -57,6 +57,8 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/coco2/` | The CoCo 1/2 screens: PMODE 4 artifact colour, tiles and bombers blitted by 6809 assembly. |
 | `src/coco3/` | The CoCo 3 screens: the GIME's 320x192 in 16 colours (the Adam's art), the timer-driven two-voice sound. |
 | `src/nes/` | The Nintendo NES client: cc65 on an MMC3 image for the FujiNet NES cartridge, a name table of 8x8 cells at 2 bits a pixel with the status bar split by the scanline interrupt, two 8x16 sprites a bomber, the APU, the cartridge's mailbox. |
+| `src/h89/` | The Heathkit H89 client: z88dk and zsdcc for CP/M or HDOS, the H19 terminal's characters sent by difference over its 9600-baud line, the H89-ESP32 card's 82C55, the hot paths in Z80 assembly. |
+| `src/sms/` | The Sega Master System client: z88dk and zsdcc, Mode 4 (4 bits a pixel, two 16-colour palettes) in the Adam's 32x24 layout, four 8x8 sprites a bomber, the SN76489, the frame interrupt as the clock, the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -113,6 +115,16 @@ make atari5200          # r2r/atari5200/fujiblst.a52 (the lib: tools/atari5200/m
 
 ```
 make coco              # r2r/coco/fujiblst.dsk: the CoCo 1/2 and the CoCo 3 builds on one disk (make coco TEST=1 keeps the test scenes in)
+```
+
+```
+make sms               # r2r/sms/fujiblst.sms (the lib: tools/z80/mkfnlib.sh ~/Workspace/fnlib-sms build/fnlib-sms sms, fujinet-lib-experimental's add-sms; z88dk from defoogi)
+```
+
+```
+make h89-cpm           # r2r/h89-cpm/fujiblst.h8d: FUJIBLST.COM on an H17 disk (the lib: tools/z80/mkfnlib.sh ~/Workspace/fujinet-lib build/fnlib-h89 h89; z88dk from defoogi)
+make h89-boot          # r2r/h89-cpm/fujiblst-boot.h8d: the same on a bootable 64K CP/M disk (made by CP/M in fujinet-go-h89-desktop's headless H89)
+make h89-hdos          # r2r/h89-hdos/fujiblst.h8d: FUJIBLST.ABS for HDOS 2.0
 ```
 
 ```
@@ -300,6 +312,15 @@ One disk, two programs: `AUTOEXEC.BAS` (HDB-DOS runs it) loads `FUJIBL3.BIN` on 
 - **Speed:** in MAME, the four-walker scene draws 13 passes a second on a CoCo 1/2 and 27 on a CoCo 3 (the logic goes on at 60 Hz either way).
 - **Not done:** the real machines (the artifact phase, the DriveWire timing and the DAC sound are untested on hardware; MAME's audio capture only records the CoCo 3's sound).
 
+## The Sega Master System
+
+A Sega-mapper image for the FujiNet SMS cartridge, which the SMS CONFIG boots: z88dk +sms with zsdcc (`make sms`, `src/sms/blast.asm`, `tools/sms/mkrom.py`, M.U.L.E.'s). The program is in banks 0-1 (`0000h-7FD7h`, about 22K used), the art in two banks that take turns in slot 2 (`8000h-AFFFh`: bank 2 the arena's, bank 3 the menus'), the cartridge's mailbox at `B000h` over them. Art: `tools/drawart_sms.py` draws `gfx/sms/*.png` (indexed: pixel = palette entry) and checks mock screens against the VDP's rules; `tools/mkgfx_sms.py` writes `gen/sms/` (planar tiles, name table words, palettes, frame tables; `gfxart1.c` and `gfxart2.c` are the two banks).
+
+- **Screen:** Mode 4, 32x24 cells, the Adam's layout (HUD a black status bar on row 0, the arena at cell column 5, stats in columns 0-3). Tiles 0-255 are the sprites' (a set a screen group: arena or menus), 256-447 the background's (the set, then glyph cells made as text is drawn: a cell for each glyph, foreground and background in use, 48 kept in the arena). A tile is 4 cells (name table words, flips shared in the set); the animated tiles are name table writes, a few a frame (`anim_step`). The backdrop is sprite palette entry 0.
+- **Sprites:** the VDP can't flip them, so left frames and each seat's colours are patterns of their own; a bomber is four 8x8 sprites (a line crosses two, so four abreast are the 8 a line), the results' big cheer 16.
+- **Controls:** pad = walk, 1 = fire (again on your own bomb: throw), 2 = rub out, Pause = RETURN, 2+Pause = ESC (leave, quit), 1+Pause = sound; Reset = ESC. Name entry is the wheel.
+- **Link:** `src/sms/nstrans.c` is the NES's on the SMS mailbox (`B000h-B7FFh`, plain stores), never waited on. The clock is the frame interrupt (`src/sms/smsint.asm`; a 50 Hz console counts every fifth frame twice); the sound is the Adam's (`src/adam/sound.c`, the tunes of `src/tms9918/tunes.h`) stepped by it.
+
 ## The Nintendo Entertainment System
 
 An MMC3 image (mapper 4, 128K PRG, 16K CHR-RAM, 8K WRAM) that the FujiNet NES cartridge's CONFIG boots: cc65 (`make nes`, `src/nes/fujiblst-nes.cfg`). Art: `tools/drawart_nes.py` draws `gfx/nes/*.png` (indexed: pixel = 4 x palette + slot, so the converter reads the palette straight from the file) and checks mock screens against the 2C02's rules; `tools/mkgfx_nes.py` writes `gen/nes/` (CHR sets, name table cells, palettes).
@@ -311,6 +332,16 @@ An MMC3 image (mapper 4, 128K PRG, 16K CHR-RAM, 8K WRAM) that the FujiNet NES ca
 - **Memory:** the fixed bank has the engine and the arena; R7 (`CODE2`, `$A000`) the menus, the screens, the link's glue and the sound; bank 0 (`$8000`, left there) the art and then `main` and the test scenes (`CODE0`). `tools/nes/checkrom.py` fails the build on the claim, the vectors and a read-modify-write of the mailbox.
 - **Link:** `src/nes/nstrans.c` is the 5200's on the NES mailbox ($5000-$57FF, plain stores), never waited on.
 - Colours are MesenCE's 2C02 palette (what FujiNet Go NES shows). Option A (black visor, white eyes) is the bomber's look; `OPTION` in `drawart_nes.py` picks another.
+
+## The Heathkit H89
+
+`FUJIBLST.COM` for Heath's CP/M 2.2.04 (a 62K system will do: FNDISK's) or `FUJIBLST.ABS` for HDOS 2.0 (with FN: loaded, LP: too), on an H17 disk: z88dk with zsdcc (`make h89-cpm`, `make h89-hdos`; `make h89-boot` is the lobby's bootable disk). No overlays: the image is about 24K; `tools/h89/h89check.py` cuts the variables off the `.COM` and checks the program ends under D806H (CP/M, with a stack) and D090H (HDOS); the program checks again when it starts (`src/h89/plat.c`, `src/h89/tpa.asm`).
+
+- **Screen:** the H19's 80x24 characters and its 25th line, graphics mode on for good (lines, quadrants, half blocks, the checkerboard). A tile is 5x2 cells, square on the H19; the arena is 65x22 in a border, the stats in columns 68-79, the names, wins and clock on the 25th line. A bomber is 3x2 cells with its seat's digit, ours reversed. The other screens put a text row's 40 columns at columns 20-59 and a BIG row's letters in every other column. Art: `gfx/h89/art.txt` (cells: the byte sent and a mask), `tools/mkgfx_h89.py` (`--preview PNG` draws it with the H19's own ROM).
+- **The line:** the H19 is on the CPU board's 8250 at 9600 baud, about 960 bytes a second: that, not the CPU, is what the screen can carry. `src/h89/h19.c` keeps the screen (`bg`), the sprites over it and a copy of what the terminal shows (`have`), with the columns of each row that may differ; a flush sends only the cells that differ, the cheapest cursor moves first (resend, BS, LF, else `ESC Y`), our bomber's rows before anything else, as much as the line takes in a few frames (`FILL`). The bytes go into a 128-byte ring that the 2 ms clock interrupt and the main loop drain (`src/h89/h89io.asm`, M.U.L.E.'s: XON/XOFF, never a BIOS wait).
+- **Speed:** a 2 MHz Z80, of which the emulated machine leaves the program about three quarters (the clock interrupt has the rest). The logic runs every jiffy (the walking must match the server's); a pass that is late doesn't draw. The hot paths are assembly: the cell writers and the state scan (`h19cell.asm`), sending a row (`h19run.asm`), the link's per-byte work (`nsfast.asm`). Shared code takes three hooks only the H89 sets: `PLAT_SEATS_WHEN_DRAWN` (the other bombers are laid out only for a pass that draws), `TOWARD_STEP` (no smoothing: a character is 3 units), `PLAT_COMMIT_SPAN` (a commit copies only what was patched). In fujinet-go-h89-desktop: the four-walker scene draws about 15 times a second, a live game against three bots about 8 (the line about 450 bytes a second, the server's state about 350).
+- **Controls:** the keypad: 8 2 4 6 walk and keep walking, 7 9 1 3 turn at the next opening, 5 stops; SPACE drops a bomb (again on your own bomb with the glove: throw); ESC leaves; M or f1 sound (the H19's bell, for blasts, deaths and the countdown); f5 or ERASE draws the screen again.
+- **Link:** the H89-ESP32 card's 82C55 at D0h, FujiBus by hand and never waited on (`src/h89/nstrans.c`: a STATUS every 6 jiffies, a READ of the bytes waiting, queued WRITEs); fujinet-lib opens, closes and reads the appkeys, its `fuji_bus_call` replaced by `src/h89/fbport.c`'s, which times out on a card that doesn't answer.
 
 ## Testing
 
@@ -509,3 +540,21 @@ tools/nessim/rig.sh tools/nessim/scenes/game.txt OUT         # live: server, bot
 
 - `nessim.py` and `mesensim.py` are M.U.L.E.'s (tools/nessim): the `test` scene command is not used here, the scene is the build's `TEST_SCENE`. The scenes in `tools/nessim/scenes`: `game.txt` (a live game, with `nes_passes` / `nes_skip` for the draw rate: 600 passes a 600 frames, about a third made up without drawing), `cut.txt` (`ROOM=tcp://127.0.0.1:9911/?table=dev1 EXTRA="python3 tools/rigs/cutproxy.py 9911 9910 62"`: the seat is back in 3 s), `nolobby.txt` (`NAME= ROOM=`: the name wheel), `sound.txt` (`snd_calls`, `snd_notes`).
 - Checked: the status bar's split is black through line 31 and the arena exact from line 32 in both emulators, 120 frames in a row; the first versions had a white line at the split in MAME and one wrong fine-Y bit (`$2006`'s high byte can't set bit 14, so rendering resumes on a row's first line).
+
+For the H89 (fujinet-go-h89-desktop's headless H89 and its FujiNet in process; `make h89-cpm TEST_SCENE=n` builds an offline scene in, as everywhere):
+
+```
+python3 tools/h89sim/h89sim.py r2r/h89-cpm/fujiblst.h8d r2r/h89-cpm/fujiblst.map SCENARIO OUT   # start, wait, snap, hold, press, key, type, keyname, peek, rate, pcprof (H89_PROF=1)
+tools/h89rig/rig.sh tools/h89rig/live2.txt OUT                # live: server and bots in a network namespace; OS=hdos for HDOS
+```
+
+- `h89sim.py` is M.U.L.E.'s (`H89SIM_OS=hdos`, `H89SIM_FN0=1`). `rate N` prints the draws, the passes made up, the line's bytes and the link's a second; `tools/h89sim/bench4.txt` is the four-walker benchmark (scene 5). Never two at once: the H89's ports are fixed.
+
+For the SMS (MAME's `sms1` with the FujiNet cartridge's slot, no BIOS; `make sms TEST_SCENE=n` builds an offline scene in, as everywhere; `SMSSIM_SYSTEM=smspal` is a 50 Hz console):
+
+```
+python3 tools/smssim/smssim.py r2r/sms/fujiblst.sms r2r/sms/fujiblst.map SCENARIO OUT   # wait, snap, hold, pad, press, key, peek, log, vram; SMSWAV=file records the sound
+tools/smssim/rig.sh tools/smssim/scenes/game.txt OUT         # live: server, bots, fujinet-pc-rs232 on BoIP 9988, MAME throttled
+```
+
+- `smssim.py` is M.U.L.E.'s (its `test` scene command is not used: the scene is the build's `TEST_SCENE`). The scenes in `tools/smssim/scenes` are the NES's: `game.txt` (`sms_passes` / `sms_skip` give the draw rate: 600 passes a 600 frames, about half made up without drawing, ~31 drawn a second), `cut.txt` (`ROOM=tcp://127.0.0.1:9911/?table=dev1 EXTRA="python3 tools/rigs/cutproxy.py 9911 9910 62"`: the seat is back in 2 s), `nolobby.txt` (`NAME= ROOM=`: the name wheel), `sound.txt`.

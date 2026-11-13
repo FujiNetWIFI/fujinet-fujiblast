@@ -1,0 +1,13 @@
+# the link cut in the middle of a round (ROOM=tcp://127.0.0.1:9911/?table=dev1
+# EXTRA="python3 tools/rigs/cutproxy.py 9911 9910 62"): the seat is back
+start
+wait 60
+type \x20
+wait 1500
+snap before
+wait 1800
+snap after
+peek my_seat
+wait 1200
+snap later
+peek my_seat

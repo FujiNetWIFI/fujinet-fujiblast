@@ -1,0 +1,3 @@
+start
+wait 240
+snap scene

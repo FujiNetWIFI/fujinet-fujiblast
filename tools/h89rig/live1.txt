@@ -1,0 +1,22 @@
+# a live game: join from the title, play two rounds against the bots
+start
+wait 60
+snap title
+type \x20
+wait 300
+snap joined
+peek my_seat
+wait 900
+snap arena1
+rate 600
+keyname right
+wait 60
+type \x20
+wait 60
+keyname home
+wait 120
+snap arena2
+rate 600
+wait 1800
+snap later
+peek my_seat
