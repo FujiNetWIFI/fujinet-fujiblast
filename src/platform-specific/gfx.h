@@ -58,6 +58,21 @@ extern uint8_t spr_ax, spr_ay, spr_af, spr_as;
 void __fastcall__ spr_arena_m(uint8_t n);
 #define spr_arena(n, x, y, frame, seat) \
     (spr_ax = (x), spr_ay = (y), spr_af = (frame), spr_as = (seat), spr_arena_m(n))
+#elif defined(_CMOC_VERSION_)
+#ifdef COCO3
+#define SPR_X0 56               /* the arena's first pixel, line and the unit's shift */
+#define SPR_Y0 16
+#define SPR_XS 0
+#else
+#define SPR_X0 20
+#define SPR_Y0 12
+#define SPR_XS 1
+#endif
+/* The CoCo's sets the bomber's wants itself: a call would push five arguments
+ * for each seat every jiffy (src/coco2/gfx.c, src/coco3/gfx3.c). */
+extern uint8_t w_on[4], w_x[4], w_y[4], w_fr[4], w_seat[4], w_big[4];
+#define spr_arena(n, x, y, frame, seat) \
+    (w_on[n] = 1, w_x[n] = SPR_X0 + ((x) >> SPR_XS), w_y[n] = SPR_Y0 + (y), w_fr[n] = (frame), w_seat[n] = (seat), w_big[n] = 0)
 #else
 void spr_arena(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat);
 #endif

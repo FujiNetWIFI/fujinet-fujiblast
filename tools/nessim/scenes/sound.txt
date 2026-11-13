@@ -1,0 +1,6 @@
+# a live game, then the sound counters (NESWAV=out.wav records it)
+wait 400
+press
+wait 1200
+peek snd_calls 1
+peek snd_notes 1

@@ -1,0 +1,7 @@
+test 5
+wait 300
+peek renders 2
+trace prof.trace
+wait 60
+trace off
+peek renders 2

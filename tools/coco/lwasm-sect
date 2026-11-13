@@ -1,0 +1,22 @@
+#!/bin/sh
+# lwasm-sect -- lwasm for CMOC (--lwasm=), moving a module's code and
+# read-only data into another section.
+#
+# CMOC has no section pragma, so the Makefile exports FB_SECT for the
+# modules that go elsewhere (see src/coco/fujiblst.link):
+#   hi         code -> hicode, rodata -> hirodata ($8000-$BFEF)
+#   art        code and rodata -> art (the art at $E000: bank.c loads it)
+# rwdata, bss and initgl are left alone: they must stay in low RAM.
+if [ -n "$FB_SECT" ]; then
+  for a in "$@"; do
+    case "$a" in
+      *.s|*.asm)
+        case "$FB_SECT" in
+          hi)  sed -i -e 's/^\([ \t]*SECTION[ \t]*\)code\b/\1hicode/' \
+                      -e 's/^\([ \t]*SECTION[ \t]*\)rodata\b/\1hirodata/' "$a" ;;
+          *)   sed -i -e "s/^\([ \t]*SECTION[ \t]*\)\(code\|rodata\)\b/\1$FB_SECT/" "$a" ;;
+        esac ;;
+    esac
+  done
+fi
+exec lwasm "$@"

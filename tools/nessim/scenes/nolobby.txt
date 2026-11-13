@@ -1,0 +1,18 @@
+# the lobby-less path (NAME= ROOM= empty): the name wheel, then the room list asks the default server
+wait 400
+press
+wait 90
+snap wheel0
+hold d
+wait 2
+hold none
+wait 4
+press
+wait 6
+hold d
+wait 2
+hold none
+wait 4
+press
+wait 6
+snap wheel2

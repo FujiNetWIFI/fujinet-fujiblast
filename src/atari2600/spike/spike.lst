@@ -1,0 +1,1015 @@
+ AS V1.42 Beta [Bld 306] - Source File spike.asm - Page 1 - 11/12/2026 08:01:15 PM
+
+
+       1/   0 :                         ; spike.asm -- FujiBlast Atari 2600 arena spike: a plain 4K image (no cart,
+       2/   0 :                         ; no network) that draws a canned 13 x 11 arena, bomber 0 (player 0, steady)
+       3/   0 :                         ; and three more bombers on player 1, moved between tile rows at the seams.
+       4/   0 :                         ;
+       5/   0 :                         ; Kernel = M.U.L.E.'s map loop: an ENTRY is two scanlines, line A updates
+       6/   0 :                         ; player 0 and line B player 1, six playfield tables are read every line.
+       7/   0 :                         ; Here a tile row is 7 entries; the seam before it clears the playfield and,
+       8/   0 :                         ; on a row where player 1 changes bomber, takes two more lines to position it
+       9/   0 :                         ; (coarse in SEAM1, HMOVE in SEAM2).  Tables stand in ROM for the cart's planes.
+      10/   0 :                         ;
+      11/   0 :                         ; Build: tools/a26/spike.sh [LOOK]
+      12/   0 :                         
+      13/   0 :                                 CPU     6502UNDOC
+      14/   0 :                                 INCLUDE "../../../tools/a26/vcs.inc"
+(1)    1/   0 :                         ; vcs.inc -- TIA and RIOT equates for Macroassembler AS.
+(1)    2/   0 :                         ;
+(1)    3/   0 :                         ; The 2600 world's standard vcs.h is a dasm companion file and is explicitly
+(1)    4/   0 :                         ; "please do not redistribute", so this is written from the hardware register
+(1)    5/   0 :                         ; map rather than copied. AS is the assembler the rest of this family already
+(1)    6/   0 :                         ; uses -- the o2 (8048), arcadia (2650) and channelf (F8) ports all build with
+(1)    7/   0 :                         ; it and CI already caches its build -- so the 2600 client joins them rather
+(1)    8/   0 :                         ; than adding dasm as a seventh toolchain.
+(1)    9/   0 :                         ;
+(1)   10/   0 :                         ; The 6507 has thirteen address lines, so everything mirrors. These are the
+(1)   11/   0 :                         ; canonical low addresses; TIA writes are $00-$2C, TIA reads $00-$0D, and the
+(1)   12/   0 :                         ; RIOT sits at $0280 with its RAM at $0080.
+(1)   13/   0 :                         
+(1)   14/   0 :                         ; ---------------- TIA, write ----------------
+(1)   15/   0 : =$0                     VSYNC   EQU     $00             ; bit 1: vertical sync
+(1)   16/   0 : =$1                     VBLANK  EQU     $01             ; bit 1: blank, bit 6/7: input latch/dump
+(1)   17/   0 : =$2                     WSYNC   EQU     $02             ; halt the CPU until the next scanline
+(1)   18/   0 : =$3                     RSYNC   EQU     $03
+(1)   19/   0 : =$4                     NUSIZ0  EQU     $04             ; player 0 copies / missile size
+(1)   20/   0 : =$5                     NUSIZ1  EQU     $05
+(1)   21/   0 : =$6                     COLUP0  EQU     $06
+(1)   22/   0 : =$7                     COLUP1  EQU     $07
+(1)   23/   0 : =$8                     COLUPF  EQU     $08
+(1)   24/   0 : =$9                     COLUBK  EQU     $09
+(1)   25/   0 : =$A                     CTRLPF  EQU     $0A
+(1)   26/   0 : =$B                     REFP0   EQU     $0B
+(1)   27/   0 : =$C                     REFP1   EQU     $0C
+(1)   28/   0 : =$D                     PF0     EQU     $0D
+(1)   29/   0 : =$E                     PF1     EQU     $0E
+(1)   30/   0 : =$F                     PF2     EQU     $0F
+(1)   31/   0 : =$10                    RESP0   EQU     $10             ; strobe: reset player 0 to the beam
+(1)   32/   0 : =$11                    RESP1   EQU     $11
+(1)   33/   0 : =$12                    RESM0   EQU     $12
+(1)   34/   0 : =$13                    RESM1   EQU     $13
+(1)   35/   0 : =$14                    RESBL   EQU     $14
+(1)   36/   0 : =$15                    AUDC0   EQU     $15
+(1)   37/   0 : =$16                    AUDC1   EQU     $16
+(1)   38/   0 : =$17                    AUDF0   EQU     $17
+(1)   39/   0 : =$18                    AUDF1   EQU     $18
+(1)   40/   0 : =$19                    AUDV0   EQU     $19
+(1)   41/   0 : =$1A                    AUDV1   EQU     $1A
+(1)   42/   0 : =$1B                    GRP0    EQU     $1B             ; player 0 graphics
+(1)   43/   0 : =$1C                    GRP1    EQU     $1C
+(1)   44/   0 : =$1D                    ENAM0   EQU     $1D
+(1)   45/   0 : =$1E                    ENAM1   EQU     $1E
+(1)   46/   0 : =$1F                    ENABL   EQU     $1F
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(vcs.inc) - Page 2 - 11/12/2026 08:01:15 PM
+
+
+(1)   47/   0 : =$20                    HMP0    EQU     $20             ; fine motion, high nibble, +7..-8
+(1)   48/   0 : =$21                    HMP1    EQU     $21
+(1)   49/   0 : =$22                    HMM0    EQU     $22
+(1)   50/   0 : =$23                    HMM1    EQU     $23
+(1)   51/   0 : =$24                    HMBL    EQU     $24
+(1)   52/   0 : =$25                    VDELP0  EQU     $25             ; bit 0: delay GRP0 by one write
+(1)   53/   0 : =$26                    VDELP1  EQU     $26
+(1)   54/   0 : =$27                    VDELBL  EQU     $27
+(1)   55/   0 : =$28                    RESMP0  EQU     $28
+(1)   56/   0 : =$29                    RESMP1  EQU     $29
+(1)   57/   0 : =$2A                    HMOVE   EQU     $2A             ; strobe: apply the HM registers
+(1)   58/   0 : =$2B                    HMCLR   EQU     $2B
+(1)   59/   0 : =$2C                    CXCLR   EQU     $2C
+(1)   60/   0 :                         
+(1)   61/   0 :                         ; ---------------- TIA, read ----------------
+(1)   62/   0 : =$0                     CXM0P   EQU     $00
+(1)   63/   0 : =$1                     CXM1P   EQU     $01
+(1)   64/   0 : =$2                     CXP0FB  EQU     $02
+(1)   65/   0 : =$3                     CXP1FB  EQU     $03
+(1)   66/   0 : =$4                     CXM0FB  EQU     $04
+(1)   67/   0 : =$5                     CXM1FB  EQU     $05
+(1)   68/   0 : =$6                     CXBLPF  EQU     $06
+(1)   69/   0 : =$7                     CXPPMM  EQU     $07
+(1)   70/   0 : =$8                     INPT0   EQU     $08
+(1)   71/   0 : =$9                     INPT1   EQU     $09
+(1)   72/   0 : =$A                     INPT2   EQU     $0A
+(1)   73/   0 : =$B                     INPT3   EQU     $0B
+(1)   74/   0 : =$C                     INPT4   EQU     $0C             ; bit 7 low: joystick 0 fire
+(1)   75/   0 : =$D                     INPT5   EQU     $0D
+(1)   76/   0 :                         
+(1)   77/   0 :                         ; ---------------- RIOT ----------------
+(1)   78/   0 : =$280                   SWCHA   EQU     $0280           ; joysticks: P0 in bits 7-4 (R,L,D,U low)
+(1)   79/   0 : =$281                   SWACNT  EQU     $0281
+(1)   80/   0 : =$282                   SWCHB   EQU     $0282           ; bit 0 RESET, bit 1 SELECT (low = pressed)
+(1)   81/   0 : =$283                   SWBCNT  EQU     $0283
+(1)   82/   0 : =$284                   INTIM   EQU     $0284
+(1)   83/   0 : =$285                   TIMINT  EQU     $0285           ; bit 7 latches on the timer's underflow and
+(1)   84/   0 :                                                         ;   stays latched until INTIM is read or the
+(1)   85/   0 :                                                         ;   timer is rewritten -- which is why the
+(1)   86/   0 :                                                         ;   display kernel polls THIS and not INTIM:
+(1)   87/   0 :                                                         ;   past zero INTIM free-runs at a tick a
+(1)   88/   0 :                                                         ;   cycle and a poll can walk straight over it
+(1)   89/   0 : =$294                   TIM1T   EQU     $0294
+(1)   90/   0 : =$295                   TIM8T   EQU     $0295
+(1)   91/   0 : =$296                   TIM64T  EQU     $0296
+(1)   92/   0 : =$297                   T1024T  EQU     $0297
+(1)   93/   0 :                         
+(1)   94/   0 :                         ; Joystick 0 direction bits in SWCHA, active low.
+(1)   95/   0 : =$80                    J0RIGHT EQU     $80
+(1)   96/   0 : =$40                    J0LEFT  EQU     $40
+(1)   97/   0 : =$20                    J0DOWN  EQU     $20
+(1)   98/   0 : =$10                    J0UP    EQU     $10
+(1)   99/   0 :                         
+      15/   0 :                         
+      16/   0 :                         ; ---- zero page ----
+      17/   0 : =$80                    ROW     EQU     $80             ; tile row 0-10
+      18/   0 : =$81                    NSEAM   EQU     $81             ; the row at which P1 changes bomber
+      19/   0 : =$82                    JOBI    EQU     $82
+      20/   0 : =$83                    CA      EQU     $83             ; this row's colours: even entries
+      21/   0 : =$84                    CB      EQU     $84             ;   odd entries
+ AS V1.42 Beta [Bld 306] - Source File spike.asm - Page 3 - 11/12/2026 08:01:15 PM
+
+
+      22/   0 : =$85                    P0CNT   EQU     $85
+      23/   0 : =$86                    P1CNT   EQU     $86
+      24/   0 : =$87                    P0PTR   EQU     $87             ; 2 bytes: shape - top entry
+      25/   0 : =$89                    P1PTR   EQU     $89
+      26/   0 : =$8B                    TMP     EQU     $8B
+      27/   0 : =$8C                    FRM     EQU     $8C
+      28/   0 :                         
+      29/   0 : =$7                     P0H     EQU     7
+      30/   0 : =$7                     P1H     EQU     7
+      31/   0 : =$2B                    VBTIM   EQU     43
+      32/   0 : =$23                    OSTIM   EQU     35
+      33/   0 : =$E3                    VITIM   EQU     227
+      34/   0 :                         
+      35/F000 :                                 ORG     $F000
+      36/F000 :                         
+      37/F000 : 78                      START:  sei
+      38/F001 : D8                              cld
+      39/F002 : A2 FF                           ldx     #$FF
+      40/F004 : 9A                              txs
+      41/F005 : A9 00                           lda     #0
+      42/F007 : AA                              tax
+      43/F008 : 95 00                   CLR:    sta     0,x
+      44/F00A : CA                              dex
+      45/F00B : D0 FB                           bne     CLR
+      46/F00D : A9 23                           lda     #OSTIM
+      47/F00F : 8D 96 02                        sta     TIM64T
+      48/F012 : 20 18 F0                MAIN:   jsr     FRAME
+      49/F015 : 4C 12 F0                        jmp     MAIN
+      50/F018 :                         
+      51/F018 : 2C 85 02                FRAME:  bit     TIMINT
+      52/F01B : 10 FB                           bpl     FRAME
+      53/F01D : 85 02                           sta     WSYNC
+      54/F01F : A9 02                           lda     #2
+      55/F021 : 85 00                           sta     VSYNC
+      56/F023 : 85 02                           sta     WSYNC
+      57/F025 : 85 02                           sta     WSYNC
+      58/F027 : 85 02                           sta     WSYNC
+      59/F029 : A9 00                           lda     #0
+      60/F02B : 85 00                           sta     VSYNC
+      61/F02D : A9 02                           lda     #2
+      62/F02F : 85 01                           sta     VBLANK
+      63/F031 : A9 2B                           lda     #VBTIM
+      64/F033 : 8D 96 02                        sta     TIM64T
+      65/F036 : E6 8C                           inc     FRM
+      66/F038 :                         
+      67/F038 :                         ; ---- vblank work: per-frame state ----
+      68/F038 : A9 00                           lda     #0
+      69/F03A : 85 0A                           sta     CTRLPF
+      70/F03C : 85 0D                           sta     PF0
+      71/F03E : 85 0E                           sta     PF1
+      72/F040 : 85 0F                           sta     PF2
+      73/F042 : 85 1B                           sta     GRP0
+      74/F044 : 85 1C                           sta     GRP1
+      75/F046 : 85 0B                           sta     REFP0
+      76/F048 : 85 0C                           sta     REFP1
+      77/F04A : 85 04                           sta     NUSIZ0
+      78/F04C : 85 05                           sta     NUSIZ1
+      79/F04E : 85 25                           sta     VDELP0
+      80/F050 : 85 26                           sta     VDELP1
+      81/F052 : 85 80                           sta     ROW
+ AS V1.42 Beta [Bld 306] - Source File spike.asm - Page 4 - 11/12/2026 08:01:15 PM
+
+
+      82/F054 : AD 16 FB                        lda     JROW            ; the first bomber's seam row
+      83/F057 : 85 81                           sta     NSEAM
+      84/F059 : A9 00                           lda     #0
+      85/F05B : 85 82                           sta     JOBI
+      86/F05D :                         ; player 0: window [P0TOPE, +P0H); pointer = shape - top
+      87/F05D : A9 2B                           lda     #P0TOPE+P0H
+      88/F05F : 85 85                           sta     P0CNT
+      89/F061 : A9 80                           lda     #SHAPE&$FF
+      90/F063 : 38                              sec
+      91/F064 : E9 24                           sbc     #P0TOPE
+      92/F066 : 85 87                           sta     P0PTR
+      93/F068 : A9 FB                           lda     #SHAPE>>8
+      94/F06A : E9 00                           sbc     #0
+      95/F06C : 85 88                           sta     P0PTR+1
+      96/F06E : A9 FF                           lda     #$FF            ; player 1 idle until a job starts
+      97/F070 : 85 86                           sta     P1CNT
+      98/F072 : A9 0E                           lda     #$0E
+      99/F074 : 85 06                           sta     COLUP0
+     100/F076 :                         ; position player 0
+     101/F076 : A9 38                           lda     #P0XPIX
+     102/F078 : 20 79 F4                        jsr     POS0
+     103/F07B : 85 02                           sta     WSYNC
+     104/F07D : 85 2A                           sta     HMOVE
+     105/F07F : 85 02                           sta     WSYNC
+     106/F081 : 85 2B                           sta     HMCLR
+     107/F083 : 2C 85 02                DVBLP:  bit     TIMINT
+     108/F086 : 10 FB                           bpl     DVBLP
+     109/F088 : 85 02                           sta     WSYNC
+     110/F08A : A9 00                           lda     #0
+     111/F08C : 85 01                           sta     VBLANK
+     112/F08E : A9 E3                           lda     #VITIM
+     113/F090 : 8D 96 02                        sta     TIM64T
+     114/F093 : A9 C2                           lda     #C_FLOOR
+     115/F095 : 85 09                           sta     COLUBK
+     116/F097 : A9 0E                           lda     #P0H*2
+     117/F099 : A2 08                           ldx     #8              ; the top margin (the HUD row, later)
+     118/F09B : 85 02                   MARG:   sta     WSYNC
+     119/F09D : CA                              dex
+     120/F09E : D0 FB                           bne     MARG
+     121/F0A0 : A0 00                           ldy     #0
+     122/F0A2 :                         
+     123/F0A2 :                         ; ---- the seam: one line, plus two on a row where player 1 moves ----
+     124/F0A2 : 85 02                   SEAM0:  sta     WSYNC
+     125/F0A4 : A9 00                           lda     #0
+     126/F0A6 : 85 0D                           sta     PF0
+     127/F0A8 : 85 0E                           sta     PF1
+     128/F0AA : 85 0F                           sta     PF2
+     129/F0AC : A6 80                           ldx     ROW
+     130/F0AE : E0 0B                           cpx     #11
+     131/F0B0 : D0 03                           bne     SEAMGO
+     132/F0B2 : 4C 62 F4                        jmp     ARENADONE
+     133/F0B5 :                         SEAMGO:
+     134/F0B5 : BD 00 FB                        lda     RCA,x
+     135/F0B8 : 85 83                           sta     CA
+     136/F0BA : BD 0B FB                        lda     RCB,x
+     137/F0BD : 85 84                           sta     CB
+     138/F0BF : E4 81                           cpx     NSEAM
+     139/F0C1 : F0 05                           beq     JOB
+     140/F0C3 : E6 80                           inc     ROW
+     141/F0C5 : 4C 0E F1                        jmp     P0A
+ AS V1.42 Beta [Bld 306] - Source File spike.asm - Page 5 - 11/12/2026 08:01:15 PM
+
+
+     142/F0C8 :                         
+     143/F0C8 : E6 80                   JOB:    inc     ROW
+     144/F0CA : A6 82                           ldx     JOBI
+     145/F0CC : BD 1A FB                        lda     JX,x
+     146/F0CF : 4C D2 F0                        jmp     SEAM1
+     147/F0D2 :                         
+     148/F0D2 :                         ; SEAM1: the coarse position of player 1 (the classic divide by 15).
+     149/F0D2 : 85 02                   SEAM1:  sta     WSYNC
+     150/F0D4 : 38                              sec
+     151/F0D5 : E9 0F                   SPOS:   sbc     #15
+     152/F0D7 : B0 FC                           bcs     SPOS
+     153/F0D9 : =>FALSE                         IF (SPOS>>8) <> ((SPOS+4)>>8)
+     154/F0D9 :                                 ERROR   "SPOS loop crosses a page"
+     155/F0D9 : [153]                           ENDIF
+     156/F0D9 : 49 07                           eor     #7
+     157/F0DB : 0A                              asl     a
+     158/F0DC : 0A                              asl     a
+     159/F0DD : 0A                              asl     a
+     160/F0DE : 0A                              asl     a
+     161/F0DF : 85 21                           sta     HMP1
+     162/F0E1 : 85 11                           sta     RESP1
+     163/F0E3 :                         ; SEAM2: HMOVE at the start of the line, then the job's cells.
+     164/F0E3 : 85 02                           sta     WSYNC
+     165/F0E5 : 85 2A                           sta     HMOVE
+     166/F0E7 : BD 1D FB                        lda     JCOL,x
+     167/F0EA : 85 07                           sta     COLUP1
+     168/F0EC : BD 20 FB                        lda     JCNT,x
+     169/F0EF : 85 86                           sta     P1CNT
+     170/F0F1 : BD 23 FB                        lda     JTOP,x
+     171/F0F4 : 85 8B                           sta     TMP
+     172/F0F6 : A9 80                           lda     #SHAPE&$FF
+     173/F0F8 : 38                              sec
+     174/F0F9 : E5 8B                           sbc     TMP
+     175/F0FB : 85 89                           sta     P1PTR
+     176/F0FD : A9 FB                           lda     #SHAPE>>8
+     177/F0FF : E9 00                           sbc     #0
+     178/F101 : 85 8A                           sta     P1PTR+1
+     179/F103 : E8                              inx
+     180/F104 : 86 82                           stx     JOBI
+     181/F106 : BD 16 FB                        lda     JROW,x
+     182/F109 : 85 81                           sta     NSEAM
+     183/F10B : 4C 0E F1                        jmp     P0A
+     184/F10E :                         
+     185/F10E :                                 INCLUDE "rows.inc"
+(1)    1/F10E :                         ; GENERATED by tools/a26/mkspike.py -- do not edit.
+(1)    2/F10E : =>FALSE                         IF (*&$FF) > $BC
+(1)    3/F10E :                                 ALIGN   256,$EA
+(1)    4/F10E : [2]                             ENDIF
+(1)    5/F10E :                         P0A:
+(1)    6/F10E : 85 02                           sta WSYNC       ; 0
+> > > rows.inc(7):14: error: symbol undefined
+(1)    7/F110 :                                 lda #C_STATIC   ; 0
+(1)    8/F110 : 85 08                           sta COLUPF      ; 2
+(1)    9/F112 : B9 00 F8                        lda MT0,y       ; 5
+(1)   10/F115 : 85 0D                           sta PF0         ; 9
+(1)   11/F117 : B9 80 F8                        lda MT1,y       ; 12
+(1)   12/F11A : 85 0E                           sta PF1         ; 16
+(1)   13/F11C : B9 00 F9                        lda MT2,y       ; 19
+(1)   14/F11F : 85 0F                           sta PF2         ; 23
+(1)   15/F121 : B9 80 F9                        lda MT3,y       ; 26
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 6 - 11/12/2026 08:01:15 PM
+
+
+(1)   16/F124 : 85 0D                           sta PF0         ; 30
+(1)   17/F126 : B9 00 FA                        lda MT4,y       ; 33
+(1)   18/F129 : 85 0E                           sta PF1         ; 37
+(1)   19/F12B : BE 80 FA                        ldx MT5,y       ; 40
+(1)   20/F12E : A9 06                           lda #P0H-1      ; 44
+(1)   21/F130 : C7 85                           dcp P0CNT       ; 46
+(1)   22/F132 : 86 0F                           stx PF2         ; 51
+(1)   23/F134 : B0 05                           bcs P0A1        ; 54
+(1)   24/F136 : A9 00                           lda     #0              ; 56
+(1)   25/F138 : 2C                              db      $2C             ; bit abs: skips the next lda
+(1)   26/F139 : B1 87                   P0A1:   lda     (P0PTR),y
+(1)   27/F13B : =>FALSE                         IF (P0A1>>8) <> ((P0A1-3)>>8)
+(1)   28/F13B :                                 ERROR   "P0A's branch crosses a page"
+(1)   29/F13B : [27]                            ENDIF
+(1)   30/F13B : 85 1B                           sta     GRP0
+(1)   31/F13D : =>FALSE                         IF (*&$FF) > $BC
+(1)   32/F13D :                                 jmp     P0B
+(1)   33/F13D :                                 ALIGN   256,$EA
+(1)   34/F13D : [31]                            ENDIF
+(1)   35/F13D :                         P0B:
+(1)   36/F13D : 85 02                           sta WSYNC       ; 0
+(1)   37/F13F : B9 ?? ??                        lda MT0,y       ; 0
+(1)   38/F142 : 85 0D                           sta PF0         ; 4
+(1)   39/F144 : B9 ?? ??                        lda MT1,y       ; 7
+(1)   40/F147 : 85 0E                           sta PF1         ; 11
+(1)   41/F149 : B9 ?? ??                        lda MT2,y       ; 14
+(1)   42/F14C : 85 0F                           sta PF2         ; 18
+(1)   43/F14E : A9 06                           lda     #P1H-1          ; 21
+(1)   44/F150 : C7 86                           dcp     P1CNT
+(1)   45/F152 : B0 ??                           bcs     P0B1
+(1)   46/F154 : A9 00                           lda     #0
+(1)   47/F156 : 2C                              db      $2C
+(1)   48/F157 : B1 89                   P0B1:   lda     (P1PTR),y
+(1)   49/F159 : =>FALSE                         IF (P0B1>>8) <> ((P0B1-3)>>8)
+(1)   50/F159 :                                 ERROR   "P0B's branch crosses a page"
+(1)   51/F159 : [49]                            ENDIF
+(1)   52/F159 : 85 1C                           sta     GRP1
+(1)   53/F15B : B9 ?? ??                        lda     MT3,y
+(1)   54/F15E : 85 0D                           sta     PF0
+(1)   55/F160 : B9 ?? ??                        lda     MT4,y
+(1)   56/F163 : 85 0E                           sta     PF1
+(1)   57/F165 : B9 ?? ??                        lda     MT5,y
+(1)   58/F168 : 85 0F                           sta     PF2
+(1)   59/F16A : C8                              iny
+(1)   60/F16B : 4C ?? ??                        jmp     P1A
+(1)   61/F16E : =>FALSE                         IF (*&$FF) > $BC
+(1)   62/F16E :                                 ALIGN   256,$EA
+(1)   63/F16E : [61]                            ENDIF
+(1)   64/F16E :                         P1A:
+(1)   65/F16E : 85 02                           sta WSYNC       ; 0
+(1)   66/F170 : A5 84                           lda CB          ; 0
+(1)   67/F172 : 85 08                           sta COLUPF      ; 3
+(1)   68/F174 : B9 ?? ??                        lda MT0,y       ; 6
+(1)   69/F177 : 85 0D                           sta PF0         ; 10
+(1)   70/F179 : B9 ?? ??                        lda MT1,y       ; 13
+(1)   71/F17C : 85 0E                           sta PF1         ; 17
+(1)   72/F17E : B9 ?? ??                        lda MT2,y       ; 20
+(1)   73/F181 : 85 0F                           sta PF2         ; 24
+(1)   74/F183 : B9 ?? ??                        lda MT3,y       ; 27
+(1)   75/F186 : 85 0D                           sta PF0         ; 31
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 7 - 11/12/2026 08:01:15 PM
+
+
+(1)   76/F188 : B9 ?? ??                        lda MT4,y       ; 34
+(1)   77/F18B : 85 0E                           sta PF1         ; 38
+(1)   78/F18D : BE ?? ??                        ldx MT5,y       ; 41
+(1)   79/F190 : A9 06                           lda #P0H-1      ; 45
+(1)   80/F192 : C7 85                           dcp P0CNT       ; 47
+(1)   81/F194 : 86 0F                           stx PF2         ; 52
+(1)   82/F196 : B0 ??                           bcs P1A1        ; 55
+(1)   83/F198 : A9 00                           lda     #0              ; 57
+(1)   84/F19A : 2C                              db      $2C             ; bit abs: skips the next lda
+(1)   85/F19B : B1 87                   P1A1:   lda     (P0PTR),y
+(1)   86/F19D : =>FALSE                         IF (P1A1>>8) <> ((P1A1-3)>>8)
+(1)   87/F19D :                                 ERROR   "P1A's branch crosses a page"
+(1)   88/F19D : [86]                            ENDIF
+(1)   89/F19D : 85 1B                           sta     GRP0
+(1)   90/F19F : =>FALSE                         IF (*&$FF) > $BC
+(1)   91/F19F :                                 jmp     P1B
+(1)   92/F19F :                                 ALIGN   256,$EA
+(1)   93/F19F : [90]                            ENDIF
+(1)   94/F19F :                         P1B:
+(1)   95/F19F : 85 02                           sta WSYNC       ; 0
+(1)   96/F1A1 : B9 ?? ??                        lda MT0,y       ; 0
+(1)   97/F1A4 : 85 0D                           sta PF0         ; 4
+(1)   98/F1A6 : B9 ?? ??                        lda MT1,y       ; 7
+(1)   99/F1A9 : 85 0E                           sta PF1         ; 11
+(1)  100/F1AB : B9 ?? ??                        lda MT2,y       ; 14
+(1)  101/F1AE : 85 0F                           sta PF2         ; 18
+(1)  102/F1B0 : A9 06                           lda     #P1H-1          ; 21
+(1)  103/F1B2 : C7 86                           dcp     P1CNT
+(1)  104/F1B4 : B0 ??                           bcs     P1B1
+(1)  105/F1B6 : A9 00                           lda     #0
+(1)  106/F1B8 : 2C                              db      $2C
+(1)  107/F1B9 : B1 89                   P1B1:   lda     (P1PTR),y
+(1)  108/F1BB : =>FALSE                         IF (P1B1>>8) <> ((P1B1-3)>>8)
+(1)  109/F1BB :                                 ERROR   "P1B's branch crosses a page"
+(1)  110/F1BB : [108]                           ENDIF
+(1)  111/F1BB : 85 1C                           sta     GRP1
+(1)  112/F1BD : B9 ?? ??                        lda     MT3,y
+(1)  113/F1C0 : 85 0D                           sta     PF0
+(1)  114/F1C2 : B9 ?? ??                        lda     MT4,y
+(1)  115/F1C5 : 85 0E                           sta     PF1
+(1)  116/F1C7 : B9 ?? ??                        lda     MT5,y
+(1)  117/F1CA : 85 0F                           sta     PF2
+(1)  118/F1CC : C8                              iny
+(1)  119/F1CD : 4C ?? ??                        jmp     P2A
+(1)  120/F1D0 : =>TRUE                          IF (*&$FF) > $BC
+(1)  121/F1D0 : EA EA EA EA EA EA EA EA         ALIGN   256,$EA
+         F1D8 : EA EA EA EA EA EA EA EA
+         F1E0 : EA EA EA EA EA EA EA EA
+         F1E8 : EA EA EA EA EA EA EA EA
+         F1F0 : EA EA EA EA EA EA EA EA
+         F1F8 : EA EA EA EA EA EA EA EA
+(1)  122/F200 : [120]                           ENDIF
+(1)  123/F200 :                         P2A:
+(1)  124/F200 : 85 02                           sta WSYNC       ; 0
+> > > rows.inc(125):14: error: symbol undefined
+(1)  125/F202 :                                 lda #C_STATIC   ; 0
+(1)  126/F202 : 85 08                           sta COLUPF      ; 2
+(1)  127/F204 : B9 ?? ??                        lda MT0,y       ; 5
+(1)  128/F207 : 85 0D                           sta PF0         ; 9
+(1)  129/F209 : B9 ?? ??                        lda MT1,y       ; 12
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 8 - 11/12/2026 08:01:15 PM
+
+
+(1)  130/F20C : 85 0E                           sta PF1         ; 16
+(1)  131/F20E : B9 ?? ??                        lda MT2,y       ; 19
+(1)  132/F211 : 85 0F                           sta PF2         ; 23
+(1)  133/F213 : B9 ?? ??                        lda MT3,y       ; 26
+(1)  134/F216 : 85 0D                           sta PF0         ; 30
+(1)  135/F218 : B9 ?? ??                        lda MT4,y       ; 33
+(1)  136/F21B : 85 0E                           sta PF1         ; 37
+(1)  137/F21D : BE ?? ??                        ldx MT5,y       ; 40
+(1)  138/F220 : A9 06                           lda #P0H-1      ; 44
+(1)  139/F222 : C7 85                           dcp P0CNT       ; 46
+(1)  140/F224 : 86 0F                           stx PF2         ; 51
+(1)  141/F226 : B0 ??                           bcs P2A1        ; 54
+(1)  142/F228 : A9 00                           lda     #0              ; 56
+(1)  143/F22A : 2C                              db      $2C             ; bit abs: skips the next lda
+(1)  144/F22B : B1 87                   P2A1:   lda     (P0PTR),y
+(1)  145/F22D : =>FALSE                         IF (P2A1>>8) <> ((P2A1-3)>>8)
+(1)  146/F22D :                                 ERROR   "P2A's branch crosses a page"
+(1)  147/F22D : [145]                           ENDIF
+(1)  148/F22D : 85 1B                           sta     GRP0
+(1)  149/F22F : =>FALSE                         IF (*&$FF) > $BC
+(1)  150/F22F :                                 jmp     P2B
+(1)  151/F22F :                                 ALIGN   256,$EA
+(1)  152/F22F : [149]                           ENDIF
+(1)  153/F22F :                         P2B:
+(1)  154/F22F : 85 02                           sta WSYNC       ; 0
+(1)  155/F231 : B9 ?? ??                        lda MT0,y       ; 0
+(1)  156/F234 : 85 0D                           sta PF0         ; 4
+(1)  157/F236 : B9 ?? ??                        lda MT1,y       ; 7
+(1)  158/F239 : 85 0E                           sta PF1         ; 11
+(1)  159/F23B : B9 ?? ??                        lda MT2,y       ; 14
+(1)  160/F23E : 85 0F                           sta PF2         ; 18
+(1)  161/F240 : A9 06                           lda     #P1H-1          ; 21
+(1)  162/F242 : C7 86                           dcp     P1CNT
+(1)  163/F244 : B0 ??                           bcs     P2B1
+(1)  164/F246 : A9 00                           lda     #0
+(1)  165/F248 : 2C                              db      $2C
+(1)  166/F249 : B1 89                   P2B1:   lda     (P1PTR),y
+(1)  167/F24B : =>FALSE                         IF (P2B1>>8) <> ((P2B1-3)>>8)
+(1)  168/F24B :                                 ERROR   "P2B's branch crosses a page"
+(1)  169/F24B : [167]                           ENDIF
+(1)  170/F24B : 85 1C                           sta     GRP1
+(1)  171/F24D : B9 ?? ??                        lda     MT3,y
+(1)  172/F250 : 85 0D                           sta     PF0
+(1)  173/F252 : B9 ?? ??                        lda     MT4,y
+(1)  174/F255 : 85 0E                           sta     PF1
+(1)  175/F257 : B9 ?? ??                        lda     MT5,y
+(1)  176/F25A : 85 0F                           sta     PF2
+(1)  177/F25C : C8                              iny
+(1)  178/F25D : 4C ?? ??                        jmp     P3A
+(1)  179/F260 : =>FALSE                         IF (*&$FF) > $BC
+(1)  180/F260 :                                 ALIGN   256,$EA
+(1)  181/F260 : [179]                           ENDIF
+(1)  182/F260 :                         P3A:
+(1)  183/F260 : 85 02                           sta WSYNC       ; 0
+(1)  184/F262 : A5 84                           lda CB          ; 0
+(1)  185/F264 : 85 08                           sta COLUPF      ; 3
+(1)  186/F266 : B9 ?? ??                        lda MT0,y       ; 6
+(1)  187/F269 : 85 0D                           sta PF0         ; 10
+(1)  188/F26B : B9 ?? ??                        lda MT1,y       ; 13
+(1)  189/F26E : 85 0E                           sta PF1         ; 17
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 9 - 11/12/2026 08:01:15 PM
+
+
+(1)  190/F270 : B9 ?? ??                        lda MT2,y       ; 20
+(1)  191/F273 : 85 0F                           sta PF2         ; 24
+(1)  192/F275 : B9 ?? ??                        lda MT3,y       ; 27
+(1)  193/F278 : 85 0D                           sta PF0         ; 31
+(1)  194/F27A : B9 ?? ??                        lda MT4,y       ; 34
+(1)  195/F27D : 85 0E                           sta PF1         ; 38
+(1)  196/F27F : BE ?? ??                        ldx MT5,y       ; 41
+(1)  197/F282 : A9 06                           lda #P0H-1      ; 45
+(1)  198/F284 : C7 85                           dcp P0CNT       ; 47
+(1)  199/F286 : 86 0F                           stx PF2         ; 52
+(1)  200/F288 : B0 ??                           bcs P3A1        ; 55
+(1)  201/F28A : A9 00                           lda     #0              ; 57
+(1)  202/F28C : 2C                              db      $2C             ; bit abs: skips the next lda
+(1)  203/F28D : B1 87                   P3A1:   lda     (P0PTR),y
+(1)  204/F28F : =>FALSE                         IF (P3A1>>8) <> ((P3A1-3)>>8)
+(1)  205/F28F :                                 ERROR   "P3A's branch crosses a page"
+(1)  206/F28F : [204]                           ENDIF
+(1)  207/F28F : 85 1B                           sta     GRP0
+(1)  208/F291 : =>FALSE                         IF (*&$FF) > $BC
+(1)  209/F291 :                                 jmp     P3B
+(1)  210/F291 :                                 ALIGN   256,$EA
+(1)  211/F291 : [208]                           ENDIF
+(1)  212/F291 :                         P3B:
+(1)  213/F291 : 85 02                           sta WSYNC       ; 0
+(1)  214/F293 : B9 ?? ??                        lda MT0,y       ; 0
+(1)  215/F296 : 85 0D                           sta PF0         ; 4
+(1)  216/F298 : B9 ?? ??                        lda MT1,y       ; 7
+(1)  217/F29B : 85 0E                           sta PF1         ; 11
+(1)  218/F29D : B9 ?? ??                        lda MT2,y       ; 14
+(1)  219/F2A0 : 85 0F                           sta PF2         ; 18
+(1)  220/F2A2 : A9 06                           lda     #P1H-1          ; 21
+(1)  221/F2A4 : C7 86                           dcp     P1CNT
+(1)  222/F2A6 : B0 ??                           bcs     P3B1
+(1)  223/F2A8 : A9 00                           lda     #0
+(1)  224/F2AA : 2C                              db      $2C
+(1)  225/F2AB : B1 89                   P3B1:   lda     (P1PTR),y
+(1)  226/F2AD : =>FALSE                         IF (P3B1>>8) <> ((P3B1-3)>>8)
+(1)  227/F2AD :                                 ERROR   "P3B's branch crosses a page"
+(1)  228/F2AD : [226]                           ENDIF
+(1)  229/F2AD : 85 1C                           sta     GRP1
+(1)  230/F2AF : B9 ?? ??                        lda     MT3,y
+(1)  231/F2B2 : 85 0D                           sta     PF0
+(1)  232/F2B4 : B9 ?? ??                        lda     MT4,y
+(1)  233/F2B7 : 85 0E                           sta     PF1
+(1)  234/F2B9 : B9 ?? ??                        lda     MT5,y
+(1)  235/F2BC : 85 0F                           sta     PF2
+(1)  236/F2BE : C8                              iny
+(1)  237/F2BF : 4C ?? ??                        jmp     P4A
+(1)  238/F2C2 : =>TRUE                          IF (*&$FF) > $BC
+(1)  239/F2C2 : EA EA EA EA EA EA EA EA         ALIGN   256,$EA
+         F2CA : EA EA EA EA EA EA EA EA
+         F2D2 : EA EA EA EA EA EA EA EA
+         F2DA : EA EA EA EA EA EA EA EA
+         F2E2 : EA EA EA EA EA EA EA EA
+         F2EA : EA EA EA EA EA EA EA EA
+         F2F2 : EA EA EA EA EA EA EA EA
+         F2FA : EA EA EA EA EA EA      
+(1)  240/F300 : [238]                           ENDIF
+(1)  241/F300 :                         P4A:
+(1)  242/F300 : 85 02                           sta WSYNC       ; 0
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 10 - 11/12/2026 08:01:15 PM
+
+
+> > > rows.inc(243):14: error: symbol undefined
+(1)  243/F302 :                                 lda #C_STATIC   ; 0
+(1)  244/F302 : 85 08                           sta COLUPF      ; 2
+(1)  245/F304 : B9 ?? ??                        lda MT0,y       ; 5
+(1)  246/F307 : 85 0D                           sta PF0         ; 9
+(1)  247/F309 : B9 ?? ??                        lda MT1,y       ; 12
+(1)  248/F30C : 85 0E                           sta PF1         ; 16
+(1)  249/F30E : B9 ?? ??                        lda MT2,y       ; 19
+(1)  250/F311 : 85 0F                           sta PF2         ; 23
+(1)  251/F313 : B9 ?? ??                        lda MT3,y       ; 26
+(1)  252/F316 : 85 0D                           sta PF0         ; 30
+(1)  253/F318 : B9 ?? ??                        lda MT4,y       ; 33
+(1)  254/F31B : 85 0E                           sta PF1         ; 37
+(1)  255/F31D : BE ?? ??                        ldx MT5,y       ; 40
+(1)  256/F320 : A9 06                           lda #P0H-1      ; 44
+(1)  257/F322 : C7 85                           dcp P0CNT       ; 46
+(1)  258/F324 : 86 0F                           stx PF2         ; 51
+(1)  259/F326 : B0 ??                           bcs P4A1        ; 54
+(1)  260/F328 : A9 00                           lda     #0              ; 56
+(1)  261/F32A : 2C                              db      $2C             ; bit abs: skips the next lda
+(1)  262/F32B : B1 87                   P4A1:   lda     (P0PTR),y
+(1)  263/F32D : =>FALSE                         IF (P4A1>>8) <> ((P4A1-3)>>8)
+(1)  264/F32D :                                 ERROR   "P4A's branch crosses a page"
+(1)  265/F32D : [263]                           ENDIF
+(1)  266/F32D : 85 1B                           sta     GRP0
+(1)  267/F32F : =>FALSE                         IF (*&$FF) > $BC
+(1)  268/F32F :                                 jmp     P4B
+(1)  269/F32F :                                 ALIGN   256,$EA
+(1)  270/F32F : [267]                           ENDIF
+(1)  271/F32F :                         P4B:
+(1)  272/F32F : 85 02                           sta WSYNC       ; 0
+(1)  273/F331 : B9 ?? ??                        lda MT0,y       ; 0
+(1)  274/F334 : 85 0D                           sta PF0         ; 4
+(1)  275/F336 : B9 ?? ??                        lda MT1,y       ; 7
+(1)  276/F339 : 85 0E                           sta PF1         ; 11
+(1)  277/F33B : B9 ?? ??                        lda MT2,y       ; 14
+(1)  278/F33E : 85 0F                           sta PF2         ; 18
+(1)  279/F340 : A9 06                           lda     #P1H-1          ; 21
+(1)  280/F342 : C7 86                           dcp     P1CNT
+(1)  281/F344 : B0 ??                           bcs     P4B1
+(1)  282/F346 : A9 00                           lda     #0
+(1)  283/F348 : 2C                              db      $2C
+(1)  284/F349 : B1 89                   P4B1:   lda     (P1PTR),y
+(1)  285/F34B : =>FALSE                         IF (P4B1>>8) <> ((P4B1-3)>>8)
+(1)  286/F34B :                                 ERROR   "P4B's branch crosses a page"
+(1)  287/F34B : [285]                           ENDIF
+(1)  288/F34B : 85 1C                           sta     GRP1
+(1)  289/F34D : B9 ?? ??                        lda     MT3,y
+(1)  290/F350 : 85 0D                           sta     PF0
+(1)  291/F352 : B9 ?? ??                        lda     MT4,y
+(1)  292/F355 : 85 0E                           sta     PF1
+(1)  293/F357 : B9 ?? ??                        lda     MT5,y
+(1)  294/F35A : 85 0F                           sta     PF2
+(1)  295/F35C : C8                              iny
+(1)  296/F35D : 4C ?? ??                        jmp     P5A
+(1)  297/F360 : =>FALSE                         IF (*&$FF) > $BC
+(1)  298/F360 :                                 ALIGN   256,$EA
+(1)  299/F360 : [297]                           ENDIF
+(1)  300/F360 :                         P5A:
+(1)  301/F360 : 85 02                           sta WSYNC       ; 0
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 11 - 11/12/2026 08:01:15 PM
+
+
+(1)  302/F362 : A5 84                           lda CB          ; 0
+(1)  303/F364 : 85 08                           sta COLUPF      ; 3
+(1)  304/F366 : B9 ?? ??                        lda MT0,y       ; 6
+(1)  305/F369 : 85 0D                           sta PF0         ; 10
+(1)  306/F36B : B9 ?? ??                        lda MT1,y       ; 13
+(1)  307/F36E : 85 0E                           sta PF1         ; 17
+(1)  308/F370 : B9 ?? ??                        lda MT2,y       ; 20
+(1)  309/F373 : 85 0F                           sta PF2         ; 24
+(1)  310/F375 : B9 ?? ??                        lda MT3,y       ; 27
+(1)  311/F378 : 85 0D                           sta PF0         ; 31
+(1)  312/F37A : B9 ?? ??                        lda MT4,y       ; 34
+(1)  313/F37D : 85 0E                           sta PF1         ; 38
+(1)  314/F37F : BE ?? ??                        ldx MT5,y       ; 41
+(1)  315/F382 : A9 06                           lda #P0H-1      ; 45
+(1)  316/F384 : C7 85                           dcp P0CNT       ; 47
+(1)  317/F386 : 86 0F                           stx PF2         ; 52
+(1)  318/F388 : B0 ??                           bcs P5A1        ; 55
+(1)  319/F38A : A9 00                           lda     #0              ; 57
+(1)  320/F38C : 2C                              db      $2C             ; bit abs: skips the next lda
+(1)  321/F38D : B1 87                   P5A1:   lda     (P0PTR),y
+(1)  322/F38F : =>FALSE                         IF (P5A1>>8) <> ((P5A1-3)>>8)
+(1)  323/F38F :                                 ERROR   "P5A's branch crosses a page"
+(1)  324/F38F : [322]                           ENDIF
+(1)  325/F38F : 85 1B                           sta     GRP0
+(1)  326/F391 : =>FALSE                         IF (*&$FF) > $BC
+(1)  327/F391 :                                 jmp     P5B
+(1)  328/F391 :                                 ALIGN   256,$EA
+(1)  329/F391 : [326]                           ENDIF
+(1)  330/F391 :                         P5B:
+(1)  331/F391 : 85 02                           sta WSYNC       ; 0
+(1)  332/F393 : B9 ?? ??                        lda MT0,y       ; 0
+(1)  333/F396 : 85 0D                           sta PF0         ; 4
+(1)  334/F398 : B9 ?? ??                        lda MT1,y       ; 7
+(1)  335/F39B : 85 0E                           sta PF1         ; 11
+(1)  336/F39D : B9 ?? ??                        lda MT2,y       ; 14
+(1)  337/F3A0 : 85 0F                           sta PF2         ; 18
+(1)  338/F3A2 : A9 06                           lda     #P1H-1          ; 21
+(1)  339/F3A4 : C7 86                           dcp     P1CNT
+(1)  340/F3A6 : B0 ??                           bcs     P5B1
+(1)  341/F3A8 : A9 00                           lda     #0
+(1)  342/F3AA : 2C                              db      $2C
+(1)  343/F3AB : B1 89                   P5B1:   lda     (P1PTR),y
+(1)  344/F3AD : =>FALSE                         IF (P5B1>>8) <> ((P5B1-3)>>8)
+(1)  345/F3AD :                                 ERROR   "P5B's branch crosses a page"
+(1)  346/F3AD : [344]                           ENDIF
+(1)  347/F3AD : 85 1C                           sta     GRP1
+(1)  348/F3AF : B9 ?? ??                        lda     MT3,y
+(1)  349/F3B2 : 85 0D                           sta     PF0
+(1)  350/F3B4 : B9 ?? ??                        lda     MT4,y
+(1)  351/F3B7 : 85 0E                           sta     PF1
+(1)  352/F3B9 : B9 ?? ??                        lda     MT5,y
+(1)  353/F3BC : 85 0F                           sta     PF2
+(1)  354/F3BE : C8                              iny
+(1)  355/F3BF : 4C ?? ??                        jmp     P6A
+(1)  356/F3C2 : =>TRUE                          IF (*&$FF) > $BC
+(1)  357/F3C2 : EA EA EA EA EA EA EA EA         ALIGN   256,$EA
+         F3CA : EA EA EA EA EA EA EA EA
+         F3D2 : EA EA EA EA EA EA EA EA
+         F3DA : EA EA EA EA EA EA EA EA
+         F3E2 : EA EA EA EA EA EA EA EA
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 12 - 11/12/2026 08:01:15 PM
+
+
+         F3EA : EA EA EA EA EA EA EA EA
+         F3F2 : EA EA EA EA EA EA EA EA
+         F3FA : EA EA EA EA EA EA      
+(1)  358/F400 : [356]                           ENDIF
+(1)  359/F400 :                         P6A:
+(1)  360/F400 : 85 02                           sta WSYNC       ; 0
+> > > rows.inc(361):14: error: symbol undefined
+(1)  361/F402 :                                 lda #C_STATIC   ; 0
+(1)  362/F402 : 85 08                           sta COLUPF      ; 2
+(1)  363/F404 : B9 ?? ??                        lda MT0,y       ; 5
+(1)  364/F407 : 85 0D                           sta PF0         ; 9
+(1)  365/F409 : B9 ?? ??                        lda MT1,y       ; 12
+(1)  366/F40C : 85 0E                           sta PF1         ; 16
+(1)  367/F40E : B9 ?? ??                        lda MT2,y       ; 19
+(1)  368/F411 : 85 0F                           sta PF2         ; 23
+(1)  369/F413 : B9 ?? ??                        lda MT3,y       ; 26
+(1)  370/F416 : 85 0D                           sta PF0         ; 30
+(1)  371/F418 : B9 ?? ??                        lda MT4,y       ; 33
+(1)  372/F41B : 85 0E                           sta PF1         ; 37
+(1)  373/F41D : BE ?? ??                        ldx MT5,y       ; 40
+(1)  374/F420 : A9 06                           lda #P0H-1      ; 44
+(1)  375/F422 : C7 85                           dcp P0CNT       ; 46
+(1)  376/F424 : 86 0F                           stx PF2         ; 51
+(1)  377/F426 : B0 ??                           bcs P6A1        ; 54
+(1)  378/F428 : A9 00                           lda     #0              ; 56
+(1)  379/F42A : 2C                              db      $2C             ; bit abs: skips the next lda
+(1)  380/F42B : B1 87                   P6A1:   lda     (P0PTR),y
+(1)  381/F42D : =>FALSE                         IF (P6A1>>8) <> ((P6A1-3)>>8)
+(1)  382/F42D :                                 ERROR   "P6A's branch crosses a page"
+(1)  383/F42D : [381]                           ENDIF
+(1)  384/F42D : 85 1B                           sta     GRP0
+(1)  385/F42F : =>FALSE                         IF (*&$FF) > $BC
+(1)  386/F42F :                                 jmp     P6B
+(1)  387/F42F :                                 ALIGN   256,$EA
+(1)  388/F42F : [385]                           ENDIF
+(1)  389/F42F :                         P6B:
+(1)  390/F42F : 85 02                           sta WSYNC       ; 0
+(1)  391/F431 : B9 ?? ??                        lda MT0,y       ; 0
+(1)  392/F434 : 85 0D                           sta PF0         ; 4
+(1)  393/F436 : B9 ?? ??                        lda MT1,y       ; 7
+(1)  394/F439 : 85 0E                           sta PF1         ; 11
+(1)  395/F43B : B9 ?? ??                        lda MT2,y       ; 14
+(1)  396/F43E : 85 0F                           sta PF2         ; 18
+(1)  397/F440 : A9 06                           lda     #P1H-1          ; 21
+(1)  398/F442 : C7 86                           dcp     P1CNT
+(1)  399/F444 : B0 ??                           bcs     P6B1
+(1)  400/F446 : A9 00                           lda     #0
+(1)  401/F448 : 2C                              db      $2C
+(1)  402/F449 : B1 89                   P6B1:   lda     (P1PTR),y
+(1)  403/F44B : =>FALSE                         IF (P6B1>>8) <> ((P6B1-3)>>8)
+(1)  404/F44B :                                 ERROR   "P6B's branch crosses a page"
+(1)  405/F44B : [403]                           ENDIF
+(1)  406/F44B : 85 1C                           sta     GRP1
+(1)  407/F44D : B9 ?? ??                        lda     MT3,y
+(1)  408/F450 : 85 0D                           sta     PF0
+(1)  409/F452 : B9 ?? ??                        lda     MT4,y
+(1)  410/F455 : 85 0E                           sta     PF1
+(1)  411/F457 : B9 ?? ??                        lda     MT5,y
+(1)  412/F45A : 85 0F                           sta     PF2
+(1)  413/F45C : C8                              iny
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(rows.inc) - Page 13 - 11/12/2026 08:01:15 PM
+
+
+(1)  414/F45D : 4C A2 F0                        jmp     SEAM0
+(1)  415/F460 :                         
+     186/F460 :                         
+     187/F460 :                         ARENADONE:
+     188/F460 : A9 00                           lda     #0
+     189/F462 : 85 1B                           sta     GRP0
+     190/F464 : 85 1C                           sta     GRP1
+     191/F466 : 2C 85 02                DFPAD:  bit     TIMINT
+     192/F469 : 10 FB                           bpl     DFPAD
+     193/F46B : 85 02                           sta     WSYNC
+     194/F46D : A9 02                           lda     #2
+     195/F46F : 85 01                           sta     VBLANK
+     196/F471 : A9 23                           lda     #OSTIM
+     197/F473 : 8D 96 02                        sta     TIM64T
+     198/F476 : 60                              rts
+     199/F477 :                         
+     200/F477 :                         ; POS0 -- player 0 to colour clock A (its HMOVE is the caller's).
+     201/F477 : 85 02                   POS0:   sta     WSYNC
+     202/F479 : 38                              sec
+     203/F47A : E9 0F                   POS1:   sbc     #15
+     204/F47C : B0 FC                           bcs     POS1
+     205/F47E : 49 07                           eor     #7
+     206/F480 : 0A                              asl     a
+     207/F481 : 0A                              asl     a
+     208/F482 : 0A                              asl     a
+     209/F483 : 0A                              asl     a
+     210/F484 : 85 20                           sta     HMP0
+     211/F486 : 85 10                           sta     RESP0
+     212/F488 : 60                              rts
+     213/F489 :                         
+     214/F489 :                                 INCLUDE "gen.inc"
+(1)    1/F489 :                         ; GENERATED by tools/a26/mkspike.py (look 1) -- do not edit.
+(1)    2/F489 : =$1                     LOOK    EQU     1
+(1)    3/F489 : =$38                    P0XPIX  EQU     56
+(1)    4/F489 : =$24                    P0TOPE  EQU     36
+(1)    5/F800 :                                 ORG     $F800
+(1)    6/F800 :                                 ORG     $F800+0
+(1)    7/F800 :                         MT0:
+(1)    8/F800 : 00 00 00 00 00 00 00 00         db      $00,$00,$00,$00,$00,$00,$00,$00,$00,$80,$80,$80,$80,$00,$00,$00
+         F808 : 00 80 80 80 80 00 00 00
+(1)    9/F810 : 00 00 00 00 00 00 00 80         db      $00,$00,$00,$00,$00,$00,$00,$80,$80,$80,$80,$00,$00,$00,$00,$00
+         F818 : 80 80 80 00 00 00 00 00
+(1)   10/F820 : 00 00 00 00 00 80 00 80         db      $00,$00,$00,$00,$00,$80,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00
+         F828 : 00 00 00 00 00 00 00 00
+(1)   11/F830 : 00 00 00 80 00 80 00 00         db      $00,$00,$00,$80,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+         F838 : 00 00 00 00 00 00 00 00
+(1)   12/F840 : 00 80 80 80 80 00 00 00         db      $00,$80,$80,$80,$80,$00,$00,$00,$00,$00,$00,$00,$00
+         F848 : 00 00 00 00 00         
+(1)   13/F880 :                                 ORG     $F800+128
+(1)   14/F880 :                         MT1:
+(1)   15/F880 : 00 10 05 38 05 10 00 00         db      $00,$10,$05,$38,$05,$10,$00,$00,$C3,$C7,$C7,$C7,$86,$00,$00,$00
+         F888 : C3 C7 C7 C7 86 00 00 00
+(1)   16/F890 : 00 00 00 00 00 00 C3 C7         db      $00,$00,$00,$00,$00,$00,$C3,$C7,$C7,$C7,$86,$00,$00,$00,$00,$00
+         F898 : C7 C7 86 00 00 00 00 00
+(1)   17/F8A0 : 00 00 00 00 00 C7 00 C7         db      $00,$00,$00,$00,$00,$C7,$00,$C7,$00,$00,$00,$02,$00,$07,$00,$02
+         F8A8 : 00 00 00 02 00 07 00 02
+(1)   18/F8B0 : 00 00 00 C7 00 C7 00 00         db      $00,$00,$00,$C7,$00,$C7,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+         F8B8 : 00 00 00 00 00 00 00 00
+(1)   19/F8C0 : C3 C7 C7 C7 86 00 00 06         db      $C3,$C7,$C7,$C7,$86,$00,$00,$06,$05,$07,$05,$06,$00
+         F8C8 : 05 07 05 06 00         
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(gen.inc) - Page 14 - 11/12/2026 08:01:15 PM
+
+
+(1)   20/F900 :                                 ORG     $F800+256
+(1)   21/F900 :                         MT2:
+(1)   22/F900 : 00 C2 28 C7 28 C2 00 00         db      $00,$C2,$28,$C7,$28,$C2,$00,$00,$33,$3D,$3F,$3D,$1B,$00,$00,$03
+         F908 : 33 3D 3F 3D 1B 00 00 03
+(1)   23/F910 : 05 07 05 03 00 00 33 3D         db      $05,$07,$05,$03,$00,$00,$33,$3D,$3F,$3D,$1B,$00,$00,$1B,$2D,$3F
+         F918 : 3F 3D 1B 00 00 1B 2D 3F
+(1)   24/F920 : 2D 1B 00 00 00 05 38 05         db      $2D,$1B,$00,$00,$00,$05,$38,$05,$00,$00,$00,$BA,$00,$FA,$00,$BA
+         F928 : 00 00 00 BA 00 FA 00 BA
+(1)   25/F930 : 00 00 00 05 38 05 00 00         db      $00,$00,$00,$05,$38,$05,$00,$00,$00,$00,$05,$38,$05,$00,$00,$00
+         F938 : 00 00 05 38 05 00 00 00
+(1)   26/F940 : 33 3D 3F 3D 1B 00 00 DB         db      $33,$3D,$3F,$3D,$1B,$00,$00,$DB,$6D,$FF,$6D,$DB,$00
+         F948 : 6D FF 6D DB 00         
+(1)   27/F980 :                                 ORG     $F800+384
+(1)   28/F980 :                         MT3:
+(1)   29/F980 : 00 10 A0 10 A0 10 00 00         db      $00,$10,$A0,$10,$A0,$10,$00,$00,$C0,$E0,$E0,$E0,$60,$00,$00,$00
+         F988 : C0 E0 E0 E0 60 00 00 00
+(1)   30/F990 : 00 00 00 00 00 00 C0 E0         db      $00,$00,$00,$00,$00,$00,$C0,$E0,$E0,$E0,$60,$00,$00,$00,$00,$00
+         F998 : E0 E0 60 00 00 00 00 00
+(1)   31/F9A0 : 00 00 00 00 00 E0 00 E0         db      $00,$00,$00,$00,$00,$E0,$00,$E0,$00,$00,$00,$00,$00,$10,$00,$00
+         F9A8 : 00 00 00 00 00 10 00 00
+(1)   32/F9B0 : 00 00 00 E0 00 E0 00 00         db      $00,$00,$00,$E0,$00,$E0,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+         F9B8 : 00 00 00 00 00 00 00 00
+(1)   33/F9C0 : C0 E0 E0 E0 60 00 00 60         db      $C0,$E0,$E0,$E0,$60,$00,$00,$60,$B0,$F0,$B0,$60,$00
+         F9C8 : B0 F0 B0 60 00         
+(1)   34/FA00 :                                 ORG     $F800+512
+(1)   35/FA00 :                         MT4:
+(1)   36/FA00 : 00 A0 14 A0 14 A0 00 00         db      $00,$A0,$14,$A0,$14,$A0,$00,$00,$CC,$BC,$FC,$BC,$D8,$00,$00,$C0
+         FA08 : CC BC FC BC D8 00 00 C0
+(1)   37/FA10 : A0 E0 A0 C0 00 00 CC BC         db      $A0,$E0,$A0,$C0,$00,$00,$CC,$BC,$FC,$BC,$D8,$00,$00,$C0,$A0,$E0
+         FA18 : FC BC D8 00 00 C0 A0 E0
+(1)   38/FA20 : A0 C0 00 00 00 BC 00 BC         db      $A0,$C0,$00,$00,$00,$BC,$00,$BC,$00,$00,$00,$00,$A0,$00,$A0,$00
+         FA28 : 00 00 00 00 A0 00 A0 00
+(1)   39/FA30 : 00 00 00 BC 00 BC 00 00         db      $00,$00,$00,$BC,$00,$BC,$00,$00,$00,$00,$A0,$00,$A0,$00,$00,$00
+         FA38 : 00 00 A0 00 A0 00 00 00
+(1)   40/FA40 : CC BC FC BC D8 00 00 D8         db      $CC,$BC,$FC,$BC,$D8,$00,$00,$D8,$B4,$FC,$B4,$D8,$00
+         FA48 : B4 FC B4 D8 00         
+(1)   41/FA80 :                                 ORG     $F800+640
+(1)   42/FA80 :                         MT5:
+(1)   43/FA80 : 00 00 00 00 00 00 00 00         db      $00,$00,$00,$00,$00,$00,$00,$00,$0C,$0E,$0E,$0E,$06,$00,$00,$00
+         FA88 : 0C 0E 0E 0E 06 00 00 00
+(1)   44/FA90 : 00 00 00 00 00 00 0C 0E         db      $00,$00,$00,$00,$00,$00,$0C,$0E,$0E,$0E,$06,$00,$00,$00,$00,$00
+         FA98 : 0E 0E 06 00 00 00 00 00
+(1)   45/FAA0 : 00 00 00 00 00 0E 00 0E         db      $00,$00,$00,$00,$00,$0E,$00,$0E,$00,$00,$00,$00,$00,$00,$00,$00
+         FAA8 : 00 00 00 00 00 00 00 00
+(1)   46/FAB0 : 00 00 00 0E 00 0E 00 00         db      $00,$00,$00,$0E,$00,$0E,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+         FAB8 : 00 00 00 00 00 00 00 00
+(1)   47/FAC0 : 0C 0E 0E 0E 06 00 00 00         db      $0C,$0E,$0E,$0E,$06,$00,$00,$00,$00,$00,$00,$00,$00
+         FAC8 : 00 00 00 00 00         
+(1)   48/FB00 :                                 ORG     $FB00
+(1)   49/FB00 :                         RCA:
+(1)   50/FB00 : 2A 2A 2A 2A 2A 2A 2A 2A         db      $2A,$2A,$2A,$2A,$2A,$2A,$2A,$2A,$2A,$2A,$2A
+         FB08 : 2A 2A 2A               
+(1)   51/FB0B :                         RCB:
+(1)   52/FB0B : 1E 2A 2A 2A 2A 1E 1E 1E         db      $1E,$2A,$2A,$2A,$2A,$1E,$1E,$1E,$1E,$2A,$2A
+         FB13 : 1E 2A 2A               
+(1)   53/FB16 :                         JROW:
+(1)   54/FB16 : 01 06 09 FF                     db      1,6,9,255
+(1)   55/FB1A :                         JX:
+(1)   56/FB1A : 7A 1D 62                        db      122,29,98
+(1)   57/FB1D :                         JCOL:
+ AS V1.42 Beta [Bld 306] - Source File spike.asm(gen.inc) - Page 15 - 11/12/2026 08:01:15 PM
+
+
+(1)   58/FB1D : 4C 9C CC                        db      $4C,$9C,$CC
+(1)   59/FB20 :                         JCNT:
+(1)   60/FB20 : 07 0A 07                        db      7,10,7
+(1)   61/FB23 :                         JTOP:
+(1)   62/FB23 : 07 2D 3F                        db      7,45,63
+(1)   63/FB80 :                                 ORG     $FB80
+(1)   64/FB80 :                         SHAPE:
+(1)   65/FB80 : 3C 7E 5A 3C 7E 24 66            db      $3C,$7E,$5A,$3C,$7E,$24,$66
+(1)   66/FB87 : =$C2                    C_FLOOR  EQU     $C2
+(1)   67/FB87 :                         
+     215/FB87 :                         
+     216/FFFC :                                 ORG     $FFFC
+     217/FFFC : 00 F0                           DW      START
+     218/FFFE : 00 F0                           DW      START
+     219/10000 :                        
+ AS V1.42 Beta [Bld 306] - Source File spike.asm - Page 16 - 11/12/2026 08:01:15 PM
+
+
+  Symbol Table (* = unused):
+  --------------------------
+
+*ARCHITECTURE :                                      "x86_64-unknown-linux" - |
+ ARENADONE :                   F460 C | *AUDC0 :                         15 - |
+*AUDC1 :                         16 - | *AUDF0 :                         17 - |
+*AUDF1 :                         18 - | *AUDV0 :                         19 - |
+*AUDV1 :                         1A - |  CA :                            83 - |
+*CASESENSITIVE :                  0 - |  CB :                            84 - |
+ CLR :                         F008 C |  COLUBK :                         9 - |
+ COLUP0 :                         6 - |  COLUP1 :                         7 - |
+ COLUPF :                         8 - | *CONSTPI :     3.141592653589793239 - |
+ CTRLPF :                         A - | *CXBLPF :                         6 - |
+*CXCLR :                         2C - | *CXM0FB :                         4 - |
+*CXM0P :                          0 - | *CXM1FB :                         5 - |
+*CXM1P :                          1 - | *CXP0FB :                         2 - |
+*CXP1FB :                         3 - | *CXPPMM :                         7 - |
+ C_FLOOR :                       C2 - | *DATE :                "11/12/2026" - |
+ DFPAD :                       F466 C |  DVBLP :                       F083 C |
+*ENABL :                         1F - | *ENAM0 :                         1D - |
+*ENAM1 :                         1E - | *FALSE :                          0 - |
+*FLOATMAX :   1.18973149535725E4932 - |  FRAME :                       F018 C |
+ FRM :                           8C - |  GRP0 :                          1B - |
+ GRP1 :                          1C - | *HAS64 :                          1 - |
+*HMBL :                          24 - |  HMCLR :                         2B - |
+*HMM0 :                          22 - | *HMM1 :                          23 - |
+ HMOVE :                         2A - |  HMP0 :                          20 - |
+ HMP1 :                          21 - | *INPT0 :                          8 - |
+*INPT1 :                          9 - | *INPT2 :                          A - |
+*INPT3 :                          B - | *INPT4 :                          C - |
+*INPT5 :                          D - | *INTIM :                        284 - |
+*INTWIDTH :                      80 - | *J0DOWN :                        20 - |
+*J0LEFT :                        40 - | *J0RIGHT :                       80 - |
+*J0UP :                          10 - |  JCNT :                        FB20 C |
+ JCOL :                        FB1D C |  JOB :                         F0C8 C |
+ JOBI :                          82 - |  JROW :                        FB16 C |
+ JTOP :                        FB23 C |  JX :                          FB1A C |
+*LISTON :                         1 - | *LOOK :                           1 - |
+*MACEXP :                         7 - |  MAIN :                        F012 C |
+ MARG :                        F09B C | *MOMCPU :                    6502DC - |
+*MOMCPUNAME :           "6502UNDOC" - |  MT0 :                         F800 C |
+ MT1 :                         F880 C |  MT2 :                         F900 C |
+ MT3 :                         F980 C |  MT4 :                         FA00 C |
+ MT5 :                         FA80 C | *NESTMAX :                      100 - |
+ NSEAM :                         81 - |  NUSIZ0 :                         4 - |
+ NUSIZ1 :                         5 - |  OSTIM :                         23 - |
+ P0A :                         F10E C |  P0A1 :                        F139 C |
+*P0B :                         F13D C |  P0B1 :                        F157 C |
+ P0CNT :                         85 - |  P0H :                            7 - |
+ P0PTR :                         87 - |  P0TOPE :                        24 - |
+ P0XPIX :                        38 - |  P1A :                         F16E C |
+ P1A1 :                        F19B C | *P1B :                         F19F C |
+ P1B1 :                        F1B9 C |  P1CNT :                         86 - |
+ P1H :                            7 - |  P1PTR :                         89 - |
+ P2A :                         F200 C |  P2A1 :                        F22B C |
+*P2B :                         F22F C |  P2B1 :                        F249 C |
+ P3A :                         F260 C |  P3A1 :                        F28D C |
+*P3B :                         F291 C |  P3B1 :                        F2AB C |
+ P4A :                         F300 C |  P4A1 :                        F32B C |
+*P4B :                         F32F C |  P4B1 :                        F349 C |
+ AS V1.42 Beta [Bld 306] - Source File spike.asm - Page 17 - 11/12/2026 08:01:15 PM
+
+
+ P5A :                         F360 C |  P5A1 :                        F38D C |
+*P5B :                         F391 C |  P5B1 :                        F3AB C |
+ P6A :                         F400 C |  P6A1 :                        F42B C |
+*P6B :                         F42F C |  P6B1 :                        F449 C |
+ PF0 :                            D - |  PF1 :                            E - |
+ PF2 :                            F - |  POS0 :                        F477 C |
+ POS1 :                        F47A C |  RCA :                         FB00 C |
+ RCB :                         FB0B C |  REFP0 :                          B - |
+ REFP1 :                          C - | *RELAXED :                        0 - |
+*RESBL :                         14 - | *RESM0 :                         12 - |
+*RESM1 :                         13 - | *RESMP0 :                        28 - |
+*RESMP1 :                        29 - |  RESP0 :                         10 - |
+ RESP1 :                         11 - |  ROW :                           80 - |
+*RSYNC :                          3 - |  SEAM0 :                       F0A2 C |
+ SEAM1 :                       F0D2 C |  SEAMGO :                      F0B5 C |
+ SHAPE :                       FB80 C |  SPOS :                        F0D5 C |
+ START :                       F000 C | *SWACNT :                       281 - |
+*SWBCNT :                       283 - | *SWCHA :                        280 - |
+*SWCHB :                        282 - | *T1024T :                       297 - |
+*TIM1T :                        294 - |  TIM64T :                       296 - |
+*TIM8T :                        295 - | *TIME :               "08:01:15 PM" - |
+ TIMINT :                       285 - |  TMP :                           8B - |
+*TRUE :                           1 - |  VBLANK :                         1 - |
+ VBTIM :                         2B - | *VDELBL :                        27 - |
+ VDELP0 :                        25 - |  VDELP1 :                        26 - |
+*VERSION :                     142F - |  VITIM :                         E3 - |
+ VSYNC :                          0 - |  WSYNC :                          2 - |
+
+    167 symbols
+     71 unused symbols
+
+ AS V1.42 Beta [Bld 306] - Source File spike.asm - Page 18 - 11/12/2026 08:01:15 PM
+
+
+  Code Pages:
+  ----------
+
+STANDARD (0 changed characters)
+
+1 code page
+
+0.00 seconds assembly time
+
+    800 lines source file
+      2 passes
+        Additional necessary passes not started due to
+        errors, listing possibly incorrect.
+      4 errors
+      0 warnings

@@ -1,0 +1,9 @@
+# the link is cut mid-game (tools/rigs/cutproxy.py): the client goes back to the title
+wait 400
+press
+wait 900
+snap playing
+wait 1200
+snap cut
+wait 2400
+snap again

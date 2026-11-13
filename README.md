@@ -13,7 +13,8 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the Bally Astrocade, with the FujiNet cartridge;
 - the ColecoVision, with the FujiNet cartridge;
 - the Atari 7800, with the FujiNet cartridge;
-- the Atari 5200, with the FujiNet cartridge.
+- the Atari 5200, with the FujiNet cartridge;
+- the Atari 2600, with the FujiNet cartridge.
 
 All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the ColecoVision's stick, the 7800's, the 5200's); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
 
@@ -51,6 +52,11 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/coleco/` | The ColecoVision client: the Adam's screen, art and sound in Z80 assembly (the console has 1K of RAM), the Astrocade's game logic and link; the cartridge's mailbox. |
 | `src/atari5200/` | The Atari 5200 client: the Atari 800's screens (`src/atari`, assembled for the 5200) on a flat 32K cart, its own crt0, analog stick and keypad, the cartridge's mailbox. |
 | `src/atari7800/` | The Atari 7800 client: cc65 and ca65 on MARIA, 160B cells (12 colours a pixel) for the arena, the bombers two 160A layers, 320A Namco text; the cartridge's mailbox. `DESIGN.md` is its spec. |
+| `src/atari2600/` | The Atari 2600 client: 6502 assembly (Macroassembler AS), a 32K FujiNet-cartridge image of fifteen 2K banks, the arena as the playfield (13 columns of 3 bits), the bomber you steer on player 0 and the others on player 1, moved between tile rows. |
+| `src/coco/` | The TRS-80 Color Computer clients' shared half: CMOC, the bank loader (all-RAM mode, the disk read by DSKCON), the IRQ clock and keyboard, the stick, the DAC sound (CoCo 1/2), the DriveWire link (`dw_call`). |
+| `src/coco2/` | The CoCo 1/2 screens: PMODE 4 artifact colour, tiles and bombers blitted by 6809 assembly. |
+| `src/coco3/` | The CoCo 3 screens: the GIME's 320x192 in 16 colours (the Adam's art), the timer-driven two-voice sound. |
+| `src/nes/` | The Nintendo NES client: cc65 on an MMC3 image for the FujiNet NES cartridge, a name table of 8x8 cells at 2 bits a pixel with the status bar split by the scanline interrupt, two 8x16 sprites a bomber, the APU, the cartridge's mailbox. |
 | `docs/PROTOCOL.md` | The wire protocol and the state layout. |
 | `tools/` | The art converter and the emulator rigs. |
 
@@ -103,6 +109,14 @@ make atari7800          # r2r/atari7800/fujiblst.a78
 
 ```
 make atari5200          # r2r/atari5200/fujiblst.a52 (the lib: tools/atari5200/mkfnlib.sh ~/Workspace/fnlib-5200 build/fnlib-a52, outside defoogi)
+```
+
+```
+make coco              # r2r/coco/fujiblst.dsk: the CoCo 1/2 and the CoCo 3 builds on one disk (make coco TEST=1 keeps the test scenes in)
+```
+
+```
+make nes               # r2r/nes/fujiblst.nes (the lib: tools/nes/mkfnlib.sh ~/Workspace/fujinet-lib-experimental build/fnlib-nes, its add-nes branch)
 ```
 
 `make intv` builds IntyBASIC 1.5 from `~/Workspace/IntyBASIC` (`IB_SRC`) and needs `as1600` on the PATH. The art is `gfx/intv/*.png` (drawn by `tools/drawart_intv.py`, converted by `tools/mkgfx_intv.py`); the sounds are the Mockingboard's tables (`tools/mksnd_intv.py`).
@@ -262,6 +276,41 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 - **Sound:** POKEY, the Atari's tunes (two voices from the VBI; the serial clock's voices are free here).
 - **Network:** the cartridge's mailbox driven by hand (`src/atari5200/nstrans.c`: `fn_regwr` and `fn_tx` make the hotspot reads), under the 7800's COBS frame layer.
 - **Speed:** in MAME, against three bots, one pass of the game loop a frame.
+
+## The Atari 2600
+
+- **Machine:** an Atari 2600 (NTSC; `PAL=1 make atari2600` builds the PAL image: 312 lines, the 192-line picture centred) with the FujiNet cartridge, 128 bytes of RAM and no firmware change: only the blits the cartridge has (text, POKE, PATHPOKE). The image is 32K: fifteen 2K banks and the fixed half.
+- **Controls:** joystick in port 1. Left, right, up, down walk; fire drops a bomb (or, with the glove, throws the one underfoot); walking into a bomb with the boots kicks it. RESET starts over (the socket is closed, the name takes the seat back). In the waiting room the host sets the rounds with left and right and starts with fire. With no appkeys, up/down turn the name wheel (fire adds a letter, left deletes, right is done) and a room list picks the table.
+- **Screen:** the arena is the playfield, 13 columns of 3 bits (39 of the 40 playfield bits) and 11 rows of 14 lines; a row that holds a flame, bomb or power-up draws its pillars and bricks on every other entry in orange and the rest in its own colour. Your bomber is player 0 and never flickers; the other three share player 1, which is repositioned at a tile row's seam (a bomber whose window overlaps the previous one's is dropped that frame). The HUD is the cartridge's text: the timer and a trophy count a seat. The menus and the waiting room are the cartridge's text rows with a colour a row.
+- **Sound:** one TIA voice, a step a frame: countdown beeps, GO, drop, boom, death, pick-up, round and game jingles.
+- **Network:** the FujiNet's TCP socket. A hop a frame in the overscan (the walker, the link, the decoder), a compose unit in the vblank. The state is not kept: the map lives in the cartridge's planes (a row of 13 bytes in the free bytes after the playfield tables), the bits the screens need in zero page, everything else of the 247 bytes is dropped as it arrives. The decoder (COBS, the Fletcher sums) applies patches as they come, the map through a path buffer and one PATHPOKE a run; a bad frame asks for the whole state (`R`).
+- **Zero page:** 118 bytes, about 89 persistent; the rest is a pool that the kernel's cells, player 1's job list and every hop's scratch share (`src/atari2600/fbdefs.inc` is the map and its rules).
+- **Speed:** every frame is 262 lines (312 on PAL) except while the compose unit and a three-bomber seam overrun the vblank (a few percent of frames, 1-5 lines over). Walking is `src/move.c` exactly (checked against `internal/game/move.go`: 599 frames, no differences).
+- **Not done:** the name and room are not written back to the appkeys; PAL's colours are NTSC's; hardware and the Go 2600 desktop are untested.
+
+## The TRS-80 Color Computer
+
+One disk, two programs: `AUTOEXEC.BAS` (HDB-DOS runs it) loads `FUJIBL3.BIN` on a CoCo 3 (its IRQ vector at `$FFF8` reads `$FE`) and `FUJIBLST.BIN` on a CoCo 1 or 2. CMOC 0.1.100 (`-O1`), the build from M.U.L.E.'s CoCo client: `tools/coco/lwasm-sect` puts a module's code in a section named by `FB_SECT`, `tools/coco/lwlink-fb.py` links with `src/coco/fujiblst.link` (or `fujiblst3.link`) and splits the result into what BASIC LOADMs (the low core) and what `bank.c` reads (the high core and the art). `bank_init` switches a CoCo 1/2 into all-RAM mode (the Disk ROM copied under itself, for DriveWire) and reads the rest by DSKCON, a few tries a file.
+
+- **The CoCo 1/2** (64K, 0.9 MHz): PMODE 4 artifact colour, 128 colour pixels by 192 lines at `$0E00`, a pixel 2 bits, 4 a byte: the Atari's cell (4 clocks by 8 lines) a byte, so its art is used as it is, a tile 8 pixels (2 bytes) by 16 lines. Black, blue, orange and white (`CLEAR` swaps blue and orange, the start-up question asks which is which); the floor is black; the bombers are white, orange, blue and stripes. Text is 32 columns (the Atari's less 2 at each side), the 3-pixel font; BIG rows show 16 of their 20 characters; the HUD, whose 20 have to show, is drawn in the 5-pixel font 6 pixels apart. The arena is bytes 5-30 on lines 12-187, the powerups' counts in bytes 0-3. A bomber is composited over the tiles under it (`src/coco2/gfxa.asm`: roles through a 256-byte table a seat); where it was, the tiles are blitted again, and the bombers over them.
+- **The CoCo 3** (128K, run at 1.79 MHz): the GIME's 320x192 in 16 colours, the Adam's art pixel for pixel in a palette of 16 of the 64 colours (RGB or composite, asked at start-up, `CLEAR` switches). The horizontal virtual screen puts the lines 256 bytes apart, so each 8K block of the MMU holds 32 whole lines (the screen is blocks 0-5; the arena's tiles start at line 16, so a tile row is in one block; a bomber on a block's edge is drawn in two parts) and drawing maps a block at `$C000` and puts the Disk ROM back after. The art is in blocks 6 (bombers, font) and 7 (tiles), at `$E000`. The layout is the Atari's: 40 cells of 8 pixels, the HUD two lines of text high; there is no bottom wall (the border is the wall's colour).
+- **Sound:** the 6-bit DAC, the Atari's effects and jingles as steps of a tone or noise. The CoCo 1/2 has no timer, so the CPU makes the wave a slice of a jiffy at a time (2400 cycles in the arena, 9000 on the menus) and the volume falls a step a jiffy. The CoCo 3 plays them from the GIME's timer IRQ (about 4400 Hz) mixing two voices, effects and jingles, with the envelopes stepped once a jiffy; the timer's IRQ is on only while something sounds. The joystick reads change the DAC and the mux too, so they hold the sound off (`snd_gate`).
+- **Controls:** the arrows (or the right stick) walk, SPACE (or the button) is fire, ENTER starts and finishes, `BREAK` leaves the table (at the title, a cold start: the lobby), `M` or SHIFT-CLEAR turns the sound off and on, `CLEAR` the colours.
+- **Network:** an N: TCP socket over DriveWire, each call one write and one read (`dw_call`: the FujiNet answers its commands in order and keeps a reply until asked, so a command and the fetch of its reply go together), under the Apple II's COBS frame layer. The DriveWire ROM masks interrupts while it talks, so jiffies can go uncounted: the server's round timer puts them back (`clock_check`, as on the Apple II).
+- **Speed:** in MAME, the four-walker scene draws 13 passes a second on a CoCo 1/2 and 27 on a CoCo 3 (the logic goes on at 60 Hz either way).
+- **Not done:** the real machines (the artifact phase, the DriveWire timing and the DAC sound are untested on hardware; MAME's audio capture only records the CoCo 3's sound).
+
+## The Nintendo Entertainment System
+
+An MMC3 image (mapper 4, 128K PRG, 16K CHR-RAM, 8K WRAM) that the FujiNet NES cartridge's CONFIG boots: cc65 (`make nes`, `src/nes/fujiblst-nes.cfg`). Art: `tools/drawart_nes.py` draws `gfx/nes/*.png` (indexed: pixel = 4 x palette + slot, so the converter reads the palette straight from the file) and checks mock screens against the 2C02's rules; `tools/mkgfx_nes.py` writes `gen/nes/` (CHR sets, name table cells, palettes).
+
+- **Screen:** a name table of 8x8 cells at 2 bits a pixel, one palette to each 16x16 attribute block. A tile is 4 cells and owns its block, so each picks one of 4 palettes (the arena: stone, brick, fire, items); text is the Namco font in slot 1 of the palette its block has (the seat's colour). All the cells of the arena set (font, wall, every frame of every tile) fit one 4K pattern table, so the tiles' animation is name table writes (`anim_step`), no pattern is rewritten. The menus have their own set (font, logo, trophy). A bomber is two 8x16 sprites in its seat's palette (left frames are the right ones flipped): four abreast fill the 8 sprites a line.
+- **The status bar** is black over the floor's green: the backdrop colour is one for the whole picture, so the MMC3's scanline interrupt writes it again at line 32 (`src/nes/crt0.s`: rendering off at dot ~150, the new colour in the hblank, the video address parked on a black palette entry, a line on set to row 4 and rendering on). Rows 0-3 are blank cells, so only the backdrop shows there.
+- **Drawing** goes through a queue the NMI drains in the blank (about 88 bytes a frame); a whole screen is drawn with rendering off (`ppu_direct`). The NMI also counts the frames (60.000 Hz: one in 608 is not counted) and sends the sprites (`oam_lock` while the game writes them).
+- **Controls:** pad = walk, A = fire (again on your own bomb: throw), B = rub out, START = RETURN, SELECT = ESC (at the title: quit), START + SELECT = sound. Name entry is the wheel.
+- **Memory:** the fixed bank has the engine and the arena; R7 (`CODE2`, `$A000`) the menus, the screens, the link's glue and the sound; bank 0 (`$8000`, left there) the art and then `main` and the test scenes (`CODE0`). `tools/nes/checkrom.py` fails the build on the claim, the vectors and a read-modify-write of the mailbox.
+- **Link:** `src/nes/nstrans.c` is the 5200's on the NES mailbox ($5000-$57FF, plain stores), never waited on.
+- Colours are MesenCE's 2C02 palette (what FujiNet Go NES shows). Option A (black visor, white eyes) is the bomber's look; `OPTION` in `drawart_nes.py` picks another.
 
 ## Testing
 
@@ -423,4 +472,40 @@ COLSIM_WAV=FILE.wav python3 tools/coleco/colsim.py SCENARIO OUTDIR ...
 - `colrig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled; `EXTRA` runs a proxy (`tools/rigs/dropproxy.py`, `cutproxy.py`) between them. `NAME=` and `ROOM=` empty play the lobby-less path. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `coleco/build/config.bin`) and the image from the SD as `fujiblst.col`; its fujinet-pc must know `.col` images (`FNPC=~/Workspace/fn-coleco-board/build/dist`: the shared rs232 build's mount stalls at LOADING 0).
 - The counters `NBAD` (bad frames) and `PDBG` (our walker's jiffies) are for peeking.
 
+For the Atari 2600:
 
+```
+tools/a26/build.sh                     # build/a26/fujiblst.bin (PAL=1: build/a26-pal)
+python3 tools/a26/mkzp.py build/a26/netdec.lst build/a26/zp.lua
+tools/a26rig/rig.sh OUTDIR SECS        # live: server, bots, fujinet-pc and MAME
+LUA=frames tools/a26rig/rig.sh OUTDIR SECS     # every frame 262 lines (A26_LINES=312, MACHINE=a2600p, ROM=build/a26-pal/fujiblst.bin: PAL)
+LUA=parity tools/a26rig/rig.sh OUTDIR SECS     # a walk's trace, to replay through internal/game's Walker
+tools/a26/spike.sh [LOOK]              # the arena kernel on its own (a plain 4K ROM)
+```
+
+- `rig.sh` is the Arcadia's: a private network namespace with `fujiblastd`, bots, fujinet-pc (RS232 build) on BoIP and MAME's `a2600 -cartslot fujinet`. `NAME=` / `ROOM=` empty tests the name wheel and the room list; `ROOM=tcp://127.0.0.1:9911/?table=dev1` with `EXTRA="python3 tools/rigs/cutproxy.py 9911 9910 14"` (or `dropproxy.py`) cuts the link or loses the HELLO.
+- `tools/a26sim/live.lua` takes snapshots (`A26_SNAPS=5,10`), logs zero-page cells (`A26_SHOW=PHASE,BX+1`), holds inputs (`A26_KEYS="12:left:50"`) and dumps the map from the planes (`A26_MAP=1`); `SNDOPT="-sound sdl -wavwrite f.wav"` records the sound.
+- `tools/a26/checkrom.py` is the cartridge tree's with the two opcode lengths its table lacks (CPX/CPY zero page, DCP).
+
+For the CoCo (MAME's `coco2b`, `MACHINE=coco3` for the CoCo 3; the build needs `make coco TEST=1` for the offline scenes):
+
+```
+python3 tools/cocosim/cocosim.py r2r/coco/fujiblst.dsk build/fujiblst-coco.map tools/cocosim/scenes/arena.txt OUT
+MACHINE=coco3 python3 tools/cocosim/cocosim.py r2r/coco/fujiblst.dsk build/fujiblst-coco3.map SCENARIO OUT
+tools/cocosim/rig.sh tools/cocosim/scenes/live.txt OUT       # live: server, bots, fujinet-pc-coco on the Becker port, MAME (MACHINE=coco3 COCO_BIOS=hdbdw3bc3)
+python3 tools/cocosim/prof.py build/fujiblst-coco.map OUT/prof.trace    # instructions by function from a trace step
+```
+
+- `cocosim.py` is `a2sim.py` for MAME's CoCo: it boots the disk, types `RUN"AUTOEXEC"`, and plays the scenario (`test` scenes through the test hook, `boot` to start at once, `mame N` to wait for MAME's frame N, `snap`, `peek`, `dump`, `trace`, `buzz`). MAME 0.289 wants the VDG's and the GIME's character ROMs, which its ROM set lacks: the rig supplies blank ones. `COCO_MONITOR=0` is the composite monitor, `COCOWAV=file` records the sound.
+- `scenes/bench4.txt` is the four-walker timing scene (`renders` after each wait). `make coco3` alone does not refresh `r2r/coco/fujiblst.dsk`: the disk depends on the CoCo 3 files, so use `make coco`.
+
+For the NES (MAME's `nes` with the FujiNet cartridge's slot; MesenCE is what FujiNet Go NES runs; `make nes TEST_SCENE=n` builds an offline scene in, as everywhere):
+
+```
+python3 tools/nessim/nessim.py r2r/nes/fujiblst.nes build/fujiblst-nes.map SCENARIO OUT      # MAME: wait, snap, hold, press, key, peek, ppuwatch; NESWAV=file records the sound
+python3 tools/nessim/mesensim.py r2r/nes/fujiblst.nes build/fujiblst-nes.map SCENARIO OUT    # MesenCE (the 2C02's OAM corruption, the status bar's split)
+tools/nessim/rig.sh tools/nessim/scenes/game.txt OUT         # live: server, bots, fujinet-pc-rs232 on BoIP 9987, MAME throttled
+```
+
+- `nessim.py` and `mesensim.py` are M.U.L.E.'s (tools/nessim): the `test` scene command is not used here, the scene is the build's `TEST_SCENE`. The scenes in `tools/nessim/scenes`: `game.txt` (a live game, with `nes_passes` / `nes_skip` for the draw rate: 600 passes a 600 frames, about a third made up without drawing), `cut.txt` (`ROOM=tcp://127.0.0.1:9911/?table=dev1 EXTRA="python3 tools/rigs/cutproxy.py 9911 9910 62"`: the seat is back in 3 s), `nolobby.txt` (`NAME= ROOM=`: the name wheel), `sound.txt` (`snd_calls`, `snd_notes`).
+- Checked: the status bar's split is black through line 31 and the arena exact from line 32 in both emulators, 120 frames in a row; the first versions had a white line at the split in MAME and one wrong fine-Y bit (`$2006`'s high byte can't set bit 14, so rendering resumes on a row's first line).

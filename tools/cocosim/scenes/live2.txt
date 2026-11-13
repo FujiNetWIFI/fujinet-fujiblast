@@ -1,0 +1,15 @@
+# a live run, measuring: sit down, play, count the passes that drew
+boot
+wait 1500
+press
+wait 1500
+peek renders 2
+wait 600
+peek renders 2
+snap p1
+hold r
+wait 90
+hold d
+wait 90
+hold none
+snap p2

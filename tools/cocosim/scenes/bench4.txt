@@ -1,0 +1,8 @@
+# the four-walker timing scene (src/test.c scene 5): redraws a second =
+# (renders after the second wait - after the first) / 10
+test 5
+wait 300
+snap bench
+peek renders 2
+wait 600
+peek renders 2

@@ -49,6 +49,7 @@ class Image:
             rows.append(line)
             prev = line
         self.px = []
+        self.idx = [list(line[:self.width]) for line in rows] if ctype == 3 else None
         for line in rows:
             out = []
             for x in range(self.width):

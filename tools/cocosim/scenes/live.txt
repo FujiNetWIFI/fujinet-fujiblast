@@ -1,0 +1,18 @@
+# a live run: boot from the FujiNet's disk, sit down at the table, play a while
+boot
+wait 1500
+press
+wait 600
+snap w1
+wait 600
+snap w2
+hold r
+wait 90
+hold d
+wait 90
+hold none
+press
+wait 120
+snap p1
+wait 300
+snap p2

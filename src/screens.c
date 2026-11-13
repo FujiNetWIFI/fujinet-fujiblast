@@ -12,6 +12,9 @@
 #include "plat.h"
 #include "sound.h"
 
+#ifndef HOST_COL
+#define HOST_COL 14             /* where a seat's "HOST" goes (a BIG row's column) */
+#endif
 #ifndef HINT_LR
 #define HINT_LR "(LEFT/RIGHT)"
 #endif
@@ -85,7 +88,7 @@ void wait_state(void)
             b[NAME_LEN] = 0;
             gfx_text(SEAT_ROW(s), 4, b, 0);
             if (s == host)
-                gfx_text(SEAT_ROW(s), 14, "HOST", 0);
+                gfx_text(SEAT_ROW(s), HOST_COL, "HOST", 0);
             spr_at(s, 8, SEAT_ROW(s) * 8, FR_DOWN0, s, 0);
         } else {
             gfx_text(SEAT_ROW(s), 4, "--------", 0);

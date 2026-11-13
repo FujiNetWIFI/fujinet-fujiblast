@@ -29,6 +29,9 @@ uint8_t table_list(void)
 #ifndef NAME_HELP
 #define NAME_HELP "LETTERS AND DIGITS, THEN " KEY_END_NAME
 #endif
+#ifndef NAME_PROMPT
+#define NAME_PROMPT "WHAT IS YOUR NAME?"
+#endif
 #ifndef TITLE_Y
 #define TITLE_Y(n) 96           /* the title's bombers walk along one line */
 #endif
@@ -80,7 +83,7 @@ void name_entry(void)
     char b[2];
     gfx_begin();
     gfx_row(6, ROW_BIG, PAL_MENU);
-    centre(6, "WHAT IS YOUR NAME?", 0, 20);
+    centre(6, NAME_PROMPT, 0, 20);
     gfx_row(10, ROW_BIG, PAL_MENU);
     centre(14, NAME_HELP, 0, 40);
     gfx_show();
@@ -120,7 +123,7 @@ void name_entry(void)
     char c;
     gfx_begin();
     gfx_row(6, ROW_BIG, PAL_MENU);
-    centre(6, "WHAT IS YOUR NAME?", 0, 20);
+    centre(6, NAME_PROMPT, 0, 20);
     gfx_row(10, ROW_BIG, PAL_MENU);
     centre(14, NAME_HELP, 0, 40);
     gfx_show();

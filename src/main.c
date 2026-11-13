@@ -14,6 +14,10 @@
 
 #define JOIN_WAIT 600           /* frames for the first state before giving up */
 
+#ifndef MSG_NO
+#define MSG_NO "THE SERVER SAID NO"
+#endif
+
 enum { S_NONE, S_WAIT, S_ARENA, S_ROUND, S_GAME };
 
 uint8_t my_seat = NONE;
@@ -64,7 +68,7 @@ static uint8_t play_table(void)
         r = net_poll();
         if (r == NET_ERROR) {
             net_close();
-            message("THE SERVER SAID NO", net_err == ERR_VERSION ? "UPDATE FUJIBLAST" : "NO SUCH ROOM", 0);
+            message(MSG_NO, net_err == ERR_VERSION ? "UPDATE FUJIBLAST" : "NO SUCH ROOM", 0);
             return 0;
         }
         if (r == NET_LOST) {

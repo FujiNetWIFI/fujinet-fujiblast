@@ -8,10 +8,13 @@
 #   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
 #   make o2                        r2r/o2/fujiblst.bin (Odyssey 2 / Videopac, the FujiNet cartridge)
 #   make arcadia                   r2r/arcadia/fujiblst.bin (Emerson Arcadia 2001, the FujiNet cartridge)
+#   make atari2600                 r2r/atari2600/fujiblst.bin (Atari 2600, the FujiNet cartridge; PAL=1 for PAL)
 #   make astrocade                 r2r/astrocade/fujiblst.bin (Bally Astrocade, the FujiNet cartridge)
 #   make coleco                    r2r/coleco/fujiblst.col (ColecoVision, the FujiNet cartridge)
 #   make atari7800                 r2r/atari7800/fujiblst.a78 (Atari 7800, the FujiNet cartridge; MARIA 160B)
 #   make atari5200                 r2r/atari5200/fujiblst.a52 (Atari 5200, the FujiNet cartridge; the 800's screens)
+#   make nes                       r2r/nes/fujiblst.nes (NES, the FujiNet NES cartridge; 2 bits a pixel, a status bar split)
+#   make coco                      r2r/coco/fujiblst.dsk (TRS-80 CoCo 1/2 artifact colour and CoCo 3 16 colours, one disk)
 #   defoogi make atari             the same in the toolchain container
 #   make SERVER=host:9910          server used when the lobby gave none (remembered)
 #   make server                    server/fujiblastd and server/blastbot (Go)
@@ -22,7 +25,7 @@
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
 
 PRODUCT = fujiblst
-PLATFORMS = atari apple2 msdos adam msxrom atari7800 atari5200
+PLATFORMS = atari apple2 msdos adam msxrom atari7800 atari5200 nes coco
 
 # the TMS9918A code (src/tms9918) is the Adam's and the MSX's
 PLATFORM_COMBOS = adam+=tms9918 msxrom+=tms9918,msx
@@ -109,6 +112,105 @@ msdos/disk-post::
 	printf '@ECHO OFF\r\nFUJIBLST\r\n' > build/autoexec.bat
 	mcopy -o -i $(DISK) build/autoexec.bat "::AUTOEXEC.BAT"
 
+# ---- TRS-80 Color Computer: CoCo 1/2 (64K, PMODE 4 artifact colour) --------
+# CMOC, from M.U.L.E.'s CoCo client. 64K, all-RAM once running
+# (src/coco/bank.c). CMOC has no section pragma: tools/coco/lwasm-sect moves
+# a module's code and constants to the section named by FB_SECT, and
+# tools/coco/lwlink-fb.py links with src/coco/fujiblst.link and splits the
+# result into fujiblst.bin (LOADM'd) and fujiblhi.bin (the high core and the
+# art, loaded by bank.c). AUTOEXEC.BAS picks the CoCo 3 build on a CoCo 3.
+COCO_TOOLS = $(CURDIR)/tools/coco
+# -O1: CMOC 0.1.100's -O2 drops index reloads (a[i]; b[i]; read b[a[i]])
+CFLAGS_EXTRA_COCO += -O1 -funsigned-char -fomit-frame-pointer -Wno-const \
+                     --lwasm=$(COCO_TOOLS)/lwasm-sect
+ASFLAGS_EXTRA_COCO += --lwasm=$(COCO_TOOLS)/lwasm-sect
+LDFLAGS_EXTRA_COCO += --lwlink=$(COCO_TOOLS)/lwlink-fb.py --initial-s=8000
+CFLAGS_EXTRA_COCO += -DKEY_END_NAME='"ENTER"' -DQUIT_HINT='"BREAK: LOBBY"'
+# (32 columns where the Atari has 40, a BIG row shows 16 of its 20: the longer texts are shortened;
+# the CoCo 3's are the Atari's)
+ifeq ($(PLATFORM),coco)
+  CFLAGS_EXTRA_COCO += -DHOST_COL=12 -DHINT_LR='"(L/R)"' -DTAGLINE='"BOMBS AND BLASTS FOR 2-4"' \
+                       -DNAME_HELP='"LETTERS, DIGITS, THEN ENTER"' -DNAME_PROMPT='"YOUR NAME?"' -DMSG_NO='"SERVER SAID NO"'
+endif
+EXTRA_INCLUDE_COCO += src/coco/include src/coco gen/coco
+# the test scenes (src/test.c, tools/cocosim) take 1.8K the low core hasn't: make coco TEST=1
+ifneq ($(TEST),1)
+  CFLAGS_EXTRA_COCO += -DPLAT_NO_TEST
+endif
+EXECUTABLE_EXTRA_DEPS_COCO += src/coco/fujiblst.link $(COCO_TOOLS)/lwlink-fb.py
+DECB ?= $(firstword $(wildcard $(HOME)/Workspace/toolshed/build/unix/decb/decb) decb)
+ifeq ($(PLATFORM),coco)
+  SRC_DIRS = src src/coco src/coco2 gen/coco
+  DISK_TOOL := $(DECB)
+  # the disk carries the CoCo 3 build too (the second pass, run first)
+  DISK_EXTRA_DEPS += $(foreach s,.bin hi.bin a.bin b.bin,r2r/coco3/$(PRODUCT)$(s))
+endif
+ifneq ($(TEST_SCENE),)
+  CFLAGS_EXTRA_COCO += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+endif
+
+COOBJ = build/$(PRODUCT)/coco
+# The low core (BASIC loads it: $2600-$7BFF) holds the program; the graphics
+# engine and its art, and the arena (play.c), go in the high core, which
+# bank_init reads; the bombers' art in the room above.
+$(COOBJ)/src/coco2/gfx.o $(COOBJ)/src/coco2/gfxa.o $(COOBJ)/gen/coco/gfxdata.o $(COOBJ)/src/play.o: export FB_SECT = hi
+$(COOBJ)/gen/coco/gfxspr.o:                     export FB_SECT = art
+
+# The loader: HDB-DOS runs AUTOEXEC.BAS, which LOADMs the low core. BASIC
+# programs start at $2601, where FUJIBLST.BIN goes: PCLEAR1 moves this one
+# down out of the way first. A CoCo 3 (its IRQ vector is $FEF7, so $FFF8
+# reads $FE) gets the CoCo 3 build, on the same disk.
+coco/disk-post::
+	printf '10 PCLEAR1:IF PEEK(&HFFF8)=&HFE THEN LOADM"FUJIBL3":EXEC\n20 LOADM"FUJIBLST":EXEC\n' > build/autoexec.bas
+	$(DECB) copy -0 -a -l -r build/autoexec.bas $(DISK),AUTOEXEC.BAS
+	$(DECB) copy -b -2 -r r2r/coco/$(PRODUCT)hi.bin $(DISK),FUJIBLHI.BIN
+	$(call coco3-files,$(DISK))
+
+# ---- CoCo 3 (GIME 320x192, 16 colours) ---------------------------------------
+# The CoCo sources again with -DCOCO3 (gfx3.c for gfx.c). tools/coco/coco3.mk
+# is platforms/coco.mk renamed, for separate build/ and r2r/ directories.
+# `make coco` also puts FUJIBL3*.BIN on the CoCo disk; `make coco3` makes a
+# CoCo 3-only disk.
+ifeq ($(PLATFORM),coco3)
+  SRC_DIRS = src src/coco src/coco3 gen/coco3
+  # fujinet-lib's coco build, found the way the coco pass finds it
+  # (common.mk would look for a coco3 one)
+  FNLIB_COCO3 := $(FUJINET_LIB)
+  FUJINET_LIB := __UNDEFINED__
+  define _nl
+
+
+  endef
+  $(eval $(subst |,$(_nl),$(shell PLATFORM=coco CACHE_DIR=_cache $(CURDIR)/mekkogx/fnlib.py $(FNLIB_COCO3) | tr '\n' '|')))
+  DISK_TOOL := $(DECB)
+  DISK_EXECUTABLES =
+  DISK_EXTRA_DEPS += $(EXECUTABLE)
+  export FB_LINK = coco3
+endif
+CFLAGS_EXTRA_COCO3 += $(CFLAGS_EXTRA_COCO) -DCOCO3 -DUSING_FUJINET_LIB=1
+ASFLAGS_EXTRA_COCO3 += $(ASFLAGS_EXTRA_COCO)
+LDFLAGS_EXTRA_COCO3 += $(LDFLAGS_EXTRA_COCO)
+EXTRA_INCLUDE_COCO3 += src/coco/include src/coco gen/coco3
+EXECUTABLE_EXTRA_DEPS_COCO3 += $(EXECUTABLE_EXTRA_DEPS_COCO) src/coco/fujiblst3.link
+
+C3OBJ = build/$(PRODUCT)/coco3
+$(C3OBJ)/src/coco3/gfx3.o $(C3OBJ)/src/coco3/gfx3a.o $(C3OBJ)/gen/coco3/gfxdata.o $(C3OBJ)/src/play.o: export FB_SECT = hi
+# block 6 (sprites, font) and block 7 (tiles) of the MMU, loaded by bank.c
+$(C3OBJ)/gen/coco3/gfxspr.o:                    export FB_SECT = art
+$(C3OBJ)/gen/coco3/gfxtile.o:                   export FB_SECT = art2
+
+# The CoCo 3 files, on its own disk and on the CoCo's.
+define coco3-files
+	$(DECB) copy -b -2 -r r2r/coco3/$(PRODUCT).bin $(1),FUJIBL3.BIN
+	$(DECB) copy -b -2 -r r2r/coco3/$(PRODUCT)hi.bin $(1),FUJIBL3H.BIN
+	$(DECB) copy -b -2 -r r2r/coco3/$(PRODUCT)a.bin $(1),FUJIBL3A.BIN
+	$(DECB) copy -b -2 -r r2r/coco3/$(PRODUCT)b.bin $(1),FUJIBL3B.BIN
+endef
+coco3/disk-post::
+	printf '10 PCLEAR1:LOADM"FUJIBL3":EXEC\n' > build/autoexec3.bas
+	$(DECB) copy -0 -a -l -r build/autoexec3.bas $(DISK),AUTOEXEC.BAS
+	$(call coco3-files,$(DISK))
+
 # ---- Coleco Adam (the TMS9918A) ---------------------------------------------
 # z88dk's zcc with zsdcc, from the defoogi container unless installed
 # (tools/z80/z88dk). fujinet-lib is fujinet-lib-experimental built with
@@ -145,7 +247,7 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari5200 gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig astrocade astrocade-rig coleco coleco-rig FORCE
+.PHONY: gen-atari5200 gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig atari2600 atari2600-rig astrocade astrocade-rig coleco coleco-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -171,6 +273,16 @@ arcadia:
 
 arcadia-rig:
 	DEFSRV=127.0.0.1:9910 OUT=build/arcadia-rig/obj R2R=build/arcadia-rig src/arcadia/build.sh
+
+# 6502 assembly (Macroassembler AS), not cc65: tools/a26/build.sh builds the
+# 32K FujiNet-cart image (fifteen 2K banks + the fixed half) and runs its
+# checks. atari2600-rig: a copy whose default server is the rig's.
+atari2600:
+	$(if $(SERVER),DEFSRV=$(SERVER)) tools/a26/build.sh
+	mkdir -p r2r/atari2600 && cp build/a26$(if $(PAL),-pal)/fujiblst.bin r2r/atari2600/fujiblst.bin
+
+atari2600-rig:
+	DEFSRV=127.0.0.1:9910 tools/a26/build.sh
 
 # ---- Bally Astrocade (the FujiNet cartridge) ---------------------------------
 # Z80 assembly (zmac 1.3), not mekkogx: src/astrocade/build.sh builds the
@@ -308,7 +420,73 @@ gen/atari5200/gfxdata.s: tools/mkgfx_atari.py tools/artlayout.py tools/png.py gf
 	@mkdir -p gen/atari5200
 	$(PYTHON) tools/mkgfx_atari.py gen/atari5200
 
+# ---- NES (the FujiNet NES cartridge) -------------------------------------------
+# cc65, an MMC3 image (.nes) the NES CONFIG boots: 128K PRG, 16K CHR-RAM, 8K
+# WRAM (src/nes/fujiblst-nes.cfg). The screen is a name table of 8x8 cells at
+# 2 bits a pixel, a 16x16 tile one attribute block (tools/drawart_nes.py has
+# the art and the rules, tools/mkgfx_nes.py turns it into gen/nes). The
+# backdrop is black for the status bar and green below it: the MMC3's
+# scanline interrupt writes it again (src/nes/crt0.s). fujinet-lib is
+# fujinet-lib-experimental's nes target (tools/nes/mkfnlib.sh); the link to
+# the server is the cartridge's mailbox, driven by hand (src/nes/nstrans.c).
+# TEST_SCENE as everywhere.
+FNLIB_NES ?= $(HOME)/Workspace/fujinet-lib-experimental
+ifeq ($(PLATFORM),nes)
+  FUJINET_LIB := __UNDEFINED__
+  LIBS += build/fnlib-nes/fujinet-nes.lib
+  EXTRA_INCLUDE += gen/nes src/tms9918 build/fnlib-nes/include
+endif
+CFLAGS_EXTRA_NES += -Os -Cl -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"START"' -DQUIT_HINT='"SELECT: QUIT"' \
+                    -DTAGLINE='"BOMBS AND BLASTS FOR 2-4"' -DHINT_LR='"(L/R)"' \
+                    -DNAME_HELP='"UP/DOWN: LETTER  A: ADD  >: DONE"'
+CFLAGS_EXTRA_NES += $(DBG)
+LDFLAGS_EXTRA_NES += -C src/nes/fujiblst-nes.cfg -m build/fujiblst-nes.map
+EXECUTABLE_EXTRA_DEPS_NES += src/nes/fujiblst-nes.cfg build/fnlib-nes/fujinet-nes.lib gen/nes/gfxdata.c
+ifneq ($(TEST_SCENE),)
+  CFLAGS_EXTRA_NES += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+endif
+
+# R7's bank ($A000, never switched out) takes the menus, the screens, the
+# link's glue and the sound: the fixed bank has the engine, the arena and the
+# interrupts
+NESOBJ = build/$(PRODUCT)/nes
+$(NESOBJ)/src/menus.o $(NESOBJ)/src/screens.o $(NESOBJ)/src/appkey.o $(NESOBJ)/src/net.o $(NESOBJ)/src/nes/sound.o: CFLAGS += --code-name CODE2 --rodata-name CODE2
+
+# main and the test scenes (TEST_SCENE builds) go after the art in bank 0, which stays at $8000
+$(NESOBJ)/src/test.o $(NESOBJ)/src/main.o: CFLAGS += --code-name CODE0 --rodata-name CODE0
+
+# the claim, the vectors and no read-modify-write of the mailbox
+nes/executable-post::
+	python3 tools/nes/checkrom.py build/fujiblst-nes.map $(EXECUTABLE)
+
+build/fnlib-nes/fujinet-nes.lib: tools/nes/mkfnlib.sh $(wildcard $(FNLIB_NES)/common/*.c $(FNLIB_NES)/bus/nes/* $(FNLIB_NES)/include/*.h)
+	tools/nes/mkfnlib.sh $(FNLIB_NES) build/fnlib-nes
+
+.PHONY: gen-nes
+gen-nes: gen/config.h gen/nes/gfxdata.c build/fnlib-nes/fujinet-nes.lib
+
+gen/nes/gfxdata.c gen/nes/gfxdata.h gen/nes/gfxcodes.h&: tools/mkgfx_nes.py tools/drawart_nes.py tools/artlayout.py tools/png.py gfx/namco.bin gfx/nes/tiles.png gfx/nes/sprites.png gfx/nes/bigwin.png gfx/nes/logo.png gfx/nes/cells.png
+	@mkdir -p gen/nes
+	$(PYTHON) tools/mkgfx_nes.py gen/nes
+
 r2r/atari/$(PRODUCT): gen-atari
+r2r/nes/$(PRODUCT): gen-nes
+# CoCo: the CoCo 1/2 disk takes the CoCo 3 build too (second pass, coco3.mk)
+r2r/coco/$(PRODUCT): gen-coco r2r/coco3/$(PRODUCT)
+r2r/coco3/$(PRODUCT): gen-coco3 FORCE
+	$(MAKE) -f tools/coco/coco3.mk r2r
+.PHONY: coco3 gen-coco gen-coco3
+coco3: r2r/coco3/$(PRODUCT)
+gen-coco: gen/config.h gen/coco/gfxdata.c
+gen-coco3: gen/config.h gen/coco3/gfxdata.c
+
+gen/coco/gfxdata.c gen/coco/gfxspr.c&: tools/mkgfx_coco.py tools/artlayout.py tools/png.py gfx/namco.bin
+	@mkdir -p gen/coco
+	$(PYTHON) tools/mkgfx_coco.py gen/coco
+
+gen/coco3/gfxdata.c gen/coco3/gfxspr.c gen/coco3/gfxtile.c&: tools/mkgfx_coco3.py tools/artlayout.py tools/png.py gfx/namco.bin
+	@mkdir -p gen/coco3
+	$(PYTHON) tools/mkgfx_coco3.py gen/coco3
 r2r/atari5200/$(PRODUCT): gen-atari5200
 r2r/atari7800/$(PRODUCT): gen-atari7800
 r2r/apple2/$(PRODUCT): gen-apple2

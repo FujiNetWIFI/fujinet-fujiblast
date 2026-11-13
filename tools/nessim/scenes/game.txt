@@ -1,0 +1,19 @@
+# a live game: title, fire to join the lobby's table, a minute of play
+wait 400
+snap title
+press
+wait 300
+snap join
+wait 900
+snap game
+peek nes_passes 2
+peek nes_skip 2
+peek frame_count 2
+hold ur
+wait 300
+hold dl
+wait 300
+peek nes_passes 2
+peek nes_skip 2
+peek frame_count 2
+snap walk

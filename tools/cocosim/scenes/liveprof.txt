@@ -1,0 +1,37 @@
+boot
+wait 1000
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+wait 600
+peek renders 2
+trace live.trace
+wait 60
+trace off
+peek renders 2
+snap pp
