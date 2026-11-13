@@ -1,0 +1,5 @@
+# offline scene 4: the game's end
+test 4
+wait 400
+snap scene4
+vcheck

@@ -1,0 +1,9 @@
+# the bench (scene 7): four bombers round the outer lanes at 2 units a
+# jiffy, a blast every second; shots, VRAM against SH, the strobe count
+test 7 2
+wait 200
+snap bench1
+vcheck
+strobes 300
+snap bench2
+vcheck

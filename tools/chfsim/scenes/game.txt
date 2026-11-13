@@ -1,0 +1,19 @@
+# live: a whole game against 3 bots (ROUNDS 2): the waiting room, the arena,
+# the freeze, the round's results, the game's
+wait 300
+snap wait
+wait 1500
+snap play1
+hold r
+wait 200
+press
+hold u
+wait 120
+hold none
+wait 3000
+snap mid
+peek ST 16
+wait 4000
+snap late
+peek ST 16
+peek NBAD

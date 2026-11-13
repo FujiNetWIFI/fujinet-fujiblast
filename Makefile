@@ -10,6 +10,7 @@
 #   make arcadia                   r2r/arcadia/fujiblst.bin (Emerson Arcadia 2001, the FujiNet cartridge)
 #   make atari2600                 r2r/atari2600/fujiblst.bin (Atari 2600, the FujiNet cartridge; PAL=1 for PAL)
 #   make astrocade                 r2r/astrocade/fujiblst.bin (Bally Astrocade, the FujiNet cartridge)
+#   make channelf                  r2r/channelf/fujiblst.bin (Fairchild Channel F, the FujiNet cartridge)
 #   make coleco                    r2r/coleco/fujiblst.col (ColecoVision, the FujiNet cartridge)
 #   make atari7800                 r2r/atari7800/fujiblst.a78 (Atari 7800, the FujiNet cartridge; MARIA 160B)
 #   make atari5200                 r2r/atari5200/fujiblst.a52 (Atari 5200, the FujiNet cartridge; the 800's screens)
@@ -252,7 +253,7 @@ adam/r2r-post::
 build/fnlib-adam/fujinet-adam.lib: tools/z80/fnlib_adam.sh
 	tools/z80/fnlib_adam.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-adam
 
-.PHONY: gen-atari5200 gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig atari2600 atari2600-rig astrocade astrocade-rig coleco coleco-rig FORCE
+.PHONY: gen-atari5200 gen-atari7800 gen-atari gen-apple2 gen-msdos gen-adam gen-msxrom server proto intv o2 o2-rig arcadia arcadia-rig atari2600 atari2600-rig astrocade astrocade-rig channelf channelf-rig coleco coleco-rig FORCE
 
 # ---- Intellivision (the FujiNet cartridge) ----------------------------------
 # IntyBASIC, not mekkogx: src/intv/Makefile builds it (the compiler too).
@@ -299,6 +300,18 @@ astrocade:
 
 astrocade-rig:
 	DEFSRV=127.0.0.1:9910 OUT=build/astrocade-rig/obj R2R=build/astrocade-rig bash src/astrocade/build.sh
+
+# ---- Fairchild Channel F (the FujiNet cartridge) -------------------------------
+# F8 assembly (Macroassembler AS), not mekkogx: src/channelf/build.sh builds
+# the APPBANK image and runs its checks (LOOK= its colours, SETTLE= the VRAM
+# write's settle: mule 94 clocks, bios 136). channelf-rig: a copy whose
+# default server is the rig's (build/channelf-rig/fujiblst.bin), gen/server
+# left alone.
+channelf:
+	$(if $(SERVER),DEFSRV=$(SERVER)) bash src/channelf/build.sh
+
+channelf-rig:
+	DEFSRV=127.0.0.1:9910 OUT=build/channelf-rig/obj R2R=build/channelf-rig bash src/channelf/build.sh
 
 # ---- ColecoVision (the FujiNet cartridge) -------------------------------------
 # Z80 assembly (zmac 1.3), not mekkogx: src/coleco/build.sh builds the APPBANK

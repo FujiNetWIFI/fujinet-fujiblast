@@ -29,6 +29,7 @@ Environment=FUJIBLAST_STREAM_ADDR=:9910
 #Environment=FUJIBLAST_CLIENT_ARCADIA=tnfs://fujinet.online/fujiblast/arcadia/fujiblst.bin
 #Environment=FUJIBLAST_CLIENT_ATARI2600=tnfs://fujinet.online/fujiblast/atari2600/fujiblst.bin
 #Environment=FUJIBLAST_CLIENT_ASTROCADE=tnfs://fujinet.online/fujiblast/astrocade/fujiblst.bin
+#Environment=FUJIBLAST_CLIENT_CHANNELF=tnfs://fujinet.online/fujiblast/channelf/fujiblst.bin
 #Environment=FUJIBLAST_CLIENT_COLECO=tnfs://fujinet.online/fujiblast/coleco/fujiblst.col
 #Environment=FUJIBLAST_CLIENT_ATARI7800=tnfs://fujinet.online/fujiblast/atari7800/fujiblst.a78
 #Environment=FUJIBLAST_CLIENT_ATARI5200=tnfs://fujinet.online/fujiblast/atari5200/fujiblst.a52

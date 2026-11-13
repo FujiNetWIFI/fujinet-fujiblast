@@ -1,0 +1,8 @@
+# the first frame lost (dropproxy): HELLO again until answered, then the game
+wait 300
+press
+waitfor NLINK 7 3000
+waitfor ST 2 4000
+snap play
+peek MYSEAT
+peek NBAD

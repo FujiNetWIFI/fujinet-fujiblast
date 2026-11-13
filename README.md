@@ -11,12 +11,17 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the Magnavox Odyssey 2 / Philips Videopac, with the FujiNet cartridge;
 - the Emerson Arcadia 2001, with the FujiNet cartridge;
 - the Bally Astrocade, with the FujiNet cartridge;
+- the Fairchild Channel F, with the FujiNet cartridge;
 - the ColecoVision, with the FujiNet cartridge;
 - the Atari 7800, with the FujiNet cartridge;
 - the Atari 5200, with the FujiNet cartridge;
-- the Atari 2600, with the FujiNet cartridge.
+- the Atari 2600, with the FujiNet cartridge;
+- the TRS-80 Color Computer: the CoCo 1/2 (artifact colour) and the CoCo 3 (16 colours), from one disk;
+- the Nintendo NES, with the FujiNet NES cartridge;
+- the Sega Master System, with the FujiNet SMS cartridge;
+- the Heathkit H89, under CP/M or HDOS.
 
-All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the ColecoVision's stick, the 7800's, the 5200's); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
+All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the Channel F's hand controller, the ColecoVision's stick, the 7800's, the 5200's); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -49,6 +54,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/o2/` | The Odyssey 2 client: the C client again in 8048 assembly, the 8244's grid as the arena's walls, the font's man as the bombers; the cartridge's mailbox. |
 | `src/arcadia/` | The Emerson Arcadia 2001 client: the C client again in 2650 assembly, a character a tile, the four sprites as the bombers; the cartridge's mailbox. |
 | `src/astrocade/` | The Bally Astrocade client: the C client again in Z80 assembly, a 2-bit bitmap recoloured band by band by the line interrupt, the bombers composed into it, all three tones and the noise; the cartridge's mailbox. |
+| `src/channelf/` | The Fairchild Channel F client: the C client again in F8 assembly; a display engine that keeps the screen in cart RAM (each pixel's background and what it shows) and writes a pixel only when it changes; the row palettes for colour; the cartridge's mailbox. |
 | `src/coleco/` | The ColecoVision client: the Adam's screen, art and sound in Z80 assembly (the console has 1K of RAM), the Astrocade's game logic and link; the cartridge's mailbox. |
 | `src/atari5200/` | The Atari 5200 client: the Atari 800's screens (`src/atari`, assembled for the 5200) on a flat 32K cart, its own crt0, analog stick and keypad, the cartridge's mailbox. |
 | `src/atari7800/` | The Atari 7800 client: cc65 and ca65 on MARIA, 160B cells (12 colours a pixel) for the arena, the bombers two 160A layers, 320A Namco text; the cartridge's mailbox. `DESIGN.md` is its spec. |
@@ -140,6 +146,8 @@ make nes               # r2r/nes/fujiblst.nes (the lib: tools/nes/mkfnlib.sh ~/W
 `make arcadia` runs `src/arcadia/build.sh`: AS again, `CPU 2650`, an assembly a page (each holds the fixed halves, which must come out the same), linked into a protocol 2 (APPBANK) image by `tools/arc/mkblast.py`. The checks (`tools/arc/`, from M.U.L.E.'s Arcadia client) fail the build on a call chain deeper than 7 (the 2650's return stack is 8 and wraps silently), a register read after a call that clobbers it, and a branch that tests a constant just loaded. `tools/arc/fixreach.py src/arcadia/build.sh src/arcadia/src` widens relative branches that no longer reach. The art is `gfx/arcadia/*.png` (drawn by `tools/arc/drawart_arc.py`, converted by `tools/arc/mkgfx_arc.py`); the sounds `tools/arc/mksnd_arc.py`. `LOOK=0`/`2` builds the spike's other colours. `make arcadia-rig` builds `build/arcadia-rig/fujiblst.bin`, whose default server is the rig's.
 
 `make astrocade` runs `src/astrocade/build.sh`: zmac 1.3 (built from `~/Workspace/zmac-1.3` with a bigger symbol table, `build/zmac/zmac`), one assembly, every page `PHASE`d to 2000H, padded into a protocol 2 (APPBANK) image and claimed. The checks (`tools/astro/`, from M.U.L.E.'s Astrocade client) fail the build on a page over 4K, the resident half over 2816 bytes, the variables running into the stack, and a jump from one page into another (`checkcalls.py`: only `FARCALL` crosses). The art is `gfx/astrocade/*.png` (drawn by `tools/astro/drawart_astro.py`, converted by `tools/astro/mkgfx_astro.py`); the sounds `tools/astro/mksnd_astro.py` (from `src/apple2/sndtab.s`, plus the jingles' new harmony and bass parts). `LOOK=1`/`2` builds the spike's other colours, `FOOTER=0` drops the gradient under the arena. `make astrocade-rig` builds `build/astrocade-rig/fujiblst.bin`, whose default server is the rig's.
+
+`make channelf` runs `src/channelf/build.sh`: AS, `CPU F3850`, one assembly: the fixed 16K at 0800H, then six 8K pages each `PHASE`d to 4800H (the art page to C000H: it is copied to RAM at boot), a 64K protocol 2 (APPBANK) image with the claim at 47FCH. The checks (`tools/chf/`, from M.U.L.E.'s Channel F client) fail the build on a page over 8K, the art's copy running into the images, RAM past F000H, a page calling, jumping to or reading the data of another page (`checkcalls.py`), and code reading the accumulator after a `PI`, `JMP` or `ENTER` that destroyed it, or the flags after a `LEAVE` (`checkacc.py`). The art is `gfx/channelf/*.png` (drawn by `tools/chf/drawart_chf.py`, which also renders the looks' previews with `--preview DIR`; converted by `tools/chf/mkgfx_chf.py`, which fails the build when a bomber's step or a tile's animation writes more pixels than its budget); the sounds `tools/chf/mksnd_chf.py` (from `src/apple2/sndtab.s`). `LOOK=1`/`2` builds the other floors, `SETTLE=bios` the BIOS's longer wait after each pixel's strobe (see the Channel F section). `make channelf-rig` builds `build/channelf-rig/fujiblst.bin`, whose default server is the rig's.
 
 `make coleco` runs `src/coleco/build.sh`: zmac 1.3 again, one assembly of a fixed 16K (the screen, the sprites, the sound, the link's mailbox, the main loop), the art in a fixed 6K, and 4K pages two to an 8K image page (page 0 the boot page, whose C000H is mapped at power-on), padded into an APPBANK image of 56K and claimed. The art is the Adam's (`gfx/tms/*.png` and `gfx/namco.bin`, `tools/coleco/mkgfx_coleco.py` turning the Adam's generated tables into zmac includes) and its tunes (`tools/coleco/mksnd_coleco.py` reads `src/adam/sound.c`). The checks (`tools/coleco/`, from M.U.L.E.'s ColecoVision client) fail the build on a region past its budget, the variables running into the stack, the mailbox pages not clear, or a label defined twice. `make coleco-rig` builds `build/coleco-rig/fujiblst.rom`, whose default server is the rig's.
 
@@ -261,6 +269,20 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 - **Sound:** all three tones and the noise of the custom I/O chip, which no FujiNet client had used before. The jingles are in three parts: FujiBlast's tunes on one tone, a harmony and a bass (new here) on the others. The effects overlap, each on its own channels (a blast's noise and rumble never cut a footstep). Nothing modulates the master oscillator, so no voice retunes another.
 - **Network:** the Arcadia's link, transcribed: the FujiNet's TCP socket, a mailbox transaction a frame, never waited on; a READ's bytes decoded (COBS, the Fletcher sum, the patches straight into the state) a few a pass before anything else is posted; the screen picked only at a commit.
 - **Speed:** the game logic runs 60 times a second (a slow pass makes up to 8 jiffies). The picture is slower: in MAME, against three bots with everyone walking, about 18 redraws a second (composing the bombers is most of the work; the colour bands take about a tenth of the CPU).
+
+## The Fairchild Channel F
+
+- **Machine:** a Channel F (NTSC; the Saba and Luxor clones untested) with the FujiNet cartridge (firmware speaking protocol 2, APPBANK): the program in 8K pages behind a fixed 16K, 30K of RAM the console reads and writes directly, a 60 Hz tick and the network.
+- **Controls:** the right hand controller: the stick walks (diagonals turn first, as everywhere), pushing the knob down is fire. On the console START ends a name, joins and starts the game (the host; left and right choose the rounds), MODE leaves the table and TIME turns the sound off and on. A name is picked letter by letter: up and down turn the letter, push or right takes it, pull or left rubs out.
+- **Screen:**
+  - 102 x 58 pixels shown at 2 bits a pixel, a pixel taller than wide. A tile is 6 x 5 (square on the screen), so the whole 13 x 11 arena shows, with a panel down the right: each seat's name and wins in its ink, the clock, the round and our powers.
+  - Colour: a row's palette (two pixels off the right edge) picks its background: black with white ink, or light blue, light grey or light green with blue, red and green inks. The arena's floor is grey with a green seam under each tile row, both free (no pixel is drawn for them); the bands above and below it are black. A blast flashes its tile row black and white for a moment; when a round ends the arena freezes black and white before the results. In the last ten seconds the seams pulse. The title, the waiting room and the results give each band of rows its own background.
+  - Pillars and walls are blue, bricks red with floor-coloured mortar, bombs blue with a red spark (duds green), flames red round a white-hot core, the powerups letters on green plates. The bombers are blue, red, green and red/blue stripes, the visor a hole in the floor's colour.
+  - Writing a pixel is the console's slowest thing (a port each for the value, the column and the row, a strobe, then a wait), so the engine keeps the screen in cart RAM: each pixel's background (the tiles) and what it shows. A change is composed against the background (a bomber's old and new places together, each pixel visited once) and only the pixels whose value changes are written; the wait after each write runs the next pixel's comparison. Nothing is ever written twice in a frame.
+- **Sound:** the console's three tones (1 kHz, 500 Hz and a 120 Hz buzz, no volume): the effects drawn for them; the jingles keep FujiBlast's rhythms and shapes on the two tones an octave apart.
+- **Network:** the Astrocade's link, transcribed: the FujiNet's TCP socket, a mailbox transaction a pass, never waited on (a STATUS, then a READ of only the bytes waiting). A READ's bytes are COBS-decoded into a frame a chunk a pass, its Fletcher sum checked, and only then applied: the patches into the state, the map's changes queued for drawing. The screen is picked only at a commit.
+- **Speed:** the game logic runs 60 times a second (a slow pass makes up to 8 jiffies). In MAME against three bots with everyone walking, about 24 redraws a second; the benchmark scene (`test 7`: four walkers and a blast a second) about 26 at walking speed. A bomber draws at most 2 pixels of its move a pass and catches up after, so a slow pass never makes the next one slower.
+- **Not done:** a real console. MAME stores a pixel the moment it is strobed, so the wait after a strobe is unproven: the default (`SETTLE=mule`, 94 clocks) is M.U.L.E.'s, `SETTLE=bios` (136, the BIOS's own) the safe one, and test scene 8 is for finding the real figure: it draws a band of pixels at each wait from 56 to 176 clocks, labelled, and on a real console the bands whose wait is too short come out wrong.
 
 ## The ColecoVision
 
@@ -463,6 +485,21 @@ ASTROSIM_DEBUG=1 ... (a `cpu FILE N` step), then MARK=200D tools/astrosim/tracep
 - `astrosim.py` (the Arcadia's arcsim, for MAME's astrocde with the FujiNet cart device) holds keypad 1 at the BIOS's menu, then plays the scenario: pictures, peeks and traces by symbol, the handle and the keypad, the screen as text (the 4x6 font read back from the pixels), `test 1`-`4` (the offline scenes), `test 5` the title, `test 6` the sound board (every sound in turn). `cpu` traces lead each line with the page mapped.
 - `astrorig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled. `CONFIG=1` boots the cart's CONFIG (fujinet-config's `astrocade/build/config.bin`) and the image from the SD. The scenes in `tools/astrosim/scenes` play a game (`game.txt`), host one (`host.txt`, `BOTS=0` and bots started late by `EXTRA`), the lobby-less path (`nolobby.txt`), lose the link (`cut.txt` with `tools/rigs/cutproxy.py`, `hello.txt` with `dropproxy.py`) and reset the console (`reset.txt`).
 - The counters `NBAD` (bad frames) and `PDBG` (our walker's jiffies: a count, the handle, x, y, dir, acc) are for peeking.
+
+For the Channel F:
+
+```
+make channelf && python3 tools/chfsim/chfsim.py tools/chfsim/scenes/bench.txt OUTDIR
+make channelf-rig && tools/chfrig/rig.sh tools/chfsim/scenes/live.txt OUTDIR
+NAME= ROOM= tools/chfrig/rig.sh tools/chfsim/scenes/nolobby.txt OUTDIR
+CHFSIM_WAV=FILE.wav python3 tools/chfsim/chfsim.py SCENE OUTDIR    # (a scene of `test 6`)
+python3 tools/chfsim/chfsim.py SCENE OUTDIR | python3 tools/chfsim/prof.py build/channelf/fujiblst.lst
+python3 tools/chfsim/traceprof.py OUTDIR/TRACE build/channelf/fujiblst.lst
+```
+
+- `chfsim.py` (M.U.L.E.'s, for this game) plays a scenario in MAME's channelf with the FujiNet cart device: pictures, peeks, pokes and watches by symbol, the stick and the console keys through the input hook, `test 1`-`4` (the offline scenes), `test 6` the sound board, `test 7 N` the benchmark (four walkers at N units a jiffy). `vcheck` compares VRAM with the engine's copy (any difference is a bug), `strobes N` counts the pixel writes against the pixels that changed (the redundant ones should be 0) and the passes the game ran, `iowatch PORT MASK` prints who writes a port, `trace FILE` logs every instruction with the page mapped (`traceprof.py` charges them to the listing's labels in F8 clocks).
+- `chfrig/rig.sh` plays live in a namespace of its own: the server, bots, a copy of fujinet-pc-rs232 on BoIP and MAME throttled; `walk.txt`, `game.txt`, `livespeed.txt` play a game.
+- `sndview.py FILE.wav` shows a recording a 50 ms letter at a time (H, M, B: the tone; `.` quiet).
 
 For the Atari 5200:
 

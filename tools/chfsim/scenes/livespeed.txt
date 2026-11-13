@@ -1,0 +1,14 @@
+# live speed: walking about in a game against 3 bots, passes against jiffies
+wait 300
+press  # (the title waits for FIRE)
+wait 1500
+hold r
+strobes 120
+hold d
+strobes 120
+hold l
+strobes 120
+hold none
+peek NBAD
+snap s1
+vcheck

@@ -1,0 +1,19 @@
+# RESET mid-game: the cart keeps its RAM and socket; back at the table, the same seat
+wait 300
+press
+waitfor ST 2 4000
+snap play
+reset
+wait 400
+press
+wait 300
+peek SHOWS
+peek NLINK
+peek NKIND
+peek MSGID
+snap a1
+wait 600
+peek SHOWS
+peek NLINK
+peek MYSEAT
+snap a2

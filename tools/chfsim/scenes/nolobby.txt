@@ -1,0 +1,26 @@
+# no keys: the title, the name wheel ("AB"), the room list, join
+wait 1200
+snap title
+press
+wait 400
+snap name0
+press
+wait 30
+hold d
+wait 3
+hold none
+wait 30
+press
+wait 60
+snap name1
+key 13
+wait 900
+snap rooms
+peek MNSEL
+peek TBLN
+press
+wait 900
+snap joined
+peek NLINK
+peek SRVTBL 8
+peek MYNAME 8

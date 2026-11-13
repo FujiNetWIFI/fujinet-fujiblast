@@ -1,0 +1,23 @@
+# live: walk our bomber and drop bombs (the rig's keys: name CHF, room dev1)
+wait 300
+press  # (the title waits for FIRE)
+wait 1500
+peek MYSEAT
+peek MVX 4
+snap w0
+hold r
+wait 60
+press
+hold l
+wait 40
+hold d
+wait 60
+hold none
+wait 30
+peek MVX 4
+peek PDBG 6
+snap w1
+wait 200
+snap w2
+peek NBAD
+peek ST+16 10

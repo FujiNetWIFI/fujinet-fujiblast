@@ -1,0 +1,10 @@
+wait 300
+press  # (the title waits for FIRE)
+wait 1500
+hold r
+peek PASSES 2
+trace live.tr
+wait 20
+trace off
+peek PASSES 2
+hold none

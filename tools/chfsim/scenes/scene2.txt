@@ -1,0 +1,5 @@
+# offline scene 2: the waiting room (we are the host)
+test 2
+wait 400
+snap scene2
+vcheck

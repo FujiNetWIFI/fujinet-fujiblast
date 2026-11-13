@@ -1,0 +1,5 @@
+# offline scene 3: a round's end: the freeze, then the results
+test 3
+wait 400
+snap scene3
+vcheck

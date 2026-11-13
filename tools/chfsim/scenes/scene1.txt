@@ -1,0 +1,5 @@
+# offline scene 1: the arena: the canned state, a blast every 4 s
+test 1
+wait 400
+snap scene1
+vcheck

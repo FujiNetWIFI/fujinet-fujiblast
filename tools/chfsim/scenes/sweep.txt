@@ -1,0 +1,4 @@
+# the settle sweep (for a real console: compare the bands)
+test 8
+wait 300
+snap sweep
