@@ -28,7 +28,7 @@
         .export         _frame_tick, _hg_tile, _hg_lines, _hg_frags, _hg_fill
         .export         _hg_bomber, _hg_mover, _hg_big, _erase_box
         .export         _hg_bomber_c, _hg_mover_c, _px_box
-        .import         _tile_want, _tile_first, _tile_n, _tm_phase, _ax_tiles
+        .import         _tile_want, _tile_first, _tile_n, _tm_phase, _ax_tilec, _ax_nullk, _ax_nullz
         .export         _rowlo, _rowhi
         .import         _frame_count, _colpat, _fexp0, _fexp1, _fragbuf, _fgbuf
         .import         _ax_bspr, _ax_bkeep, _ax_movd, _ax_movk, _ax_big, _ax_bigk
@@ -69,12 +69,11 @@ _er_c:    .res 1        ; erase_box: byte columns er_c.., er_n of them
 _er_n:    .res 1
 _er_y0:   .res 1        ; lines er_y0..er_y1
 _er_y1:   .res 1
-pp:       .res 6        ; its source pointers, a byte column each
-sly:      .res 1        ; comp: the offset into a sprite's art
+xl:       .res 1        ; comp: the lines done, and to be at the end of this tile row
+lim:      .res 1
 left:     .res 1        ; erase_box, comp: lines to go
 cnt:      .res 1        ; and in this tile row
-cnt0:     .res 1
-w1:       .res 1        ; PUT3's offsets
+w1:       .res 1        ; the loop's offsets (wsetup)
 w2:       .res 1
 ly:       .res 1        ; its offset into the art
 t1:       .res 1
@@ -314,23 +313,28 @@ draw3:
         cpx     #192
         bcs     @done
         sta     RAMRDON
-        ldy     ly
+        ldy     ly              ; the art is by column: 16 bytes apart
         lda     (bdp),y
         sta     dd
         lda     (bkp),y
         sta     kk
-        iny
+        tya
+        clc
+        adc     #16
+        tay
         lda     (bdp),y
         sta     dd+1
         lda     (bkp),y
         sta     kk+1
-        iny
+        tya
+        clc
+        adc     #16
+        tay
         lda     (bdp),y
         sta     dd+2
         lda     (bkp),y
         sta     kk+2
-        iny
-        sty     ly
+        inc     ly
         sta     RAMRDOFF
         lda     _rowlo,x
         clc
@@ -584,24 +588,47 @@ _hg_big:
 @done:  rts
 
 ;---------------------------------------------------------------------------
-; erase_box: the arena's tiles back under byte columns er_c.. (er_n: 2 or 3,
-; all inside the arena, bytes 8-33), lines er_y0..er_y1 (inside 12-187), as
-; tile_want has them in phase tm_phase: what a sprite drew comes off. A
-; tile row at a time: the bytes' sources found once, then their lines.
+; erase_box and comp: the arena's tiles back under byte columns er_c.. (er_n:
+; 1-3, all inside the arena, bytes 8-33), lines er_y0..er_y1 (inside 12-187),
+; as tile_want has them in phase tm_phase. erase_box takes a sprite off;
+; comp draws one (3 bytes a line, data at aux bdp, keep bytes at aux bkp, by
+; column: 16 bytes each) over the tiles beneath rather than the screen, so
+; gfx.c uses it for a sprite nothing else touches.
+;
+; Both run one loop, screen = (tile and keep) or data, and its operands are
+; patched (the card is written: lowlevel.s's hgr_on) so that one index, X,
+; the line from the first, reaches the line tables, the tiles' columns
+; (ax_tilec, biased by the tile row's offset) and the sprite's. erase_box
+; points keep and data at ax_nullk/z (keep all, add nothing).
 ;---------------------------------------------------------------------------
-; tsrc: the tile sources of byte columns er_c.. (er_n of them, 1-3) on line
-; er_y0, as tile_want has them in phase tm_phase: pp (a pointer a column;
-; past er_n they point at tile art too, never at an I/O address), ly (2 x
-; the line within the tile) and cnt (the lines left of the tile row, no more
-; than left). With RAMRD off.
+.macro  PUT lo, hi, dst         ; the operand of dst = the word lo, hi
+        lda     lo
+        sta     dst+1
+        lda     hi
+        sta     dst+2
+.endmacro
+
+.macro  PUT16 lo, hi, add, dst  ; the same, + add
+        lda     lo
+        clc
+        adc     #add
+        sta     dst+1
+        lda     hi
+        adc     #0
+        sta     dst+2
+.endmacro
+
+; tsrc: the tile row at line er_y0 (xl lines done): cnt of its lines (no more
+; than left), and the loop's tile operands patched to the 3 byte columns from
+; er_c, minus the lines done, so that X indexes the tile's line. (A: the
+; frame of the first byte column's tile, B: the last's; unused columns point
+; at tile art too.) With RAMRD off.
 tsrc:   lda     _er_y0
         sec
         sbc     #12
         tax
         and     #15
-        asl     a
-        sta     ly
-        lsr     a
+        sta     kk+2            ; the line within its tile
         eor     #$FF
         sec
         adc     #16             ; 16 - the line
@@ -609,7 +636,13 @@ tsrc:   lda     _er_y0
         bcc     :+
         lda     left
 :       sta     cnt
-        sta     cnt0
+        lda     kk+2            ; the bias: the tile's line less the lines done
+        sec
+        sbc     xl
+        sta     kk
+        lda     #0
+        sbc     #0
+        sta     kk+1
         txa
         lsr     a
         lsr     a
@@ -618,37 +651,40 @@ tsrc:   lda     _er_y0
         tax
         lda     row13,x
         sta     t1              ; the row's first tile
-        lda     _er_c           ; the first column's tile
+        lda     _er_c           ; the first column's tile: dd
         lsr     a
         jsr     tbase
-        sta     pp
-        stx     pp+1
-        lda     _er_c           ; the last's
+        clc
+        adc     kk
+        sta     dd
+        txa
+        adc     kk+1
+        sta     dd+1
+        lda     _er_c           ; the last's: dd+2
         clc
         adc     _er_n
         sbc     #0              ; (C clear: - 1)
         lsr     a
         jsr     tbase
-        sta     pp+4
-        stx     pp+5
+        clc
+        adc     kk
+        sta     dd+2
+        txa
+        adc     kk+1
+        sta     dd+3
         lda     _er_c
         lsr     a
         bcs     @odd
-        lda     pp              ; even: A+0, A+1, B+0
-        sta     pp+2
-        lda     pp+1
-        sta     pp+3
-        inc     pp+2            ; (frames are 32-byte aligned: no carry)
+        PUT     dd, dd+1, c_t0          ; even: A.left, A.right, B.left
+        PUT16   dd, dd+1, 16, c_t1
+        PUT     dd+2, dd+3, c_t2
         rts
-@odd:   inc     pp              ; odd: A+1, B+0, B+1
-        lda     pp+4
-        sta     pp+2
-        lda     pp+5
-        sta     pp+3
-        inc     pp+4
+@odd:   PUT16   dd, dd+1, 16, c_t0      ; odd: A.right, B.left, B.right
+        PUT     dd+2, dd+3, c_t1
+        PUT16   dd+2, dd+3, 16, c_t2
         rts
 
-; A = group -> X:A = ax_tiles + 32 x the frame of tile t1 + group - 4
+; A = group -> X:A = ax_tilec + 32 x the frame of tile t1 + group - 4
 tbase:  sec
         sbc     #4
         clc
@@ -674,43 +710,20 @@ tbase:  sec
         asl     a
         asl     a
         clc
-        adc     #<_ax_tiles
+        adc     #<_ax_tilec
         bcc     :+
         inx
 :       pha
         txa
         clc
-        adc     #>_ax_tiles
+        adc     #>_ax_tilec
         tax
         pla
         rts
 
-; scr = line X, byte column er_c, on the page drawn on
-.macro  ERSCR
-        lda     _rowlo,x
-        clc
-        adc     _er_c
-        sta     scr
-        lda     _rowhi,x
-        ora     _hg_page
-        sta     scr+1
-.endmacro
-
-; A (byte 2), dd+1, dd to the screen: er_n of them. Without branching: the
-; writes past er_n land on a byte written again after (w2, w1: 2 and 1 for 3
-; bytes, 1 and 1 for 2, 0 and 0 for 1).
-.macro  PUT3
-        ldy     w2
-        sta     (scr),y
-        ldy     w1
-        lda     dd+1
-        sta     (scr),y
-        ldy     #0
-        lda     dd
-        sta     (scr),y
-.endmacro
-
-; w1, w2 for er_n; and the lines to go (left)
+; w1, w2 for er_n (the 3 bytes are written last to first, so the writes past
+; er_n land on a byte written again after: 2 and 1 for 3 bytes, 1 and 1 for
+; 2, 0 and 0 for 1); and the lines to go (left)
 wsetup: ldx     _er_n
         dex
         stx     w2
@@ -725,92 +738,112 @@ wsetup: ldx     _er_n
         inc     left
         rts
 
-; a tile row done (cnt lines): the next, or the end (C set)
-rowend: lda     left
-        sec
-        sbc     cnt0
-        sta     left
-        beq     :+
-        stx     _er_y0
-        clc
-        rts
-:       sec
+; the sprite's columns in the loop's keep and data operands (bdp, bkp + 16, 32)
+patch_spr:
+        PUT     bdp, bdp+1, c_d0
+        PUT16   bdp, bdp+1, 16, c_d1
+        PUT16   bdp, bdp+1, 32, c_d2
+        PUT     bkp, bkp+1, c_k0
+        PUT16   bkp, bkp+1, 16, c_k1
+        PUT16   bkp, bkp+1, 32, c_k2
+        lda     #0
+        sta     smc_null
         rts
 
-; erase_box: the arena's tiles back under byte columns er_c.. (er_n: 1-3, all
-; inside the arena, bytes 8-33), lines er_y0..er_y1 (inside 12-187): what a
-; sprite drew comes off. A tile row at a time: the sources, then the lines.
+; keep all, add nothing
+patch_null:
+        lda     #<_ax_nullk
+        sta     c_k0+1
+        sta     c_k1+1
+        sta     c_k2+1
+        lda     #>_ax_nullk
+        sta     c_k0+2
+        sta     c_k1+2
+        sta     c_k2+2
+        lda     #<_ax_nullz
+        sta     c_d0+1
+        sta     c_d1+1
+        sta     c_d2+1
+        lda     #>_ax_nullz
+        sta     c_d0+2
+        sta     c_d1+2
+        sta     c_d2+2
+        lda     #1
+        sta     smc_null
+        rts
+
+smc_null: .byte 0               ; (in the card: starts 0) the loop's keep and data are ax_null*
+
 _erase_box:
-        jsr     wsetup
-erow:   jsr     tsrc
+        lda     smc_null
+        bne     tiles
+        jsr     patch_null
+        jmp     tiles
+comp:   jsr     patch_spr
+tiles:  jsr     wsetup
+        lda     #<_rowlo        ; the line tables, from line er_y0
+        clc
+        adc     _er_y0
+        sta     c_rlo+1
+        lda     #>_rowlo
+        adc     #0
+        sta     c_rlo+2
+        lda     #<_rowhi
+        clc
+        adc     _er_y0
+        sta     c_rhi+1
+        lda     #>_rowhi
+        adc     #0
+        sta     c_rhi+2
+        lda     #0
+        sta     xl
+erow:   jsr     tsrc            ; a tile row at a time
+        lda     xl
+        clc
+        adc     cnt
+        sta     lim
+        ldx     xl
         sta     RAMRDON
-        ldx     _er_y0
-eline:  ERSCR
-        ldy     ly
-        lda     (pp),y
-        sta     dd
-        lda     (pp+2),y
-        sta     dd+1
-        lda     (pp+4),y
-        PUT3
+cl:
+c_rlo:  lda     $FFFF,x
+        clc
+        adc     _er_c
+        sta     scr
+c_rhi:  lda     $FFFF,x
+        ora     _hg_page
+        sta     scr+1
+c_t2:   lda     $FFFF,x
+c_k2:   and     $FFFF,x
+c_d2:   ora     $FFFF,x
+        ldy     w2
+        sta     (scr),y
+c_t1:   lda     $FFFF,x
+c_k1:   and     $FFFF,x
+c_d1:   ora     $FFFF,x
+        ldy     w1
+        sta     (scr),y
+c_t0:   lda     $FFFF,x
+c_k0:   and     $FFFF,x
+c_d0:   ora     $FFFF,x
+        ldy     #0
+        sta     (scr),y
         inx
-        inc     ly
-        inc     ly
-        dec     cnt
-        bne     eline
+        cpx     lim
+        bne     cl
         sta     RAMRDOFF
-        jsr     rowend
-        bcs     :+
+        stx     xl
+        lda     left
+        sec
+        sbc     cnt
+        sta     left
+        beq     done
+        lda     _er_y0
+        clc
+        adc     cnt
+        sta     _er_y0
         jsr     _frame_tick     ; the next tile row
         jmp     erow
-:       jmp     _frame_tick
-
-; comp: a sprite (3 bytes a line at aux bdp, keep bytes at aux bkp) drawn
-; over the tiles beneath it rather than the screen: byte columns er_c.. (er_n
-; of them), lines er_y0..er_y1. No erasing first and no reading the screen,
-; so gfx.c uses it for a sprite nothing else touches.
-comp:   lda     #0
-        sta     sly
-        jsr     wsetup
-crow:   jsr     tsrc
-        sta     RAMRDON
-        ldx     _er_y0
-cline:  ERSCR
-        ldy     ly
-        lda     (pp),y
-        sta     dd
-        lda     (pp+2),y
-        sta     dd+1
-        lda     (pp+4),y
-        sta     dd+2
-        ldy     sly
-        lda     (bkp),y
-        and     dd
-        ora     (bdp),y
-        sta     dd
-        iny
-        lda     (bkp),y
-        and     dd+1
-        ora     (bdp),y
-        sta     dd+1
-        iny
-        lda     (bkp),y
-        and     dd+2
-        ora     (bdp),y
-        iny
-        sty     sly
-        PUT3
-        inx
-        inc     ly
-        inc     ly
-        dec     cnt
-        bne     cline
-        sta     RAMRDOFF
-        jsr     rowend
-        bcs     :+
-        jsr     _frame_tick
-        jmp     crow
-:       jmp     _frame_tick
+done:   jmp     _frame_tick
 
 ; a sprite set up (col0, hg_nb, bdp, bkp) at line hg_y: comp it
 compbox:

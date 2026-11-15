@@ -42,6 +42,8 @@ _joy_y: .res 1
 ; High-res, page 1, full screen; 80STORE off (PAGE2 picks the page shown),
 ; 40 columns and AN3 on, so no double hi-res.
 .proc   _hgr_on
+        bit     $C083           ; the card (bank 2) read and write: the blitter patches
+        bit     $C083           ; its own loop (hgr.s's comp), and crt0 left it read-only
         sta     $C000           ; 80STORE off
         sta     $C00C           ; 40 columns
         sta     $C05F           ; AN3 on: not double hi-res

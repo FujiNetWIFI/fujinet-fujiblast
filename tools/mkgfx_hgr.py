@@ -9,12 +9,13 @@ bytes, 2g and 2g+1. The art goes to auxiliary RAM (segment AUXGFX, the file
 FUJIBLST.GFX), which the blitter (src/apple2/hgr.s) reads with RAMRD on
 while it writes the screen in main RAM:
   ax_tiles    tile frames: 16 lines of 2 bytes
+  ax_tilec    the same by column (16 left bytes, 16 right); ax_nullk/z: keep-all, add-nothing
   ax_bspr     the bombers, coloured, by seat, frame and shift s (0-6 colour
-              pixels into the group): 16 lines of 3 bytes, from byte 2g for
+              pixels into the group): 3 columns of 16 bytes, from byte 2g for
               s < 4 and 2g+1 after (screen = screen and keep, or data)
   ax_bkeep    their keep bytes, by frame and shift (the same for every seat)
   ax_movd     bomb and dud movers, by (dud, half-tile offset, phase): data
-  ax_movk     and keep, 16 lines of 3 bytes from byte 2g
+  ax_movk     and keep, 3 columns of 16 bytes from byte 2g
   ax_big      the winner's bombers, twice the size, by seat and frame (win0,
               win1): 32 lines of 4 bytes from 2g
   ax_bigk     and keep, by frame
@@ -73,6 +74,18 @@ def tile_bytes(rows):
     for row in rows:
         b = hgr.solid(row, 0)
         out += [b.get(0, 0), b.get(1, 0)]
+    return out
+
+
+def colmajor(data, per, cols):
+    """Entries of per bytes, line by line (cols bytes a line), to column by
+    column: the bytes of one column are together, so one index (the line)
+    reaches them all (hgr.s's comp)."""
+    out = []
+    lines = per // cols
+    for e in range(0, len(data), per):
+        for c in range(cols):
+            out += [data[e + l * cols + c] for l in range(lines)]
     return out
 
 
@@ -156,6 +169,11 @@ def main():
         for fr in frs:
             tbytes += tile_bytes(fr)
     aux.append(("ax_tiles", tbytes, f"{len(tbytes) // 32} tile frames, 16 lines of 2 bytes"))
+    # the same by column (left 16, right 16), for the arena's blitter (hgr.s: erase_box, comp)
+    aux.append(("ax_tilec", colmajor(tbytes, 32, 2), "the tile frames by column: 16 left bytes, 16 right"))
+    # what erase_box merges with the tiles: keep everything, add nothing
+    aux.append(("ax_nullk", [0xFF] * 176, "keep bytes that keep all (erase_box)"))
+    aux.append(("ax_nullz", [0] * 176, "data bytes that add nothing"))
 
     # bombers: by seat, frame, shift; keep by frame, shift
     roles = [sprite_roles(spr_img, i) for i in range(len(SPRITES))]
@@ -173,8 +191,8 @@ def main():
             start = 1 if s >= 4 else 0
             for row in rows:
                 bkeep += [k for d, k in masked(row, s, start, 3, FLOOR)]
-    aux.append(("ax_bspr", bspr, "bombers: seat, frame, shift: 16 lines of 3 bytes"))
-    aux.append(("ax_bkeep", bkeep, "their keep bytes: frame, shift"))
+    aux.append(("ax_bspr", colmajor(bspr, 48, 3), "bombers: seat, frame, shift: 3 columns of 16 bytes"))
+    aux.append(("ax_bkeep", colmajor(bkeep, 48, 3), "their keep bytes: frame, shift"))
 
     # movers: the bomb's and the dud's frames, at offsets 0 and 3 pixels
     movd, movk = [], []
@@ -188,8 +206,8 @@ def main():
                     for d, k in masked(px, off, 0, 3, FLOOR):
                         movd.append(d)
                         movk.append(k)
-    aux.append(("ax_movd", movd, "movers (dud, offset, phase): 16 lines of 3 bytes"))
-    aux.append(("ax_movk", movk, "and their keep bytes"))
+    aux.append(("ax_movd", colmajor(movd, 48, 3), "movers (dud, offset, phase): 3 columns of 16 bytes"))
+    aux.append(("ax_movk", colmajor(movk, 48, 3), "and their keep bytes"))
 
     # the winner, twice the size (results screen; whole groups only)
     big, bigk = [], []
