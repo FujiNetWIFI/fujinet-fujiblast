@@ -2,7 +2,7 @@
 #
 #   make atari                     r2r/atari/fujiblst.atr (48K Atari 400/800, XL/XE)
 #   make apple2                    r2r/apple2/fujiblst.po (128K //e, //c, IIgs; high-res)
-#   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA)
+#   make msdos                     r2r/msdos/fujiblst.img (128K PC, XT or PCjr with CGA; FUJIBVGA.EXE for VGA/MCGA)
 #   make adam                      r2r/adam/fujiblst.ddp (Coleco Adam; TMS9918A)
 #   make msxrom                    r2r/msxrom/fujiblst[ASCII8].rom (MSX, a FujiNet user ROM; TMS9918A)
 #   make intv                      r2r/intv/fujiblst.rom (Intellivision, the FujiNet cartridge)
@@ -90,19 +90,31 @@ build/a2loader.bin: tools/a2loader/loader.s tools/a2loader/loader.cfg
 	ca65 -o build/a2loader.o tools/a2loader/loader.s
 	ld65 -C tools/a2loader/loader.cfg -o $@ build/a2loader.o
 
-# ---- MS-DOS (an IBM PC, XT, PCjr or compatible: CGA, 128K) -----------------
+# ---- MS-DOS (an IBM PC, XT, PCjr or compatible: CGA, 128K; or VGA/MCGA) ---
 # Open Watcom, small model, from defoogi unless installed (tools/dos/ow).
-# CGA's 320x200 4-colour mode, its palette set through the BIOS
-# (src/msdos/gfx.c). The link to the server is FUJINET.SYS's serial port,
+# Two programs on one disk (PRODUCTS): FUJIBLST.EXE, CGA's 320x200 4-colour
+# mode, its palette set through the BIOS (src/msdos/cga), for a 4.77 MHz
+# 8088; and FUJIBVGA.EXE, VGA's and MCGA's 320x200 256-colour mode 13h, its
+# DAC set through the BIOS (src/msdos/vga), for an 8 MHz 8086. The rest of
+# src/msdos is both's. The link to the server is FUJINET.SYS's serial port,
 # driven by interrupt (src/msdos/fbport.c); fujinet-lib (5.1.0's msdos
-# release, small model) opens it and reads the appkeys. FUJIBLST.EXE runs
-# from AUTOEXEC.BAT on its disk, as the lobby starts it.
+# release, small model) opens it and reads the appkeys. The lobby starts
+# the disk's AUTOEXEC.BAT, whose FBSEL.COM (tools/dos/fbsel.asm) types
+# FUJIBVGA on a VGA or MCGA and FUJIBLST on anything else.
+# (The fujiblst_/fujibvga_ variables stay in here: mekkogx would add a
+# product's to every platform's pass of that name.)
 ifeq ($(PLATFORM),msdos)
+  PRODUCTS = fujiblst fujibvga
+  SRC_DIRS = src src/msdos
   CC_OW2 = $(CURDIR)/tools/dos/ow wcc
   AS_OW2 = $(CURDIR)/tools/dos/ow wasm
   AR_OW2 = $(CURDIR)/tools/dos/ow wlib
   LD_OW2 = $(CURDIR)/tools/dos/ow wlink OPTION quiet
-  EXTRA_INCLUDE += gen/msdos
+  EXTRA_INCLUDE += src/msdos
+  fujiblst_SRC_DIRS = src/msdos/cga gen/msdos
+  fujiblst_EXTRA_INCLUDE = gen/msdos
+  fujibvga_SRC_DIRS = src/msdos/vga gen/msdosvga
+  fujibvga_EXTRA_INCLUDE = gen/msdosvga
 endif
 # (-ad names the object in the .d without its directory: -adt names it)
 OPT ?= -os -oi -ol
@@ -112,11 +124,17 @@ ifeq ($(STATS),1)               # plays by itself, writes A:\STATS.TXT (tools/do
   CFLAGS_EXTRA_MSDOS += -DSTATS
   ASFLAGS_EXTRA_MSDOS += -dSTATS
 endif
-LDFLAGS_EXTRA_MSDOS += OPTION map=build/fujiblst-msdos.map OPTION stack=2048
+LDFLAGS_EXTRA_MSDOS += OPTION map=build/$(PRODUCT)-msdos.map OPTION stack=2048
 ASFLAGS_EXTRA_MSDOS += -zq -0
 
+DISK_EXTRA_FILES_MSDOS += r2r/msdos/fbsel.com
+r2r/msdos/fbsel.com: tools/dos/fbsel.asm
+	@mkdir -p build r2r/msdos
+	tools/dos/ow wasm -zq -fo=build/fbsel.o $<
+	tools/dos/ow wlink option quiet format dos com name $@ file build/fbsel.o
+
 msdos/disk-post::
-	printf '@ECHO OFF\r\nFUJIBLST\r\n' > build/autoexec.bat
+	printf '@ECHO OFF\r\nFBSEL\r\n' > build/autoexec.bat
 	mcopy -o -i $(DISK) build/autoexec.bat "::AUTOEXEC.BAT"
 
 # ---- TRS-80 Color Computer: CoCo 1/2 (64K, PMODE 4 artifact colour) --------
@@ -683,11 +701,16 @@ gen/apple2/gfxdata.s: tools/mkgfx_hgr.py tools/hgr.py tools/drawart_hgr.py tools
 	@mkdir -p gen/apple2
 	$(PYTHON) tools/mkgfx_hgr.py gen/apple2
 
-gen-msdos: gen/config.h gen/msdos/gfxdata.c
+gen-msdos: gen/config.h gen/msdos/gfxdata.c gen/msdosvga/gfxdata.c
 
 gen/msdos/gfxdata.c: tools/mkgfx_cga.py tools/artlayout.py tools/png.py gfx/cga/tiles.png gfx/cga/sprites.png gfx/cga/logo.png gfx/cga/cells.png gfx/namco.bin
 	@mkdir -p gen/msdos
 	$(PYTHON) tools/mkgfx_cga.py gen/msdos
+
+gen/msdosvga/gfxdata.c: tools/mkgfx_vga.py tools/vgapal.py tools/artlayout.py tools/png.py gfx/vga/tiles.png gfx/vga/cells.png \
+                        gfx/vga/icons.png gfx/vga/trophy.png gfx/vga/logo.png gfx/vga/sprites.png gfx/vga/bigwin.png gfx/namco.bin
+	@mkdir -p gen/msdosvga
+	$(PYTHON) tools/mkgfx_vga.py gen/msdosvga
 
 gen-adam: gen/config.h gen/adam/gfxdata.c build/fnlib-adam/fujinet-adam.lib
 

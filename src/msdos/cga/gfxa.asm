@@ -295,31 +295,6 @@ ch_k    DW      0
 ch_tk   DW      0
 gx_char_ ENDP
 
-; map_next(SI map, DI drawn, DX from): AL = the first tile from DX on whose
-; map entry differs from what is drawn, or TILES (143). repe cmpsb skips
-; the many that match ~10x faster than a C loop.
-TILES   EQU     143
-        PUBLIC  map_next_
-map_next_ PROC  NEAR
-        cld
-        mov     ax, ds
-        mov     es, ax
-        xor     dh, dh
-        add     si, dx
-        add     di, dx
-        mov     cx, TILES
-        sub     cx, dx
-        jbe     mn_none
-        repe    cmpsb
-        je      mn_none                 ; all the same
-        mov     ax, TILES - 1
-        sub     ax, cx
-        ret
-mn_none:
-        mov     al, TILES
-        ret
-map_next_ ENDP
-
 ; gx_compose: lines _gx_y.._gx_y+_gx_h-1, bytes _gx_x.._gx_x+_gx_w-1: B,
 ; with the _gx_njobs sprites' lines over it, put together in a line buffer
 ; (_gx_lbuf, in B's segment), then to the screen. For sprites that overlap,

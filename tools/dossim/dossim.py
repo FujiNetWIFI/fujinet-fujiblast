@@ -37,6 +37,9 @@ once plat_init and test_check have written 3C C3 into test_hook. DOSSIM_NOFN=1 b
 CONFIG.SYS (no FUJINET.SYS: the game answers INT F5h itself).
 DOSSIM_AUTOEXEC replaces the AUTOEXEC.BAT's FUJIBLST line ("\\n" between
 lines). DOSSIM_FILES puts more files on the disk, under their own names.
+DOSSIM_PROG names the game on the disk (default FUJIBLST; the VGA build:
+DOSSIM_PROG=FUJIBVGA DOSSIM_MAMEARGS="-isa1 vga" with fujibvga.exe and
+build/fujibvga-msdos.map).
 
 Against a FujiNet: DOSSIM_FUJINET=127.0.0.1:PORT connects the serial port
 (a null modem) to a fujinet-pc (RS232 build) listening for BoIP there; the
@@ -76,11 +79,13 @@ def make_disk(exe, out):
     if os.environ.get("DOSSIM_NOFN"):
         subprocess.run(["mdel", "-i", disk, "::CONFIG.SYS"], capture_output=True)
     bat = os.path.join(out, "autoexec.bat")
-    # DOSSIM_AUTOEXEC: other lines (\n between them)
-    lines = os.environ.get("DOSSIM_AUTOEXEC", "FUJIBLST").split("\\n")
+    # DOSSIM_AUTOEXEC: other lines (\n between them); DOSSIM_PROG: the
+    # game's name on the disk (FUJIBVGA for the VGA build)
+    prog = os.environ.get("DOSSIM_PROG", "FUJIBLST")
+    lines = os.environ.get("DOSSIM_AUTOEXEC", prog).split("\\n")
     open(bat, "wb").write(("@ECHO OFF\r\n" + "".join(l + "\r\n" for l in lines)).encode())
     subprocess.run(["mcopy", "-o", "-i", disk, bat, "::AUTOEXEC.BAT"], check=True)
-    subprocess.run(["mcopy", "-o", "-i", disk, exe, "::FUJIBLST.EXE"], check=True)
+    subprocess.run(["mcopy", "-o", "-i", disk, exe, "::" + prog + ".EXE"], check=True)
     for f in os.environ.get("DOSSIM_FILES", "").split():
         subprocess.run(["mcopy", "-o", "-i", disk, f,
                         "::" + os.path.basename(f).upper()], check=True)

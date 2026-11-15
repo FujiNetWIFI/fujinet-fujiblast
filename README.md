@@ -4,7 +4,7 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 
 - the Atari 400/800/XL/XE with 48K;
 - the Apple II in high-res (a 128K //e, //c or IIgs: the art lives in aux RAM);
-- MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088;
+- MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088; and on a VGA or MCGA (the PS/2 Model 25/30 and up) in 256 colours;
 - the Intellivision, with the FujiNet cartridge;
 - the Coleco Adam (TMS9918A);
 - the MSX (MSX1 and up, TMS9918A), as a FujiNet cartridge's user ROM;
@@ -47,7 +47,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `src/platform-specific/*.h` | The API each platform implements. |
 | `src/atari/` | The Atari implementation: cc65, ANTIC mode 4, players and missiles, netstream. |
 | `src/apple2/` | The Apple II implementation: cc65, high-res (the menus on both pages, the arena on one), a blitter in the language card, SmartPort, the Mockingboard. |
-| `src/msdos/` | The MS-DOS implementation: Open Watcom, CGA's 320x200 4-colour mode, FUJINET.SYS's serial port driven by interrupt, the PC speaker. |
+| `src/msdos/` | The MS-DOS implementation: Open Watcom, FUJINET.SYS's serial port driven by interrupt, the PC speaker; the screen in `cga/` (CGA's 320x200 4-colour mode, FUJIBLST.EXE) or `vga/` (mode 13h, 256 colours, FUJIBVGA.EXE). |
 | `src/intv/` | The Intellivision client: the C client again in IntyBASIC, its hot loops in CP1610 assembly; the cartridge's mailbox. |
 | `src/adam/` | The Coleco Adam implementation: z88dk and zsdcc, Graphics II as a character map, two sprites a bomber, the SN76489, the FujiNet's DCB driven by hand. |
 | `src/tms9918/` | What the Adam and the MSX share: the screen (`gfx.c`, Graphics II as a character map, sprites), the VDP header and the tunes. |
@@ -155,7 +155,7 @@ make nes               # r2r/nes/fujiblst.nes (the lib: tools/nes/mkfnlib.sh ~/W
 
 `make coleco` runs `src/coleco/build.sh`: zmac 1.3 again, one assembly of a fixed 16K (the screen, the sprites, the sound, the link's mailbox, the main loop), the art in a fixed 6K, and 4K pages two to an 8K image page (page 0 the boot page, whose C000H is mapped at power-on), padded into an APPBANK image of 56K and claimed. The art is the Adam's (`gfx/tms/*.png` and `gfx/namco.bin`, `tools/coleco/mkgfx_coleco.py` turning the Adam's generated tables into zmac includes) and its tunes (`tools/coleco/mksnd_coleco.py` reads `src/adam/sound.c`). The checks (`tools/coleco/`, from M.U.L.E.'s ColecoVision client) fail the build on a region past its budget, the variables running into the stack, the mailbox pages not clear, or a label defined twice. `make coleco-rig` builds `build/coleco-rig/fujiblst.rom`, whose default server is the rig's.
 
-The MS-DOS disk holds `FUJIBLST.EXE` and an `AUTOEXEC.BAT` that runs it. The art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`) and `gfx/namco.bin`, the Namco arcade font.
+The MS-DOS disk holds two programs, `FUJIBLST.EXE` (CGA) and `FUJIBVGA.EXE` (VGA and MCGA), built from the same sources but for the screen (mekkogx `PRODUCTS`). `AUTOEXEC.BAT` runs `FBSEL.COM` (`tools/dos/fbsel.asm`), which types the one for the machine into the keyboard buffer: `FUJIBVGA` when INT 10h AX=1A00h reports a VGA or an MCGA, `FUJIBLST` otherwise. `FUJIBVGA` run by hand without either hands over to `FUJIBLST` the same way. The CGA art is `gfx/cga/*.png` (drawn by `tools/drawart_cga.py`, converted by `tools/mkgfx_cga.py`); the VGA art is `gfx/vga/*.png` (drawn by `tools/drawart_vga.py`, previews with `--preview DIR`; converted by `tools/mkgfx_vga.py`), its 256 colours laid out in `tools/vgapal.py`; both use `gfx/namco.bin`, the Namco arcade font.
 
 The Apple II disk holds three files:
 - `FUJIBLST.SYSTEM`, our own loader (`tools/a2loader`)
@@ -200,6 +200,17 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
   - The game logic runs 60 times a second.
   - In live play against three bots, a 4.77 MHz 8088 redraws about 30 times a second (86Box's IBM 5150).
   - Only bombs and duds animate (each animated tile costs an 8088 a redraw).
+
+### VGA and MCGA (FUJIBVGA.EXE)
+
+- **Machine:** a VGA or an MCGA (the PS/2 Model 25 and 30 have the MCGA), with FUJINET.SYS loaded and about 256K. Only 8086 instructions.
+- **Screen:** mode 13h, 320x200 in 256 colours, the CGA build's layout. The art is shaded with ramps: grass, steel pillars, brick, glossy bombs, gradient text (a colour a glyph line), a sky behind the title, a 32x32 cheer for the winner.
+- **Colours:** set through the BIOS's DAC calls only (INT 10h AX=1012h; an MCGA has no attribute controller): all 256 at the start, the backdrop's 32 per screen. The flames, the bombs' sparks and the fire icon flicker by cycling 16 entries, with nothing redrawn.
+- **Keys, joystick, sound, network:** as the CGA build.
+- **Speed (86Box, live against three bots):**
+  - An 8 MHz 8086 with VGA (the Amstrad PC2086, the closest 86Box has to a PS/2 Model 25/30) redraws nearly every frame, about 59 times a second.
+  - A 4.77 MHz IBM XT with an 8-bit VGA card (an OAK OTI-037C) keeps the logic at 60 Hz and redraws 33 to 40 times a second.
+  - Every bomber frame is coloured for every seat at start-up (18K): rebuilding them as the bombers walked cost an 8088 a fifth of its time.
 
 ## The Intellivision
 
@@ -413,13 +424,15 @@ For MS-DOS:
 ```
 python3 tools/dossim/dossim.py r2r/msdos/fujiblst.exe build/fujiblst-msdos.map SCENARIO OUTDIR
 tools/dosrig/rig.sh SCENARIO OUTDIR
-defoogi make msdos STATS=1 && cp r2r/msdos/fujiblst.exe build/fujiblst-stats.exe && cp build/fujiblst-msdos.map build/fujiblst-stats.map
+defoogi make msdos STATS=1 && for p in fujiblst fujibvga; do cp r2r/msdos/$p.exe build/$p-stats.exe; cp build/$p-msdos.map build/$p-stats.map; done
 tools/dosrig/86box.sh SECONDS OUTDIR
 ```
 
 - `dossim.py` runs the test scenes in MAME's IBM PC with CGA (`DOSSIM_NOFN=1`: no FUJINET.SYS), or its PCjr (`DOSSIM_MACHINE=ibmpcjr`). Scenes are in `tools/dossim/scenes`.
+  - The VGA build: `DOSSIM_PROG=FUJIBVGA DOSSIM_MAMEARGS="-isa1 vga"` with `r2r/msdos/fujibvga.exe` and `build/fujibvga-msdos.map`. `DOSSIM_AUTOEXEC=FBSEL` with `DOSSIM_FILES` (the other program, `fbsel.com`) tries the selector.
 - `dosrig/rig.sh` plays live in a network namespace: the server, bots, a copy of fujinet-pc-rs232 on BoIP, and MAME's PC with FUJINET.SYS (`BAUD`, `PORT`).
 - `dosrig/86box.sh` measures speed on 86Box's IBM 5150, whose 8088 and CGA run at a real PC's pace.
+  - The VGA build: `PROG=FUJIBVGA` (its `build/fujibvga-stats.exe` and `.map`) and `VMSET`, settings over the VM's in the rig's copy: the script's header has the PC2086's.
   - The `STATS=1` build plays by itself.
   - Every 10 s it adds a line to `A:\STATS.TXT`: frames drawn and late, the link's counters, and the share of time spent drawing, waiting, on logic, the link and the UART.
   - It also writes a profile, `A:\PROF.BIN`, which `tools/dosrig/prof86.py` reads.
