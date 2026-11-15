@@ -30,7 +30,6 @@ type Config struct {
 	Endpoint  string // QA, Prod or another lobby's /server
 	Game      string // registered name: "FujiBlast"
 	AppKey    int    // lobby key: 16
-	Server    string // shown as the server's name
 	Region    string
 	ServerURL string // base: tcp://host:9910/ (the table is added as ?table=id)
 	Clients   []Client
@@ -39,6 +38,7 @@ type Config struct {
 // Table is one table's lobby state.
 type Table struct {
 	ID      string
+	Name    string // shown as the server's name: the game's own ("1 BOT")
 	Players int
 	Online  bool
 }
@@ -108,7 +108,7 @@ func (p *Publisher) Run(tables []Table, stop <-chan struct{}) {
 }
 
 func (p *Publisher) post(t Table) {
-	e := entry{Game: p.cfg.Game, AppKey: p.cfg.AppKey, Server: p.cfg.Server + " " + t.ID, Region: p.cfg.Region,
+	e := entry{Game: p.cfg.Game, AppKey: p.cfg.AppKey, Server: t.Name, Region: p.cfg.Region,
 		ServerURL: p.cfg.ServerURL + "?table=" + t.ID, Status: "online", MaxPlayers: 4,
 		CurPlayers: t.Players, Clients: p.cfg.Clients}
 	if !t.Online {

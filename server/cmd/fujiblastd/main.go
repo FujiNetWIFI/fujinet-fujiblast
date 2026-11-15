@@ -56,7 +56,7 @@ func main() {
 		if ep == "" {
 			ep = lb
 		}
-		cfg := lobby.Config{Endpoint: ep, Game: "FujiBlast", AppKey: 16, Server: "FujiBlast",
+		cfg := lobby.Config{Endpoint: ep, Game: "FujiBlast", AppKey: 16,
 			Region: env("FUJIBLAST_REGION", "us"), ServerURL: env("FUJIBLAST_SERVER_URL", "tcp://localhost:9910/")}
 		if u := os.Getenv("FUJIBLAST_CLIENT_ATARI"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "atari", URL: u})
@@ -116,10 +116,10 @@ func main() {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "studio2", URL: u})
 		}
 		pub := lobby.New(cfg)
-		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Players: ti.Seated}) }
+		s.OnChange = func(ti server.TableInfo) { pub.Notify(lobby.Table{ID: ti.ID, Name: ti.Name, Players: ti.Seated}) }
 		var ts []lobby.Table
 		for _, ti := range s.Tables(false) {
-			ts = append(ts, lobby.Table{ID: ti.ID, Players: ti.Seated})
+			ts = append(ts, lobby.Table{ID: ti.ID, Name: ti.Name, Players: ti.Seated})
 		}
 		log.Printf("lobby: %s", cfg)
 		go func() { pub.Run(ts, stop); close(done) }()
