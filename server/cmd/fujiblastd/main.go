@@ -5,7 +5,7 @@
 //
 // Lobby listing is off unless FUJIBLAST_LOBBY is qa, prod or a lobby URL;
 // then FUJIBLAST_SERVER_URL (tcp://host:9910/) and FUJIBLAST_CLIENT_ATARI
-// (tnfs://host/path/fujiblst.atr), _APPLE2, _MSDOS, _INTV, _ADAM, _O2, _ARCADIA, _ASTROCADE, _CHANNELF, _COLECO, _ATARI2600, _ATARI7800, _ATARI5200, _COCO, _NES, _SMS, _H89 and _STUDIO2
+// (tnfs://host/path/fujiblst.atr), _APPLE2, _MSDOS, _INTV, _ADAM, _O2, _ARCADIA, _ASTROCADE, _CHANNELF, _COLECO, _ATARI2600, _ATARI7800, _ATARI5200, _COCO, _NES, _SMS, _H89, _MSX and _STUDIO2
 // say what it lists.
 //
 // House bots (-bots / FUJIBLAST_BOTS, default blast1=1,blast2=2,blast3=3) sit
@@ -89,7 +89,7 @@ func main() {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "coleco", URL: u})
 		}
 		if u := os.Getenv("FUJIBLAST_CLIENT_ATARI2600"); u != "" {
-			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "atari2600", URL: u})
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "a2600", URL: u})
 		}
 		if u := os.Getenv("FUJIBLAST_CLIENT_ATARI7800"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "atari7800", URL: u})
@@ -108,6 +108,9 @@ func main() {
 		}
 		if u := os.Getenv("FUJIBLAST_CLIENT_H89"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "h89", URL: u})
+		}
+		if u := os.Getenv("FUJIBLAST_CLIENT_MSX"); u != "" {
+			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "msx", URL: u})
 		}
 		if u := os.Getenv("FUJIBLAST_CLIENT_STUDIO2"); u != "" {
 			cfg.Clients = append(cfg.Clients, lobby.Client{Platform: "studio2", URL: u})
