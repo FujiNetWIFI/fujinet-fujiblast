@@ -37,7 +37,7 @@ uint8_t inp_dir, inp_btn, ev_btn, ev_key;
 uint8_t inp_hook, inp_hook_dir, inp_hook_btn, inp_hook_key;
 
 static uint8_t key_dir, key_btn, btn_prev, btn_ev, key_latch;
-static uint8_t joy_on, jx_lo, jx_hi, jy_lo, jy_hi, joy_dir;
+static uint8_t joy_on, jx_lo, jx_hi, jy_lo, jy_hi, joy_dir, joy_skip;
 
 void input_init(void)
 {
@@ -80,7 +80,8 @@ void input_poll(void)
     btn = key_btn || ((BUTN0 | BUTN1) & 0x80);
 
     if (joy_on) {
-        if (plat_drew) {        /* (a logic-only pass has no time to spare) */
+        if (plat_drew && (joy_skip ^= 1)) {     /* (a logic-only pass has no time to spare;
+                                                 * the paddles are read every other drawn one) */
             joy_read();
             joy_dir = 0;
             if (joy_x < jx_lo)

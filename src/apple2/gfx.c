@@ -68,6 +68,7 @@ void hg_mover_c(void);
 /* gfxa.s */
 void __fastcall__ plan(uint8_t so);
 uint8_t __fastcall__ keep_scan(uint8_t so);
+void __fastcall__ keep_arena(uint8_t so);
 void __fastcall__ sprites_m(uint8_t so);
 extern uint8_t spph;
 void __fastcall__ erase_diff(uint8_t k);
@@ -552,10 +553,13 @@ static uint8_t meet(uint8_t a, uint8_t b)
  * now, and nothing drawn over them this time. */
 static void keepers(uint8_t so)
 {
-    uint8_t k, j, m, r, c, c0, c1, r0, r1;
-    const uint8_t *shown = so ? tile_shown1 : tile_shown0;
+    uint8_t k, j, m, r;
     if (!keep_scan(so))                 /* (gfxa.s; all moving: nothing to check) */
         return;
+    if (arena) {                        /* (gfxa.s: the old places, the tiles to draw) */
+        keep_arena(so);
+        return;
+    }
     for (k = 0; k < SLOTS; ++k) {
         frame_tick();
         if (!keep[k])
@@ -564,24 +568,9 @@ static void keepers(uint8_t so)
         for (m = 0; m < SLOTS; ++m)     /* another's old place, taken off */
             if (!keep[m] && dr_on[m + so] && meet(j, m + so))
                 keep[k] = 0;
-        if (arena) {                    /* tiles to be drawn under it */
-            c0 = dr_g[j] < AR_G ? 0 : dr_g[j] - AR_G;
-            c1 = dr_g[j] + dr_ng[j] - 1 - AR_G;
-            if (c1 >= ARENA_W)
-                c1 = ARENA_W - 1;
-            r0 = (dr_y[j] - AR_Y) >> 4;
-            r1 = (dr_y[j] + dr_h[j] - 1 - AR_Y) >> 4;
-            if (r1 >= ARENA_H)
-                r1 = ARENA_H - 1;
-            for (r = r0; r <= r1; ++r)
-                for (c = c0; c <= c1; ++c)
-                    if (shown[row13[r] + c] == 0xFF)
-                        keep[k] = 0;
-        } else {                        /* rows drawn again under it */
-            for (r = (dr_y[j] >> 3) + 1; r <= ((dr_y[j] + dr_h[j] - 1) >> 3) + 1 && r < SCR_ROWS; ++r)
-                if (redrawn[r])
-                    keep[k] = 0;
-        }
+        for (r = (dr_y[j] >> 3) + 1; r <= ((dr_y[j] + dr_h[j] - 1) >> 3) + 1 && r < SCR_ROWS; ++r)
+            if (redrawn[r])             /* rows drawn again under it */
+                keep[k] = 0;
     }
 }
 

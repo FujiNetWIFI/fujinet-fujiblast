@@ -27,6 +27,7 @@
 
 uint16_t frame_count;
 uint8_t plat_drew;                      /* this pass drew (input.c reads the stick then) */
+uint8_t plat_will_draw = 1;             /* (play.c: PLAT_SEATS_WHEN_DRAWN) */
 static uint16_t seed = 0x1234;
 
 /* lowlevel.s */
@@ -205,6 +206,8 @@ void frame_wait(void)
     }
     seed += frame_count;
     snd_tick();
+    /* the next pass is likely drawn if it starts this soon */
+    plat_will_draw = (uint16_t)(frame_count - seen) < 2;
 }
 
 uint8_t plat_rand(void)

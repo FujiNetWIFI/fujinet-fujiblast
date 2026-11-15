@@ -12,7 +12,7 @@
         .import         _spr_ax, _spr_ay, _spr_af, _spr_as
         .import         _fragbuf, _fgbuf, _ax_font3, _ax_font5, _tile_first, _tile_n
         .export         _pack_big, _big_col, _plan, _erase_diff, _ebox
-        .export         _keep_scan, _sprites_m, _spph
+        .export         _keep_scan, _keep_arena, _sprites_m, _spph
         .import         _sp_fr, _dr_on, _dr_x, _dr_s, _dr_f, _dr_g, _dr_ng, _fr_win0
         .import         _hg_mover, _hg_mover_c, _hg_bomber, _hg_bomber_c, _hg_big, _frame_tick
         .importzp       _hg_x, _hg_bg, _hg_c0, _hg_nb
@@ -850,7 +850,158 @@ _ebox:  lda     _er_n
 :       jmp     _erase_box
 @no:    rts
 
+; keep_arena(A = page offset): keepers' arena part (gfx.c), after keep_scan:
+; a kept sprite stays kept unless the old place of one being redrawn meets
+; its box, or a tile under it is still to be drawn on this page.
+_keep_arena:
+        sta     pso
+        lda     #<_tile_shown0
+        ldx     #>_tile_shown0
+        ldy     pso
+        beq     :+
+        lda     #<_tile_shown1
+        ldx     #>_tile_shown1
+:       sta     zp_a
+        stx     zp_a+1
+        lda     #0
+        sta     kk
+@k:     jsr     _frame_tick
+        ldx     kk
+        lda     _keep,x
+        bne     :+
+        jmp     @next
+:       txa
+        clc
+        adc     pso
+        sta     kj
+        lda     #0
+        sta     km
+@m:     ldx     km
+        lda     _keep,x
+        bne     @nm
+        txa
+        clc
+        adc     pso
+        tay                     ; Y: the other (m + page)
+        lda     _dr_on,y
+        beq     @nm
+        ldx     kj              ; X: ours
+        lda     _dr_g,y
+        clc
+        adc     _dr_ng,y
+        sta     kt1
+        lda     _dr_g,x
+        cmp     kt1
+        bcs     @nm
+        lda     _dr_g,x
+        clc
+        adc     _dr_ng,x
+        sta     kt2
+        lda     _dr_g,y
+        cmp     kt2
+        bcs     @nm
+        lda     _dr_y,y
+        clc
+        adc     _dr_h,y
+        sta     kt1
+        lda     _dr_y,x
+        cmp     kt1
+        bcs     @nm
+        lda     _dr_y,x
+        clc
+        adc     _dr_h,x
+        sta     kt2
+        lda     _dr_y,y
+        cmp     kt2
+        bcs     @nm
+        jmp     @drop
+@nm:    inc     km
+        lda     km
+        cmp     #8
+        bcc     @m
+        ldy     kj              ; the tiles under it: columns kc0..kc1, rows kr0..kr1
+        lda     _dr_g,y
+        sec
+        sbc     #4              ; (ARENA's first group)
+        bcs     :+
+        lda     #0
+:       sta     kc0
+        lda     _dr_g,y
+        clc
+        adc     _dr_ng,y
+        sec
+        sbc     #5
+        cmp     #ARENA_W
+        bcc     :+
+        lda     #ARENA_W - 1
+:       sta     kc1
+        lda     _dr_y,y
+        sec
+        sbc     #12             ; (ARENA's first line)
+        lsr     a
+        lsr     a
+        lsr     a
+        lsr     a
+        sta     kr
+        lda     _dr_y,y
+        clc
+        adc     _dr_h,y
+        sec
+        sbc     #13
+        lsr     a
+        lsr     a
+        lsr     a
+        lsr     a
+        cmp     #11
+        bcc     :+
+        lda     #10
+:       sta     kr1
+@r:     lda     kr
+        cmp     kr1
+        beq     :+
+        bcs     @next
+:       ldx     kr
+        lda     krow13,x
+        clc
+        adc     kc0
+        sta     kt1
+        lda     kc1
+        sec
+        sbc     kc0
+        bcc     @nr             ; (no columns)
+        sta     kt2
+@c:     ldy     kt1
+        lda     (zp_a),y
+        cmp     #$FF
+        beq     @drop
+        inc     kt1
+        dec     kt2
+        bpl     @c
+@nr:    inc     kr
+        jmp     @r
+@drop:  ldx     kk
+        lda     #0
+        sta     _keep,x
+@next:  inc     kk
+        lda     kk
+        cmp     #8
+        bcs     :+
+        jmp     @k
+:       ldx     #0
+        rts
+
+krow13: .byte   0, 13, 26, 39, 52, 65, 78, 91, 104, 117, 130
+
         .bss
+kk:     .res 1
+kj:     .res 1
+km:     .res 1
+kc0:    .res 1
+kc1:    .res 1
+kr:     .res 1
+kr1:    .res 1
+kt1:    .res 1
+kt2:    .res 1
 pso:    .res 1                  ; the page's offset (plan, erase_diff)
 _spph:  .res 1                  ; the movers' animation phase (keep_scan, sprites_m)
 pany:   .res 1

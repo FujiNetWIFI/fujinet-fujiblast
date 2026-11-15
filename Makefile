@@ -59,7 +59,7 @@ endif
 # ---- Apple II (128K //e, //c, IIgs), high-res -----------------------------
 # cc65, ProDOS: FUJIBLST.SYSTEM (tools/a2loader) loads FUJIBLST, which reads
 # its art from FUJIBLST.GFX into aux RAM. Memory: src/apple2/fujiblst.cfg.
-CFLAGS_EXTRA_APPLE2 += -Os -Cl
+CFLAGS_EXTRA_APPLE2 += -Os -Cl -DPLAT_SEATS_WHEN_DRAWN -DPLAT_FAST_SEAT
 LDFLAGS_EXTRA_APPLE2 += -C src/apple2/fujiblst.cfg -m build/fujiblst-apple2.map
 EXECUTABLE_EXTRA_DEPS_APPLE2 += src/apple2/fujiblst.cfg
 ifeq ($(PLATFORM),apple2)
@@ -72,6 +72,8 @@ endif
 # language card, beside the blitter, has no room for input too.)
 A2OBJ = build/$(PRODUCT)/apple2/src
 $(A2OBJ)/screens.o $(A2OBJ)/test.o $(A2OBJ)/main.o $(A2OBJ)/apple2/nstrans.o: CFLAGS += --code-name LOWCODE --rodata-name LOWDATA
+# input.c in the language card (the HGR blitter left it room): main RAM is full
+$(A2OBJ)/apple2/input.o: CFLAGS += --code-name LC
 # the menus and the appkeys: an overlay, under other names (src/apple2/overlay.c)
 A2OVL = -Dtitle=ov_title -Dname_entry=ov_name_entry -Dtable_list=ov_table_list \
         -Dappkey_load=ov_appkey_load -Dappkey_save_name=ov_appkey_save_name \
