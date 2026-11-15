@@ -34,7 +34,7 @@ void bus_ready(void);
 #define DW_SEND_ERROR   0x02
 
 #ifndef POLL_EVERY
-#define POLL_EVERY 2
+#define POLL_EVERY 3
 #endif
 #define FMAX 136                /* an encoded frame, at most */
 #define OMAX 64                 /* a frame we send, at most */
@@ -46,8 +46,8 @@ uint8_t nst_taken;
 static char dev[72];
 static uint8_t unit;                    /* the N: unit */
 static uint8_t dwq[10];
-static uint8_t ring[256], rhead, rtail;
-static uint8_t dlen, drem, dzero, dbad; /* the frame being decoded */
+uint8_t nst_ring[256], nst_rhead, nst_rtail;
+uint8_t nst_dlen, nst_drem, nst_dzero, nst_dbad;  /* the frame being decoded (nsta.asm) */
 static uint8_t obuf[OMAX], olen, oover; /* the frame being sent */
 static uint8_t is_open, lost, garbled, more;
 static uint16_t polled;
@@ -112,7 +112,7 @@ uint8_t nst_open(const char *host, uint16_t port)
     } while (port);
     strcpy(p, num + n);
     strcat(p, "/");
-    rhead = rtail = dlen = drem = dzero = dbad = 0;
+    nst_rhead = nst_rtail = nst_dlen = nst_drem = nst_dzero = nst_dbad = 0;
     olen = oover = lost = garbled = more = 0;
     nst_taken = 0;
     if (network_init() != FN_ERR_OK)
@@ -143,7 +143,6 @@ void nst_close(void)
  * in one write at the frame's end. */
 void nst_put(uint8_t c)
 {
-    uint8_t e = 0;
     if (olen < OMAX)
         obuf[olen++] = c;
     else
@@ -151,7 +150,9 @@ void nst_put(uint8_t c)
     if (c)
         return;
     if (!oover && is_open) {
-        /* how it went: 1, the FujiNet's SUCCESS */
+        /* how it went: 1, the FujiNet's SUCCESS (a write without this
+         * fetch stalls the link: measured, 2026-11-15) */
+        uint8_t e = 0;
         if (!dw_call('W', olen, obuf, DW_SEND_ERROR, &e, 1) || e != 1)
             garbled = 1;
     }
@@ -171,7 +172,7 @@ static void poll(void)
     bw = waiting();
     if (!bw)
         return;
-    room = 255 - (uint8_t)(rhead - rtail);
+    room = 255 - (uint8_t)(nst_rhead - nst_rtail);
     if (room > RMAX)
         room = RMAX;
     if (!room)
@@ -186,65 +187,17 @@ static void poll(void)
         return;
     }
     for (i = 0; i < n; ++i)
-        ring[rhead++] = tmp[i];
+        nst_ring[nst_rhead++] = tmp[i];
 }
 
-/* a + b, mod 255, with no division (256 is 1, mod 255) */
-static uint8_t add255(uint8_t a, uint8_t b)
-{
-    a += b;
-    if (a < b)
-        ++a;
-    return a == 255 ? 0 : a;
-}
+uint8_t nst_scan(void);                 /* nsta.asm: the ring's bytes up to a frame's end */
 
-/* The frame's end: its Fletcher sum checked; its length, or 255. */
-static uint8_t frame_end(void)
-{
-    uint8_t i, o = dlen, s1 = 0, s2 = 0;
-    if (dbad || drem || o < 3)
-        return 255;
-    o -= 2;
-    for (i = 0; i < o; ++i) {
-        s1 = add255(s1, nst_buf[i]);
-        s2 = add255(s2, s1);
-    }
-    if (s1 != nst_buf[o] || s2 != nst_buf[o + 1])
-        return 255;
-    return o;
-}
-
-/* Bytes up to a frame's end, the COBS undone as they come: a code byte n
- * says n-1 bytes follow, then a 0 (unless n is $FF, or the frame ends). */
+/* A frame (its COBS undone, its Fletcher sum checked): its length, or 255
+ * for a bad one, or 0. */
 uint8_t nst_frame(void)
 {
-    uint8_t c, n;
     poll();
-    while (rtail != rhead) {
-        c = ring[rtail++];
-        ++nst_taken;
-        if (!c) {
-            n = dlen || drem || dbad ? frame_end() : 0;
-            dlen = drem = dzero = dbad = 0;
-            if (n)
-                return n;
-            continue;
-        }
-        if (dlen >= FMAX - 1) {
-            dbad = 1;           /* too long: wait for the next 0 */
-            continue;
-        }
-        if (!drem) {
-            if (dzero)
-                nst_buf[dlen++] = 0;
-            drem = c - 1;
-            dzero = c < 0xFF;
-        } else {
-            nst_buf[dlen++] = c;
-            --drem;
-        }
-    }
-    return 0;
+    return nst_scan();
 }
 
 uint8_t nst_lost(void)

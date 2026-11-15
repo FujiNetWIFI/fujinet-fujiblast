@@ -86,6 +86,7 @@ S_COL   equ 8                   ; x colour
 CTL_OFF   equ 0
 CTL_FG    equ vdc_ctrl_fore                               ; objects only
 CTL_ARENA equ vdc_ctrl_fill|vdc_ctrl_fore|vdc_ctrl_grid   ; objects + cells
+CTL_POST  equ vdc_ctrl_fore|vdc_ctrl_grid                 ; ... cells as 2-pixel posts
 
 SPR_OFF equ 0F8h                ; a sprite's Y below the screen
 
@@ -124,8 +125,9 @@ GLEADP  equ 2
 PALPASS equ 565                 ; pal_check: passes a frame from which a
                                 ; console is PAL (NTSC ~443, PAL ~686)
     ifndef LOOK
-LOOK    equ 0                   ; 0: a block is a whole cell; 1: blocks the
-    endif                       ; top of the cell, pillars the whole
+LOOK    equ 2                   ; 0: a block is a whole cell; 1: blocks the
+    endif                       ; top of the cell, pillars the whole;
+                                ; 2: whole cells, then posts only (mortar)
 Y_CHAR  equ 2                   ; a tile's character: its line in the tile
     ifndef ARENA_COL
 ARENA_COL equ col_bck_green|col_grd_lum|col_grd_yellow  ; floor, walls (user: yellow)

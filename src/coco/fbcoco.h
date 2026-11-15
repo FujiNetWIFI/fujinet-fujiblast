@@ -14,7 +14,7 @@ extern uint8_t kb_q[8], kb_head, kb_tail;
 /* sound.c */
 void snd_tick(void);                    /* once a pass: what the sound does between frames */
 void snd_gate(uint8_t on);               /* the DAC and the mux for sound (0: for the joystick reads) */
-extern uint16_t snd_slice;              /* cycles a jiffy the sound may take */
+void snd_idle(uint8_t seen);            /* wait for the end of jiffy seen (frame_count's low byte), sounding meanwhile */
 /* gfx.c, gfx3.c */
 void gfx_swap_colours(void);            /* the artifact colours' phase, or RGB <-> composite */
 void gfx_clear(void);

@@ -1,0 +1,7 @@
+# bench4 with a sound playing all the time (src/test.c scene 5, ARG 1)
+test 5 1
+wait 300
+snap bench
+peek renders 2
+wait 600
+peek renders 2

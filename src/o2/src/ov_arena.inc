@@ -71,15 +71,14 @@ GW_NOP  equ $-1
     movx @r0,a                  ; the grid on
     ret
 
-; g_off: the grid off, with g_write's timing (the arena's last band).
-; Clobbers A, r0, r2.
+; g_off: the control byte r1 written with g_write's timing (the arena's last
+; band: the grid off; LOOK 2's mid band: fill off). Clobbers A, r0, r2.
 g_off:
-    nop
     mov r2,#GPREN               ; (GO_PRE, poked for PAL)
 GO_PRE  equ $-1
     djnz r2,$
     mov r0,#vdc_control
-    mov a,#CTL_FG
+    mov a,r1
     movx @r0,a
     ret
 
@@ -157,6 +156,8 @@ J_GRID  equ $&0FFh
     db h_grid&0FFh
 J_END   equ $&0FFh
     db h_end&0FFh
+J_POST  equ $&0FFh
+    db h_post&0FFh
 
 ; h_grid: the row at the band's argument (an offset in page $6) into the
 ; grid.
@@ -168,6 +169,14 @@ h_grid:
 ; h_end: the arena has ended: the grid off.
 h_end:
     call band_arg
+    mov r1,#CTL_FG
+    call g_off
+    ISR_OUT
+
+; h_post: LOOK 2: the mid band, fill off: the walls shrink to posts.
+h_post:
+    call band_arg
+    mov r1,#CTL_POST
     call g_off
     ISR_OUT
 
@@ -217,13 +226,20 @@ sw_l:
 BL_FIRST equ Y0-GLEAD
 BL_FIRSTP equ Y0-GLEADP          ; PAL's (the boot pokes VB_FIRST)
     ifndef MIDL
+    if LOOK=2
+MIDL    equ 12                  ; LOOK 2: the posts' band, lines into a row
+    else
 MIDL    equ 7                   ; LOOK 1: the row's band, lines into a row
+    endif
     endif
 BANDS:
 K   set 0
     rept ARENA_H
     if LOOK=0
     db J_GRID, (GRIDROWS&0FFh)+VIEW_W*K, 256-TILE_H
+    elseif LOOK=2
+    db J_GRID, (GRIDROWS&0FFh)+VIEW_W*K, 256-MIDL
+    db J_POST, 0, 256-(TILE_H-MIDL)
     else
     if K&1
     db J_GRID, CAPPIL&0FFh, 256-MIDL

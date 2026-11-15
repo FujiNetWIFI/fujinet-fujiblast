@@ -1,0 +1,75 @@
+# live fps: counters every 300 frames from the first press
+boot
+wait 1000
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+press
+wait 100
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+wait 300
+peek renders 2
+peek st_passes 2
+peek st 1
+snap fps

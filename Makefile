@@ -151,6 +151,10 @@ CFLAGS_EXTRA_COCO += -O1 -funsigned-char -fomit-frame-pointer -Wno-const \
 ASFLAGS_EXTRA_COCO += --lwasm=$(COCO_TOOLS)/lwasm-sect
 LDFLAGS_EXTRA_COCO += --lwlink=$(COCO_TOOLS)/lwlink-fb.py --initial-s=8000
 CFLAGS_EXTRA_COCO += -DKEY_END_NAME='"ENTER"' -DQUIT_HINT='"BREAK: LOBBY"'
+# the slow-CPU knobs (src/play.c, src/net.c): the tile scan in asm, a commit
+# copies only what changed, the seats are laid out only for a pass that draws,
+# our moves go out half as often
+CFLAGS_EXTRA_COCO += -DPLAT_MAP_NEXT -DPLAT_COMMIT_SPAN -DPLAT_SEATS_WHEN_DRAWN -DMOVE_EVERY=6 -DPLAT_FAST_SEAT -DPOLL_EVERY=4
 # (32 columns where the Atari has 40, a BIG row shows 16 of its 20: the longer texts are shortened;
 # the CoCo 3's are the Atari's)
 ifeq ($(PLATFORM),coco)

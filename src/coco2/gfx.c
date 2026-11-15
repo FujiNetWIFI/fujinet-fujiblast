@@ -215,7 +215,6 @@ void gfx_begin(void)
         row_pal[r] = PAL_MENU;
     }
     in_arena = 0;
-    snd_slice = 9000;           /* the menus don't */
     spr_hide_all();
     memset(s_on, 0, sizeof(s_on));
 }
@@ -409,7 +408,6 @@ void gfx_arena(void)
     spr_hide_all();
     memset(s_on, 0, sizeof(s_on));
     in_arena = 1;
-    snd_slice = 2400;           /* the game needs the CPU */
 }
 
 static void draw_tile(uint8_t c, uint8_t r, uint8_t tile)

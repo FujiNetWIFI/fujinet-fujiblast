@@ -25,6 +25,11 @@ uint8_t my_seat = NONE;
 static uint8_t find_seat(void)
 {
     uint8_t s;
+#ifdef PLAT_FAST_SEAT
+    /* (a slow CPU: our seat, if its name is still ours, is one compare, not up to four) */
+    if (my_seat != NONE && SEATED(my_seat) && !strncmp(NAME(my_seat), my_name, NAME_LEN))
+        return my_seat;
+#endif
     for (s = 0; s < SEATS; ++s)
         if (SEATED(s) && !strncmp(NAME(s), my_name, NAME_LEN))
             return s;

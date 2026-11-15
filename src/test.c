@@ -21,6 +21,7 @@ void test_check(void)
 #include "gfx.h"
 #include "input.h"
 #include "plat.h"
+#include "sound.h"
 
 #ifndef TEST_ARG
 #define TEST_ARG 0
@@ -114,9 +115,9 @@ static const uint8_t wk_x[3] = { MAX_X, MAX_X, 0 }, wk_y[3] = { MAX_Y, 0, 2 * UN
 static const uint8_t wk_d[3] = { DIR_LEFT, DIR_DOWN, DIR_RIGHT };
 static const uint8_t wk_row[2] = { 0, 8 * ARENA_W };
 
-static void walkers(void)
+static void walkers(uint8_t snd)
 {
-    uint8_t t = 0, i, k, p = 0, back = 0, on = 0, *pl;
+    uint8_t t = 0, i, k, p = 0, back = 0, on = 0, *pl, sn = 0;
     for (i = 0; i < ARENA_H; ++i) {
         pl = st + OFF_MAP + i * ARENA_W;
         pl[0] = pl[ARENA_W - 1] = T_FLOOR;
@@ -137,6 +138,8 @@ static void walkers(void)
         p += back ? -1 : 1;
         if (p == 160 || !p)
             back ^= 1;
+        if (snd && !(t % 20))           /* sound always playing: boom, drop, kick */
+            snd_play(sn == 0 ? SND_BOOM : sn == 1 ? SND_DROP : SND_KICK), sn = sn == 2 ? 0 : sn + 1;
         for (k = 0; k < 3; ++k) {       /* x falls, y rises, x rises */
             pl = &PL(k + 1, 0);
             pl[P_X] = wk_x[k] + (k == 0 ? -p : k == 2 ? p : 0);
@@ -177,7 +180,7 @@ void test_check(void)
     inp_hook = 1;
     switch (test_hook[2]) {
     case 5:
-        walkers();
+        walkers(test_hook[3] & 1);
     case 1:
         arena(test_hook[3]);
     case 2:

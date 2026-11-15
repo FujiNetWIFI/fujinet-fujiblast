@@ -32,6 +32,10 @@
 
 uint16_t frame_count;
 static uint16_t seed = 0x1234;
+uint8_t plat_will_draw = 1;             /* (play.c: PLAT_SEATS_WHEN_DRAWN) */
+#ifndef PLAT_NO_TEST
+uint16_t st_passes, st_nodraw, st_addback;  /* passes, passes with no drawing, jiffies put back */
+#endif
 
 /* The keyboard, scanned here 60 times a second so that no key press is
  * missed however long the game's own frame takes (input.c reads these):
@@ -253,6 +257,9 @@ static void clock_check(void)
         ++frame_count;
         asm { andcc #$EF }
         --drift;
+#ifndef PLAT_NO_TEST
+        ++st_addback;
+#endif
     }
 }
 
@@ -266,16 +273,26 @@ void frame_wait(void)
         seen = frame_count - 1;
         d = 1;
     }
+#ifndef PLAT_NO_TEST
+    ++st_passes;
+#endif
     if (d >= 2) {
         ++seen;                         /* behind: a pass with no drawing */
+#ifndef PLAT_NO_TEST
+        ++st_nodraw;
+#endif
     } else {
         spr_flush();
+        snd_idle((uint8_t)seen);        /* the wait for the jiffy, with the sound in it */
         while (frame_count == seen)
             ;
         ++seen;
     }
     seed += frame_count;
     snd_tick();
+    /* the next pass is likely drawn if it starts this soon (play.c lays the
+     * seats out only then) */
+    plat_will_draw = (uint16_t)(frame_count - seen) < 2;
 }
 
 uint8_t plat_rand(void)
