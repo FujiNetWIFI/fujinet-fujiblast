@@ -8,9 +8,9 @@ OUTDIR/art.inc     the compose bank's tables: ART, KCLASS, CBTAB, the per-
                    register tile lists and their contribution tables
 OUTDIR/canned.inc  the canned map (143 bytes, row major) for the test boot
 
-The art is mkspike.py's LOOK 1 (picked 2026-11-12): pillars and blocks share a
-colour; a row holding a flame, bomb or power-up draws its static kinds on the
-even entries and the dynamic kinds on the odd ones.
+The art is mkspike.py's LOOK 3 (picked 2026-11-15): hollow pillars, masonry
+bricks, capsule power-ups; a row holding a flame, bomb or power-up draws its
+static kinds on the even entries and the dynamic kinds on the odd ones.
 """
 import os
 import sys
@@ -18,6 +18,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mkspike as sp  # noqa: E402
 
+LOOK = 3                       # picked 2026-11-15 (gfx/a26/preview/look3-*.png)
 NK = 18
 STRIDE = 7
 
@@ -39,17 +40,8 @@ def art_table():
     t = bytearray(2 * NK * STRIDE)
     for s in (0, 1):
         for k in range(NK):
-            a = sp.ART_FULL.get(k)
             for p in range(STRIDE):
-                v = 0
-                if a is not None:
-                    v = a[p]
-                    if s == 1:
-                        if k in sp.STATIC:
-                            v = v if p % 2 == 0 else 0
-                        else:
-                            v = v if p % 2 == 1 else 0
-                t[s * NK * STRIDE + k * STRIDE + p] = v
+                t[s * NK * STRIDE + k * STRIDE + p] = sp.art_for(k, p, LOOK, s == 1)
     return t
 
 
@@ -86,6 +78,7 @@ def db(name, data, width=16):
 
 def main():
     out = sys.argv[1]
+    sp.palette(LOOK)
     os.makedirs(out, exist_ok=True)
     open(os.path.join(out, "rows.inc"), "w").write(sp.kernel_asm())
 

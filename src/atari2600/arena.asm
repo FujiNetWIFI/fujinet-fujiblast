@@ -100,6 +100,8 @@ DVBLP:  bit     TIMINT
         lda     #0
         sta     NUSIZ0          ; text left it at 3: a different reset delay
         sta     NUSIZ1
+        lda     #C_WALL         ; the top wall band: player 0's two positioning
+        sta     COLUBK          ;   lines, floor colour from the HMOVE on
         lda     P0X
         ldx     #0
         jsr     POSOBJ
@@ -117,9 +119,7 @@ DVBLP:  bit     TIMINT
         lda     #0
         sta     VDELP0
         sta     VDELP1
-        sta     NUSIZ0
-        sta     NUSIZ1
-        ldy     #0              ; entry index
+        ldy     #0              ; entry index (NUSIZ is still 0)
 
 ; ---- the seam: one line, plus two on a row where player 1 moves ----
 SEAM0:  sta     WSYNC
@@ -197,6 +197,9 @@ ARENADONE:
         lda     #0
         sta     GRP0
         sta     GRP1
+        sta     WSYNC           ; the bottom wall band: one line (TXTPOS blacks
+        lda     #C_WALL         ;   the background again inside its HBLANK)
+        sta     COLUBK
         jsr     TXTPOS
         lda     HTXT
         sta     COLUP0
@@ -284,7 +287,6 @@ BJ2:    dex
 ; selection: k = 0.. the candidate with the smallest top
         lda     #0
         sta     JOBI
-        lda     #0
         sta     TLAST           ; the previous job's last row + 1
         ldy     #0              ; jobs built
 BJ3:    lda     TUSED
@@ -357,12 +359,10 @@ BJEND:  lda     #$FF
 XPIX:   sta     MTMP
         lsr     a
         lsr     a
-        sta     MTMP2
-        lda     MTMP
+        eor     #$FF
         sec
-        sbc     MTMP2
-        clc
-        adc     #2
+        adc     MTMP            ; x - x/4 (carry stays set: x >= x/4)
+        adc     #1              ; + 2
         rts
 
         INCLUDE "textkern.inc"

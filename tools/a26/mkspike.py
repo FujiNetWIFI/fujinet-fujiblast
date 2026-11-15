@@ -34,12 +34,13 @@ FLAMES = {FC, FH, FV, FL, FR, FU, FD, BURN}
 POWER = {FIRE, BUP, SPD, KICK, GLOVE}
 BOMBS = {BOMB, DUD}
 
-# colours (NTSC)
+# colours (NTSC); LOOK 3/4 retune them (palette() below)
 C_FLOOR = 0xC2
 C_STATIC = 0x2A
 C_FLAME = 0x1E
 C_BOMB = 0x00
 C_POWER = 0x9A
+C_WALL = 0x74
 
 
 def canned():
@@ -83,8 +84,56 @@ ART_FULL = {
 }
 
 
+# LOOK 3: art drawn for what a row can show.  A quiet row (statics only) uses
+# all five middle entries.  A busy row (a flame, bomb or power-up in it) has
+# the statics on the EVEN entries 2, 4, 6 (colour C_STATIC is hard-wired there)
+# and the dynamic kinds on the ODD entries 1, 3, 5 (the row's CB colour), so
+# every shape below is three dashes, told apart by their width and centre.
+ART_QUIET = {
+    PILLAR: [0b000, 0b111, 0b101, 0b101, 0b101, 0b111, 0b000],   # hollow stone box
+    BLOCK:  [0b000, 0b111, 0b011, 0b111, 0b110, 0b111, 0b000],   # staggered masonry
+}
+ART_BUSY = {
+    PILLAR: [0, 0, 0b111, 0, 0b101, 0, 0b111],
+    BLOCK:  [0, 0, 0b110, 0, 0b011, 0, 0b110],
+    BOMB:   [0, 0b010, 0, 0b111, 0, 0b010, 0],
+    DUD:    [0, 0b010, 0, 0b101, 0, 0b010, 0],
+    FC:     [0, 0b111, 0, 0b111, 0, 0b111, 0],
+    FH:     [0, 0, 0, 0b111, 0, 0, 0],
+    FV:     [0, 0b010, 0, 0b010, 0, 0b010, 0],
+    FL:     [0, 0, 0, 0b011, 0, 0, 0],
+    FR:     [0, 0, 0, 0b110, 0, 0, 0],
+    FU:     [0, 0b010, 0, 0b010, 0, 0, 0],
+    FD:     [0, 0, 0, 0b010, 0, 0b010, 0],
+    BURN:   [0, 0b101, 0, 0b010, 0, 0b101, 0],
+    # power-ups: a capsule (full top and bottom bars) with a mark in the middle
+    FIRE:   [0, 0b111, 0, 0b010, 0, 0b111, 0],
+    BUP:    [0, 0b111, 0, 0b101, 0, 0b111, 0],
+    SPD:    [0, 0b111, 0, 0b110, 0, 0b111, 0],
+    KICK:   [0, 0b111, 0, 0b011, 0, 0b111, 0],
+    GLOVE:  [0, 0b111, 0, 0b100, 0, 0b111, 0],
+}
+
+
+def art_for(kind, p, look, busy):
+    """3 bits of kind at entry p for LOOK 3/4 (busy row or not)."""
+    a = (ART_BUSY if busy else ART_QUIET).get(kind)
+    return a[p] if a else 0
+
+
+def palette(look):
+    """Set the colour globals for a look."""
+    global C_FLOOR, C_STATIC, C_FLAME, C_BOMB, C_POWER, C_WALL
+    if look == 3:
+        C_FLOOR, C_STATIC, C_FLAME, C_BOMB, C_POWER, C_WALL = 0xC2, 0x2A, 0x1E, 0x0C, 0x5C, 0x74
+    elif look == 4:
+        C_FLOOR, C_STATIC, C_FLAME, C_BOMB, C_POWER, C_WALL = 0xB2, 0x4A, 0x1E, 0x0E, 0x9E, 0x08
+
+
 def tile_bits(kind, p, look, dyn_row):
     """3 bits for kind at entry p, or 0 when it is not drawn there."""
+    if look >= 3:
+        return art_for(kind, p, look, dyn_row)
     a = ART_FULL.get(kind)
     if a is None:
         return 0
@@ -97,6 +146,12 @@ def tile_bits(kind, p, look, dyn_row):
 
 def row_colours(look, row):
     kinds = set(row)
+    if look >= 3:
+        dyn = kinds & (FLAMES | BOMBS | POWER)
+        cb = C_STATIC
+        if dyn:
+            cb = C_FLAME if kinds & FLAMES else (C_BOMB if kinds & BOMBS else C_POWER)
+        return C_STATIC, cb, bool(dyn)
     if look == 1:
         dyn = kinds & (FLAMES | BOMBS | POWER)
         cb = C_STATIC
@@ -258,13 +313,14 @@ def data_asm(look):
           "JTOP:", "        db      " + ",".join(str(j[3]) for j in jobs)]
     L += ["        ORG     $FB80", "SHAPE:"]
     L.append("        db      " + ",".join("$%02X" % v for v in SHAPE))
-    L += ["C_FLOOR  EQU     $%02X" % C_FLOOR]
+    L += ["C_FLOOR  EQU     $%02X" % C_FLOOR, "C_STATIC EQU     $%02X" % C_STATIC, "C_WALL   EQU     $%02X" % C_WALL]
     return "\n".join(L) + "\n"
 
 
 def main():
     out = sys.argv[1]
     look = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    palette(look)
     os.makedirs(out, exist_ok=True)
     open(os.path.join(out, "rows.inc"), "w").write(kernel_asm())
     open(os.path.join(out, "gen.inc"), "w").write(data_asm(look))

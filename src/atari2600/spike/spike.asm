@@ -111,10 +111,14 @@ DVBLP:  bit     TIMINT
         sta     VBLANK
         lda     #VITIM
         sta     TIM64T
+        lda     #C_WALL         ; the top wall band: 2 lines (the cart's
+        sta     COLUBK          ;   player-0 positioning lines)
+        sta     WSYNC
+        sta     WSYNC
         lda     #C_FLOOR
         sta     COLUBK
         lda     #P0H*2
-        ldx     #8              ; the top margin (the HUD row, later)
+        ldx     #6              ; the top margin (the HUD row, later)
 MARG:   sta     WSYNC
         dex
         bne     MARG
@@ -188,6 +192,12 @@ ARENADONE:
         lda     #0
         sta     GRP0
         sta     GRP1
+        sta     WSYNC           ; the bottom wall band: 1 line
+        lda     #C_WALL
+        sta     COLUBK
+        sta     WSYNC
+        lda     #0
+        sta     COLUBK
 DFPAD:  bit     TIMINT
         bpl     DFPAD
         sta     WSYNC

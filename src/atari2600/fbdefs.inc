@@ -316,6 +316,7 @@ NTILES  EQU     18
 
 C_FLOOR EQU     $C2             ; the arena's colours (mkspike.py's)
 C_STATIC EQU    $2A
+C_WALL  EQU     $74             ; the top and bottom wall bands
 
 ; path buffers
 PB_NAMES EQU    FP_SEL0         ; the names block, captured for the screens
