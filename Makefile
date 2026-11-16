@@ -647,9 +647,13 @@ CFLAGS_EXTRA_NES += -Os -Cl -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"ST
                     -DNAME_HELP='"UP/DOWN: LETTER  A: ADD  >: DONE"'
 CFLAGS_EXTRA_NES += $(DBG)
 LDFLAGS_EXTRA_NES += -C src/nes/fujiblst-nes.cfg -m build/fujiblst-nes.map
-EXECUTABLE_EXTRA_DEPS_NES += src/nes/fujiblst-nes.cfg build/fnlib-nes/fujinet-nes.lib gen/nes/gfxdata.c
+EXECUTABLE_EXTRA_DEPS_NES += src/nes/fujiblst-nes.cfg build/fnlib-nes/fujinet-nes.lib gen/nes/gfxdata.c gen/nes/music.s
+# the round's music (bank 0, with the art); a scene build has no room for it
 ifneq ($(TEST_SCENE),)
   CFLAGS_EXTRA_NES += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+  ASFLAGS_EXTRA_NES += --asm-define NO_MUSIC
+else
+  CFLAGS_EXTRA_NES += -DPLAT_MUSIC
 endif
 
 # R7's bank ($A000, never switched out) takes the menus, the screens, the
@@ -669,11 +673,17 @@ build/fnlib-nes/fujinet-nes.lib: tools/nes/mkfnlib.sh $(wildcard $(FNLIB_NES)/co
 	tools/nes/mkfnlib.sh $(FNLIB_NES) build/fnlib-nes
 
 .PHONY: gen-nes
-gen-nes: gen/config.h gen/nes/gfxdata.c build/fnlib-nes/fujinet-nes.lib
+gen-nes: gen/config.h gen/nes/gfxdata.c gen/nes/music.s build/fnlib-nes/fujinet-nes.lib
 
 gen/nes/gfxdata.c gen/nes/gfxdata.h gen/nes/gfxcodes.h&: tools/mkgfx_nes.py tools/drawart_nes.py tools/artlayout.py tools/png.py gfx/namco.bin gfx/nes/tiles.png gfx/nes/sprites.png gfx/nes/bigwin.png gfx/nes/logo.png gfx/nes/cells.png
 	@mkdir -p gen/nes
 	$(PYTHON) tools/mkgfx_nes.py gen/nes
+
+# the round's music for the APU (NES_OCTAVES shifts the bass: the triangle is faint low down)
+NES_OCTAVES ?= 0
+gen/nes/music.s: tools/mkmus_nes.py tools/mus.py music/play.txt
+	@mkdir -p gen/nes
+	$(PYTHON) tools/mkmus_nes.py music/play.txt gen/nes $(NES_OCTAVES)
 
 r2r/atari/$(PRODUCT): gen-atari
 r2r/nes/$(PRODUCT): gen-nes

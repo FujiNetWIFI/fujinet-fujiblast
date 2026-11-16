@@ -1,0 +1,12 @@
+# a live game with the APU's writes logged (apu.log): the round's loop
+apulog apu.log
+wait 400
+snap title
+press
+wait 300
+wait 3000
+snap game
+peek nes_passes 2
+peek nes_skip 2
+peek snd_loopon 1
+peek snd_p2on 1

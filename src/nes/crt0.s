@@ -37,6 +37,7 @@
         .exportzp       _oam_lock, _bd_top, _bd_bot, _split_on, _oam_show
         .export         _frame_count, _ppuq, _oam
         .import         initlib, donelib, callmain, zerobss, copydata
+        .import         _mus_nmi
         .include        "zeropage.inc"
 
 PPUCTRL   = $2000
@@ -262,7 +263,9 @@ nmi:
         sta     $E000
         lda     #1
         sta     _ppu_off
-@out:   pla
+@out:   cli                     ; (the split's interrupt may cut in on the music)
+        jsr     _mus_nmi
+        pla
         tay
         pla
         tax

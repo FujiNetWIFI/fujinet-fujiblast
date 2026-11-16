@@ -19,6 +19,8 @@ scenario, one command a line; times are in frames of the game's clock:
     key CHAR|NUM                type a key (RETURN = 13, ESC = 27)
     peek SYMBOL [N]             print N bytes at a symbol (from the map)
     pc N                        print the CPU's PC for N frames, then quit
+    apulog FILE                 log every write to the APU ($4000-$4017) to OUTDIR/FILE
+                                from here on: "frame addr data" (the game's frame_count)
     ppuwatch N                  for N frames, where the CPU writes the PPU and
                                 MMC3's pattern banks (PPUW lines): the line
                                 rendering comes on at, PPU writes while it
@@ -111,6 +113,8 @@ def main():
             steps.append(("poke", sym(w[1]), int(w[2], 0)))
         elif c == "ppuwatch":
             steps.append(("ppuwatch", int(w[1])))
+        elif c == "apulog":
+            steps.append(("apulog", w[1]))
         elif c == "watch":
             steps.append(("watch", int(w[1]), [sym(x) for x in w[2:]]))
         else:
@@ -130,6 +134,8 @@ def main():
             lua.append('{"pc", %d},' % s[1])
         elif s[0] == "ppuwatch":
             lua.append('{"ppuwatch", %d},' % s[1])
+        elif s[0] == "apulog":
+            lua.append('{"apulog", "%s"},' % os.path.join(out, s[1]))
         elif s[0] == "watch":
             lua.append('{"watch", %d, {%s}},' % (s[1], ", ".join(str(a) for a in s[2])))
         elif s[0] == "dump":
@@ -311,6 +317,12 @@ emu.register_frame_done(function()
       i = i + 1
     elseif s[1] == "pc" then
       pcdump = s[2]; i = i + 1; return
+    elseif s[1] == "apulog" then
+      local f = io.open(s[2], "w")
+      apu_tap = mem:install_write_tap(0x4000, 0x4017, "apuw", function(off, data, mask)
+        f:write(string.format("%%d %%X %%02X\\n", mem:read_u16(fc), off, data))
+      end)
+      i = i + 1
     elseif s[1] == "ppuwatch" then
       if watch_until == nil then watch_on(); watch_until = now + s[2] end
       watch_read()

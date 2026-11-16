@@ -1,0 +1,16 @@
+# a live game over its rounds: when the loop is on (snd_loopon) and the mute
+# (snd_mute); then M cycles the mute
+apulog apu.log
+wait 400
+press
+wait 300
+watch 9000 snd_loopon snd_mute
+key M
+wait 120
+watch 60 snd_loopon snd_mute
+key M
+wait 120
+watch 60 snd_loopon snd_mute
+key M
+wait 120
+watch 60 snd_loopon snd_mute

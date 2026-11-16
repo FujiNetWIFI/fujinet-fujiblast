@@ -1,0 +1,7 @@
+# the status-bar split with the music running in the NMI
+wait 400
+press
+wait 900
+snap game
+ppuwatch 300
+snap after
