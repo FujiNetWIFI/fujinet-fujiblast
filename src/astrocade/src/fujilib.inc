@@ -110,10 +110,12 @@ FNREGWR:
         LD      B,A             ; hold the value
         LD      D,FNRSELP
         LD      E,C
-        LD      A,(DE)          ; arm the register
-        LD      D,FNRDATP
+        DI                      ; (the frame interrupt selects a page: a read
+        LD      A,(DE)          ;  between the pair would unarm the register)
+        LD      D,FNRDATP       ; arm the register
         LD      E,B
         LD      A,(DE)          ; deliver the value
+        EI
         RET
 
 ; Append A to the TX stream. Clobbers A,D,E.

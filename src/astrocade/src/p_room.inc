@@ -85,7 +85,8 @@ SBT1:   SLA     B
 ; Row 0 the room; rows 2, 4, 6, 8 the seats (a bomber on each seated one's
 ; strip, HOST by the host's); row 10 the rounds and what happens next;
 ; row 11 the key that leaves.
-WENTER: CALL    RSCR
+WENTER: LOOP    0
+        CALL    RSCR
         LD      HL,SLEAVE
         LD      D,11*TXH
         LD      C,1*4+0
@@ -240,7 +241,8 @@ WF2:    LD      A,(EVBTN)
 ; Row 0 the winner (or a draw), big; row 1 the round (or sudden death);
 ; each seated seat on its strip (its bomber, name and wins), a gold trophy
 ; a win under it; row 11 the time to the next. The winner's bomber cheers.
-RESENTER: LD    A,(SHOWN)
+RESENTER: LOOP  0               ; (a draw has no jingle)
+        LD      A,(SHOWN)
         SUB     S_GAME          ; (0: the game's end)
         LD      (RESFIN),A
         LD      A,(ST+OFF_RESULT)

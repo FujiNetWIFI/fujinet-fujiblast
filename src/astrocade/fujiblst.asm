@@ -129,6 +129,8 @@ MB_P8:
         INCLUDE "srcdir/src/p_snd.inc"
 MB_P8_TAB:
         INCLUDE "snd.inc"
+MB_P8_MUS:
+        INCLUDE "music.inc"
 MB_P8END:
         DEPHASE
 

@@ -27,6 +27,7 @@ PRGSTR: DI
         LD      (KRAW),A
         LD      (SNDQ),A
         LD      (SNDQ2),A
+        LD      (MUSBAR),A
         LD      HL,B_PLAIN
         CALL    SETBANDS
         LD      HL,P_PLAIN
@@ -40,7 +41,11 @@ PRGSTR: DI
         JR      NZ,STBAD
         LD      A,(FNPVER)
         CP      2
-        JP      NC,MAININIT
+        JP      C,STBAD
+        LD      A,(FLAGS)       ; the sound plays from the frame interrupt now
+        OR      FL_SNDON
+        LD      (FLAGS),A
+        JP      MAININIT
 ; STBAD: no FujiNet cart, or one too old for APPBANK images: say so, stop.
 STBAD:  LD      HL,SNEEDFW
         LD      DE,5*TXH*256+12
@@ -111,9 +116,8 @@ BI1:    POP     HL
 ; VBISR: the frame interrupt, below the picture: the table's first entry
 ; for the top of the next frame (nothing is drawn now: no timing), the
 ; frame counted.
-VBISR:  PUSH    AF
-        PUSH    BC
-        PUSH    HL
+VBISR:  EXX                     ; (the shadow registers: no stack, and no code
+        EX      AF,AF'          ;  else uses them; the sound runs in them too)
         LD      HL,(BANDTB)
         LD      A,(HL)
         INC     HL
@@ -136,9 +140,25 @@ VBISR:  PUSH    AF
 VB1:    LD      HL,(FRAMES)
         INC     HL
         LD      (FRAMES),HL
-        POP     HL
-        POP     BC
-        POP     AF
+; the sound's jiffy (page 8's SNDTICK), here in the shadow registers, which are
+; all free; IX is kept. The interrupt may land anywhere, so page 8 is mapped by the
+; raw select (not SELPG: CURPG is the program's page and stays) and the
+; interrupted page selected again after; the program's mailbox pairs run with
+; DI (fujilib.inc). The stack is 64 bytes: nothing below this is deep.
+        LD      A,(FLAGS)
+        AND     FL_SNDON
+        JR      Z,VB2
+        PUSH    IX
+        LD      A,(FNBKSEL+PG_SND)
+        CALL    E_TICK
+        LD      A,(CURPG)
+        ADD     A,80H
+        LD      E,A
+        LD      D,FNRSELP
+        LD      A,(DE)
+        POP     IX
+VB2:        EX      AF,AF'
+        EXX
         EI
         RETI
 
@@ -266,11 +286,26 @@ FR4:    LD      (DT),A
         JR      NZ,FR5
         LD      A,K_NONE        ; (never the game's)
         LD      (EVKEY),A
-        LD      A,(FLAGS)
-        XOR     FL_MUTE
+        LD      A,(FLAGS)       ; all -> no loop -> nothing -> all
+        LD      B,A
+        AND     FL_MUTE
+        JR      NZ,FR6          ; nothing: back to all
+        LD      A,B
+        AND     FL_NOLP
+        LD      A,B
+        JR      NZ,FR7          ; no loop: nothing
+        OR      FL_NOLP
         LD      (FLAGS),A
-FR5:    FAR     PG_SND,SNDTICK  ; the sound's frames
-        RET
+        LD      A,0FEH          ; the loop off, the effects on
+        LD      (MUSBAR),A
+        JR      FR5
+FR6:    LD      A,B
+        AND     0FFH-FL_MUTE-FL_NOLP
+        LD      (FLAGS),A
+        JR      FR5
+FR7:    OR      FL_MUTE
+        LD      (FLAGS),A
+FR5:    RET
 
 ; ---- input --------------------------------------------------------------------------
 ; INPOLL: this frame's controls. INDIR: directions held (the handle's own

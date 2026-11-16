@@ -38,6 +38,7 @@ fi
 python3 "$ROOT/tools/o2/mkproto.py" "$ROOT/src/proto.h" "$OUT/proto.inc"
 python3 "$T/mkgfx_astro.py" "$ROOT/gfx/astrocade" "$OUT/art.inc" "$OUT/artequ.inc" "$OUT/logo.inc" "$OUT/icon.inc"
 python3 "$T/mksnd_astro.py" "$ROOT/src/apple2/sndtab.s" "$OUT/snd.inc"
+python3 "$ROOT/tools/mkmus_astro.py" "$ROOT/music/play.txt" "$OUT/music.inc" "${ASTRO_OCTAVES:-2}"
 python3 "$T/mkcanned.py" "$ROOT/src/proto.h" "$OUT/canned.inc"
 DEFSRV="${DEFSRV:-$(cat "$ROOT/gen/server" 2>/dev/null || echo fujinet.online:9910)}"
 {

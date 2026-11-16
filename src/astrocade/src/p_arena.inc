@@ -103,7 +103,7 @@ AEN4:   CALL    APANEL          ; the panel's labels
         CALL    ASTATE
         LD      A,(ST+OFF_PHASE)
         CP      PH_COUNTDOWN
-        RET     NZ
+        JR      NZ,AEN5
         LD      HL,SROUND       ; "ROUND n" in the panel
         LD      DE,LNMSG*256+PANB+1
         LD      C,3*4+0
@@ -112,6 +112,10 @@ AEN4:   CALL    APANEL          ; the panel's labels
         LD      B,1
         CALL    NUMN
         SND     MUS_ROUND
+        RET
+AEN5:   CP      PH_PLAY         ; (joined mid-round)
+        RET     NZ
+        LOOP    1
         RET
 SROUND: DB      "ROUND ",0
 
@@ -319,6 +323,7 @@ AB1:    CP      PH_PLAY
         CP      PH_COUNTDOWN
         JR      NZ,AB2
         SND     SND_GO
+        LOOP    1               ; the round's music
         LD      HL,SBLANK7      ; (its "ROUND n" off)
         LD      DE,LNMSG*256+PANB+1
         LD      C,0

@@ -23,25 +23,14 @@
 
 CHSZ    EQU     7
 
-; SNDTICK: the queued sounds started, the frames stepped, the chip written.
+; SNDTICK: one jiffy of sound, called by the frame interrupt (SNDISR in core.inc,
+; page 8 mapped, the interrupted page put back after): the queued sounds
+; started, the loop and each channel stepped, the chip written. It runs
+; between any two instructions of the program, so it keeps the stack shallow
+; and touches only the sound's own bytes.
 SNDTICK: LD     A,(FLAGS)       ; muted: all off
         AND     FL_MUTE
         JP      NZ,SNMUTE
-        LD      HL,(FRAMES)     ; the frames since the last tick
-        LD      DE,(SNDLF)
-        LD      (SNDLF),HL
-        OR      A
-        SBC     HL,DE
-        LD      A,H
-        OR      A
-        JR      NZ,SQT0
-        LD      A,L
-        OR      A
-        RET     Z
-        CP      9
-        JR      C,SQT1
-SQT0:    LD      A,8
-SQT1:    PUSH    AF
         LD      HL,SNDQ         ; the queue: two
         LD      A,(HL)
         LD      (HL),0FFH
@@ -50,6 +39,10 @@ SQT1:    PUSH    AF
         LD      A,(HL)
         LD      (HL),0FFH
         CALL    SNSTART
+        CALL    MUSCTL          ; the loop started or stopped
+        LD      A,(MUSBAR)      ; (the loop going: something is playing)
+        CP      0FDH
+        JR      C,SQT1A
         LD      HL,SNDCH+1  ; anything playing? (each channel's list, high byte)
         LD      A,(HL)
         LD      DE,CHSZ
@@ -60,8 +53,7 @@ SQT1:    PUSH    AF
         ADD     HL,DE
         OR      (HL)
         JR      NZ,SQT1A
-        POP     BC              ; no: silence, once
-        LD      HL,SNDSIL
+        LD      HL,SNDSIL       ; no: silence, once
         LD      A,(HL)
         OR      A
         RET     NZ
@@ -74,11 +66,9 @@ SQT1B:  LD      (HL),0
         JP      SNOUT
 SQT1A:  XOR     A
         LD      (SNDSIL),A
-        POP     BC              ; B: the frames
-SQT2:    PUSH    BC
+        CALL    MUSFEED
         CALL    SNSTEP
-        POP     BC
-        DJNZ    SQT2
+        CALL    MUSADV
 ; the registers, 7 down to 0
         LD      IX,SNDCH
         LD      A,(IX+3*CHSZ+3) ; 7: the noise's volume (no modulation mask)
@@ -132,12 +122,19 @@ SQM2:    LD      (HL),0
         LD      A,0FFH
         LD      (SNDQ),A
         LD      (SNDQ2),A
+        LD      (MUSBAR),A      ; (the loop is off until a round asks)
         JR      SNOUT
 
 ; SNSTART: sound A (0FFH: none) on its channels, cutting what was there.
 SNSTART: CP     0FFH
         RET     Z
-        LD      L,A
+        CP      MUS_TITLE
+        JR      C,SQS0
+        PUSH    AF              ; a jingle has B and C: the loop stops
+        LD      A,0FEH
+        LD      (MUSBAR),A
+        POP     AF
+SQS0:    LD      L,A
         LD      H,0
         ADD     HL,HL
         LD      DE,SNDTAB
@@ -230,3 +227,151 @@ SQP9:    LD      DE,CHSZ
         DJNZ    SQP1
         RET
 
+
+; ---- the round's music loop (tools/mkmus_astro.py: music.inc) -----------------------
+; MUSBAR: the bar playing (MUSORD, 7 bytes a bar: jiffies, the lists of B, N, C),
+; or 0FDH start asked (LOOP 1), 0FEH stop asked (LOOP 0, a jingle), 0FFH off.
+; MUSJ: the jiffy in the bar. Nothing else is kept: a channel that is idle (an
+; effect has ended) or at a bar's start walks the bar's list to jiffy MUSJ, so
+; the loop keeps time under the effects and comes back mid-bar. A music list
+; is one that lies in MUSBEG-MUSEND.
+
+; MUSCTL: the start and stop asked for. Clobbers A, B, DE, HL, IX.
+MUSCTL: LD      A,(MUSBAR)
+        CP      0FDH
+        RET     C               ; going
+        JR      Z,MZSTA
+        CP      0FEH
+        RET     NZ              ; off
+        LD      IX,SNDCH        ; stop: the music lists off every channel
+        LD      B,4
+MZS1:   LD      L,(IX+0)
+        LD      H,(IX+1)
+        LD      A,H
+        OR      L
+        JR      Z,MZS2
+        LD      DE,MUSBEG       ; (is it the music's?)
+        OR      A
+        SBC     HL,DE
+        JR      C,MZS2
+        LD      DE,MUSEND-MUSBEG
+        OR      A
+        SBC     HL,DE
+        JR      NC,MZS2
+        XOR     A
+        LD      (IX+0),A
+        LD      (IX+1),A
+        LD      (IX+2),A
+        LD      (IX+3),A
+MZS2:   LD      DE,CHSZ
+        ADD     IX,DE
+        DJNZ    MZS1
+        LD      A,0FFH
+        LD      (MUSBAR),A
+        RET
+MZSTA:  LD      A,(FLAGS)       ; start: not while the loop or all sound is off
+        AND     FL_MUTE+FL_NOLP
+        LD      A,0FFH
+        JR      NZ,MZS3
+        XOR     A
+        LD      (MUSJ),A
+MZS3:   LD      (MUSBAR),A
+        RET
+
+; MUSFEED: before a jiffy's step, each music channel (B, C, N: the order of a
+; bar's record) started where the bar is, if it is idle or the bar has just
+; begun and it was playing music. No calls below it (the interrupt's stack).
+; Clobbers A, BC, DE, HL, IX.
+MUSFEED: LD     A,(MUSBAR)
+        CP      0FDH
+        RET     NC
+        MUSENT
+        INC     HL              ; (the length)
+        LD      (MUSPT),HL
+        LD      IX,SNDCH+1*CHSZ
+        LD      A,3
+        LD      (MUSCN),A
+MZF1:   LD      HL,(MUSPT)      ; this channel's list for the bar
+        LD      E,(HL)
+        INC     HL
+        LD      D,(HL)
+        INC     HL
+        LD      (MUSPT),HL
+        LD      L,(IX+0)
+        LD      H,(IX+1)
+        LD      A,H
+        OR      L
+        JR      Z,MZC2          ; idle: start it
+        LD      A,(MUSJ)
+        OR      A
+        JR      NZ,MZC9         ; mid-bar, busy
+        LD      BC,MUSBEG       ; at the bar's start: only a music list restarts
+        OR      A
+        SBC     HL,BC
+        JR      C,MZC9
+        LD      BC,MUSEND-MUSBEG
+        OR      A
+        SBC     HL,BC
+        JR      NC,MZC9
+MZC2:   LD      A,(MUSJ)        ; walk the list DE to jiffy MUSJ
+        LD      B,A
+        EX      DE,HL
+MZC3:   LD      A,(HL)          ; T
+        LD      (IX+6),A
+        INC     HL
+        LD      C,(HL)          ; volume
+        INC     HL
+        LD      A,(HL)          ; frames
+        INC     HL
+        OR      A
+        JR      Z,MZC8          ; (past the end: idle)
+        LD      D,A
+        LD      A,B
+        CP      D
+        JR      C,MZC4          ; this step
+        SUB     D
+        LD      B,A
+        INC     HL              ; (its decay)
+        JR      MZC3
+MZC4:   LD      A,D
+        SUB     B
+        LD      (IX+2),A        ; the frames left of it
+        LD      A,(HL)
+        INC     HL
+        LD      (IX+4),A
+        LD      (IX+5),A
+        LD      (IX+0),L
+        LD      (IX+1),H
+        LD      (IX+3),C
+        JR      MZC9
+MZC8:   XOR     A
+        LD      (IX+0),A
+        LD      (IX+1),A
+        LD      (IX+3),A
+MZC9:   LD      DE,CHSZ
+        ADD     IX,DE
+        LD      HL,MUSCN
+        DEC     (HL)
+        JR      NZ,MZF1
+        RET
+
+; MUSADV: after a jiffy's step, the next jiffy of the bar, the next bar.
+MUSADV: LD      A,(MUSBAR)
+        CP      0FDH
+        RET     NC
+        MUSENT
+        LD      A,(MUSJ)
+        INC     A
+        CP      (HL)
+        JR      C,MZA1
+        XOR     A
+        LD      (MUSJ),A
+        LD      A,(MUSBAR)
+        INC     A
+        CP      MUSNB
+        JR      C,MZA2
+        LD      A,MUSLP
+MZA2:   LD      (MUSBAR),A
+        RET
+MZA1:   LD      (MUSJ),A
+        RET

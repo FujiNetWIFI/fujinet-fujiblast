@@ -30,7 +30,7 @@ import re
 import sys
 
 CLOCK = 1789773
-MO = 25
+MO = 26
 FX = ["drop", "boom", "pickup", "kick", "throw", "fizzle", "die", "beep", "go", "select"]
 MUS = ["title", "round", "win", "game"]
 CH_A, CH_B, CH_C, CH_N = 0, 1, 2, 3

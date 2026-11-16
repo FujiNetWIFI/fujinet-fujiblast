@@ -70,8 +70,11 @@ URLMAX  EQU     STATE_SIZE-MAX_TABLES*TABLE_REC-1
         VAR     SNDQ,1          ; sounds queued (0FFH none): two
         VAR     SNDQ2,1
         VAR     SNDCH,4*7       ; the channels A, B, C, N (p_snd.inc)
-        VAR     SNDLF,2         ; FRAMES at the last tick
         VAR     SNDSIL,1        ; silence written (nothing playing)
+        VAR     MUSBAR,1        ; the loop's bar (0FDH start, 0FEH stop asked, 0FFH off)
+        VAR     MUSJ,1          ;  and the jiffy in it
+        VAR     MUSPT,2         ; MUSFEED's: the bar's record, the next channel
+        VAR     MUSCN,1         ;  and the channels left
 
 ; ---- the boot, the menus, the table ---------------------------------------------------
         VAR     MSGID,1         ; the boot page's message

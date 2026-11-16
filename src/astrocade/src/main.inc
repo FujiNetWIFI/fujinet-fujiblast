@@ -128,7 +128,8 @@ TERR:   LD      A,(NERR)
 TLOST:  LD      A,M_LOST
         JR      TFAIL
 ; C: give the seat up, BYE (a few frames to get it out), close
-TLEAVE: LD      A,(NLINK)
+TLEAVE: LOOP    0
+        LD      A,(NLINK)
         AND     NL_JOINED
         JR      Z,TLV1
         LD      B,ACT_LEAVE
@@ -157,5 +158,6 @@ TNOANS: LD      A,M_NOANS+80H
 ; TFAIL: the socket closed, message A (b7: the room forgotten too), then
 ; the rooms again.
 TFAIL:  LD      (MSGID),A
+        LOOP    0
         GOPAGE  PG_BOOT,E_FAIL
         JP      TOP

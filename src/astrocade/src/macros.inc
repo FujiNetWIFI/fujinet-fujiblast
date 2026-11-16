@@ -31,6 +31,28 @@ SND     MACRO   id
         CALL    SNDQUE
         ENDM
 
+; MUSENT: HL = bar A's record in MUSORD (7 bytes a bar). Clobbers DE. (A macro:
+; the sound runs in the frame interrupt, whose stack must stay shallow.)
+MUSENT  MACRO
+        LD      L,A
+        LD      H,0
+        LD      E,L
+        LD      D,H
+        ADD     HL,HL
+        ADD     HL,HL
+        ADD     HL,HL
+        OR      A
+        SBC     HL,DE           ; 7 a bar
+        LD      DE,MUSORD
+        ADD     HL,DE
+        ENDM
+
+; LOOP: the round's music asked on (1) or off (0); the sound's tick does it.
+LOOP    MACRO   on
+        LD      A,0FEH-(on)
+        LD      (MUSBAR),A
+        ENDM
+
 ; TXT: the string at adr, line lin, column cl, colour pair pair.
 TXT     MACRO   adr, lin, cl, pair
         LD      HL,adr

@@ -88,7 +88,6 @@ WAIT1:  LD      HL,FRAMES
 W1A:    HALT
         CP      (HL)
         JR      Z,W1A
-        FAR     PG_SND,SNDTICK
         RET
 
 ; SNDQUE: start sound or jingle A at the next tick (none while muted). An
@@ -99,11 +98,13 @@ SNDQUE: PUSH    HL
         BIT     2,(HL)          ; FL_MUTE
         JR      NZ,SQ9
         LD      HL,SNDQ
+        DI                      ; (the frame interrupt takes the queue)
         INC     (HL)            ; (0FFH: free)
         JR      Z,SQ1
         DEC     (HL)
         LD      HL,SNDQ2
 SQ1:    LD      (HL),A
+        EI
 SQ9:    POP     HL
         RET
 
