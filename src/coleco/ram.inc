@@ -96,6 +96,9 @@ URLMAX  EQU     STATE_SIZE-MAX_TABLES*TABLE_REC-1
 ; ---- sound (sound.inc) -----------------------------------------------------------------
         VAR     SNDV0,3         ; the jingle voice: the next note, frames left
         VAR     SNDV1,3         ; the effects' voice
+        VAR     MUSV0,5         ; the round's loop, slot 0 (ch1: bass, drums): the
+        VAR     MUSV1,5         ;  next step (2), where a call returns (2), frames left; slot 1 (ch2)
+        VAR     FXNOI,1         ; an effect has the noise channel: the drums keep out
 
 ; ---- the boot, the menus, the table ---------------------------------------------------
         VAR     MSGID,1         ; the boot page's message

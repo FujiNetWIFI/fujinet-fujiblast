@@ -67,7 +67,8 @@ ROWBLANK: LD    HL,SNOB
 ; Row 0 the room; rows 3, 7, 11, 15 the seats (a bomber on each seated one's
 ; row, HOST by the host's); row 19 the rounds; row 21 what happens next;
 ; row 23 the key that leaves.
-WENTER: CALL    GFXBEGIN
+WENTER: LOOP    0
+        CALL    GFXBEGIN
         LD      HL,SLEAVE
         LD      D,23
         LD      C,TC_WHITE
@@ -253,7 +254,8 @@ WF2:    LD      A,(EVBTN)
 ; seated seat on its rows (3 + 5 k): its name, its wins, a trophy a win
 ; under it, its bomber; row 23 the time to the next. The winner's bomber
 ; cheers (the game's end: a doubled one at the right).
-RESENTER: LD    A,(SHOWN)
+RESENTER: LOOP  0               ; (a draw has no jingle)
+        LD      A,(SHOWN)
         SUB     S_GAME          ; (0: the game's end)
         LD      (RESFIN),A
         LD      A,(ST+OFF_RESULT)

@@ -262,12 +262,12 @@ ifeq ($(PLATFORM),adam)
   LIBS += -Lbuild/fnlib-adam -lfujinet-adam
 endif
 # (zcc hands a define on through a shell: a string is quoted twice)
-CFLAGS_EXTRA_ADAM += -compiler=sdcc -SO3 -DQUIT_HINT='"\"ESC: LOBBY\""' -DTAGLINE='"\"BOMBS AND BLASTS FOR 2-4\""' \
+CFLAGS_EXTRA_ADAM += -compiler=sdcc -SO3 -DPLAT_MUSIC -DQUIT_HINT='"\"ESC: LOBBY\""' -DTAGLINE='"\"BOMBS AND BLASTS FOR 2-4\""' \
                      -DHINT_LR='"\"(L/R)\""' -DNAME_HELP='"\"LETTERS, DIGITS, THEN RETURN\""'
 LDFLAGS_EXTRA_ADAM += -compiler=sdcc -m -pragma-define:CRT_ENABLE_NMI=2 -pragma-define:CRT_INITIALIZE_BSS=1 \
                       -pragma-define:CRT_ENABLE_STDIO=0 -pragma-define:CLIB_DEFAULT_SCREEN_MODE=-1 \
                       -pragma-define:CLIB_EXIT_SCREEN_MODE=-1 -pragma-redirect:fputc_cons=l_ret
-EXECUTABLE_EXTRA_DEPS_ADAM += build/fnlib-adam/fujinet-adam.lib
+EXECUTABLE_EXTRA_DEPS_ADAM += build/fnlib-adam/fujinet-adam.lib gen/adam/music.asm
 # an offline scene built in (src/test.c): make adam TEST_SCENE=1 (then touch src/test.c to go back)
 ifneq ($(TEST_SCENE),)
   CFLAGS_EXTRA_ADAM += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
@@ -747,7 +747,13 @@ gen/msdosvga/gfxdata.c: tools/mkgfx_vga.py tools/vgapal.py tools/artlayout.py to
 	@mkdir -p gen/msdosvga
 	$(PYTHON) tools/mkgfx_vga.py gen/msdosvga
 
-gen-adam: gen/config.h gen/adam/gfxdata.c build/fnlib-adam/fujinet-adam.lib
+gen-adam: gen/config.h gen/adam/gfxdata.c gen/adam/music.asm build/fnlib-adam/fujinet-adam.lib
+
+# the round's music for the SN76489 (tone 2 stops at 109 Hz: 2 octaves up minimum)
+ADAM_OCTAVES ?= 2
+gen/adam/music.asm: tools/mkmus_sms.py tools/mus.py music/play.txt
+	@mkdir -p gen/adam
+	$(PYTHON) tools/mkmus_sms.py music/play.txt gen/adam $(ADAM_OCTAVES)
 
 gen/adam/gfxdata.c gen/adam/gfxart1.c gen/adam/gfxart2.c &: tools/mkgfx_tms.py tools/artlayout.py tools/png.py gfx/tms/tiles.png gfx/tms/sprites.png gfx/tms/logo.png gfx/tms/cells.png gfx/namco.bin
 	@mkdir -p gen/adam

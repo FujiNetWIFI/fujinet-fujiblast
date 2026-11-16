@@ -36,7 +36,8 @@ fi
 # the Adam's art tables (make gen-adam), as zmac includes
 [ -f "$ROOT/gen/adam/gfxdata.c" ] || python3 "$ROOT/tools/mkgfx_tms.py" "$ROOT/gen/adam"
 python3 "$T/mkgfx_coleco.py" "$OUT"
-python3 "$T/mksnd_coleco.py" "$ROOT/src/adam/sound.c" "$OUT/snd.inc"
+python3 "$T/mksnd_coleco.py" "$ROOT/src/tms9918/tunes.h" "$OUT/snd.inc"
+python3 "$ROOT/tools/mkmus_sms.py" "$ROOT/music/play.txt" "$OUT" 2 --zmac > /dev/null
 python3 "$ROOT/tools/o2/mkproto.py" "$ROOT/src/proto.h" "$OUT/proto.inc"
 python3 "$ROOT/tools/astro/mkcanned.py" "$ROOT/src/proto.h" "$OUT/canned.inc"
 DEFSRV="${DEFSRV:-$(cat "$ROOT/gen/server" 2>/dev/null || echo fujinet.online:9910)}"

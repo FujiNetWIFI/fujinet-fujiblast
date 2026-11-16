@@ -264,11 +264,26 @@ FR4:    LD      (DT),A
         JR      NZ,FR5
         LD      A,K_NONE        ; (never the game's)
         LD      (EVKEY),A
-        LD      A,(FLAGS)
-        XOR     FL_MUTE
+        LD      A,(FLAGS)       ; all -> no loop -> nothing -> all
+        LD      B,A
+        AND     FL_MUTE
+        JR      NZ,FR6          ; nothing: back to all
+        LD      A,B
+        AND     FL_NOLP
+        LD      A,B
+        JR      NZ,FR7          ; no loop: nothing
+        OR      FL_NOLP
         LD      (FLAGS),A
-        AND     FL_MUTE         ; sound off now: stop what plays
-        CALL    NZ,SNDOFF
+        XOR     A
+        CALL    SNDLOOP         ; the loop off, the effects on
+        JR      FR5
+FR6:    LD      A,B
+        AND     0FFH-FL_MUTE-FL_NOLP
+        LD      (FLAGS),A
+        JR      FR5
+FR7:    OR      FL_MUTE
+        LD      (FLAGS),A
+        CALL    SNDOFF          ; sound off now: stop what plays
 FR5:    RET
 
 ; ---- input --------------------------------------------------------------------------

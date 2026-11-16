@@ -80,8 +80,12 @@ AEN4:   LD      A,1             ; our powers, all drawn (no sound)
         CALL    GFXSHOW
         LD      A,(ST+OFF_PHASE)
         CP      PH_COUNTDOWN
-        RET     NZ
+        JR      NZ,AEN5
         SND     MUS_ROUND
+        RET
+AEN5:   CP      PH_PLAY         ; (joined mid-round)
+        RET     NZ
+        LOOP    1
         RET
 
 ; PLREC: HL = seat C's record in ST (OFF_PLAYERS + 10 C). Clobbers A, DE.
@@ -284,6 +288,7 @@ AB1:    CP      PH_PLAY
         CP      PH_COUNTDOWN
         JR      NZ,AB2
         SND     SND_GO
+        LOOP    1               ; the round's music
 AB2:    LD      A,(ST+OFF_PHASE)
         LD      (LASTPH),A
 ; the HUD, when it has changed

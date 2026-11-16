@@ -28,6 +28,8 @@ SNDNMI: LD      IX,SNDV0
         CALL    SNDSTEP
         LD      IX,SNDV1
         LD      B,1
+        CALL    SNDSTEP
+        JP      MUSNMI
 ; SNDSTEP: voice B (record IX): this frame's step.
 SNDSTEP: LD     L,(IX+0)
         LD      H,(IX+1)
@@ -60,8 +62,13 @@ SSQUIET: LD     A,B
         OR      A
         LD      A,9FH           ; voice 0: tone 0 off
         JR      Z,SSQ1
-        LD      A,0BFH          ; voice 1: tone 1 and the noise off
+        LD      A,0BFH          ; voice 1: tone 1 off, and the noise if an effect had it
         OUT     (SNPORT),A
+        LD      A,(FXNOI)
+        OR      A
+        RET     Z
+        XOR     A
+        LD      (FXNOI),A
         LD      A,0FFH
 SSQ1:   OUT     (SNPORT),A
         RET
@@ -105,10 +112,17 @@ SSP1:   LD      A,E             ; the low 4 bits
         LD      A,B
         OR      A
         RET     Z
-        LD      A,0FFH          ; (the effects' voice: the noise off)
+        LD      A,(FXNOI)       ; (the effects' voice: the noise off, if an effect had it)
+        OR      A
+        RET     Z
+        XOR     A
+        LD      (FXNOI),A
+        LD      A,0FFH
         OUT     (SNPORT),A
         RET
-SSNOI:  LD      A,0BFH          ; tone 1 off, the noise on
+SSNOI:  LD      A,1
+        LD      (FXNOI),A
+        LD      A,0BFH          ; tone 1 off, the noise on
         OUT     (SNPORT),A
         LD      A,E
         AND     7
@@ -145,6 +159,12 @@ SNDQUE: PUSH    HL
         JR      C,SQ1
         LD      HL,SNDV0
 SQ1:    CALL    VLOCK           ; (the NMI would step it half set)
+        PUSH    HL
+        PUSH    DE
+        JR      C,SQ2
+        CALL    MUSOFF          ; the jingle has tone 0
+SQ2:    POP     DE
+        POP     HL
         LD      (HL),E
         INC     HL
         LD      (HL),D
@@ -170,7 +190,203 @@ SNDOFF: CALL    VLOCK
         LD      (HL),A
         INC     HL
         LD      (HL),A
+        LD      (FXNOI),A
+        LD      (MUSV0),A       ; the loop off (its pointers' high bytes are enough)
+        LD      (MUSV0+1),A
+        LD      (MUSV1),A
+        LD      (MUSV1+1),A
         CALL    SNDINI
         JP      VFREE
 
+; ---- the round's music (music/play.txt, tools/mkmus_sms.py --zmac) ---------------------
+; Two slots of steps A, B, frames (music.inc). Slot 0 (ch1) is tone 2 (the
+; bass and kick) or the noise channel (snare, hat: skipped while an effect has
+; the noise); slot 1 (ch2, the chatter) is tone 0. A, B:
+;   ch1  B = 0 silent; B = 40H|N>>4 tone 2, A = N&15 | att<<4; B = 80H noise, A = ctl | att<<4
+;   ch2  B = 0 silent; B = 40H|N>>4 tone 0, A = N&15 | att<<4
+; Frames 1-252, or FEH call (one level), FDH return, FFH jump, A B the address.
+; src/sms/sound.c mus_step, transcribed.
+
+; MUSNMI: one frame of both slots (from SNDNMI: every register is ours).
+MUSNMI: LD      IX,MUSV0
+        LD      B,0
+        CALL    MUSSTEP
+        LD      IX,MUSV1
+        LD      B,1
+; MUSSTEP: slot B (record IX): this frame's step.
+MUSSTEP: LD     L,(IX+0)
+        LD      H,(IX+1)
+        LD      A,H
+        OR      L
+        RET     Z
+        LD      A,(IX+4)
+        CP      2
+        JR      C,MQ1
+        DEC     A
+        LD      (IX+4),A
+        RET
+MQ1:    LD      E,(HL)          ; the step: A, B, frames
+        INC     HL
+        LD      D,(HL)
+        INC     HL
+        LD      C,(HL)
+        INC     HL
+        LD      A,C
+        CP      0FEH
+        JR      NZ,MQ2
+        LD      (IX+2),L        ; a call: the next step is where we come back to
+        LD      (IX+3),H
+        EX      DE,HL
+        JR      MQ1
+MQ2:    CP      0FDH
+        JR      NZ,MQ3
+        LD      L,(IX+2)
+        LD      H,(IX+3)
+        JR      MQ1
+MQ3:    CP      0FFH
+        JR      NZ,MQ4
+        EX      DE,HL
+        JR      MQ1
+MQ4:    LD      (IX+0),L        ; the step: E = A, D = B, C = frames
+        LD      (IX+1),H
+        LD      (IX+4),C
+        LD      A,B
+        OR      A
+        JR      NZ,MQCH2
+        BIT     7,D
+        JR      NZ,MQDRUM
+        LD      A,(FXNOI)       ; the bass: the noise off (a drum's), unless an effect's
+        OR      A
+        JR      NZ,MQB1
+        LD      A,0FFH
+        OUT     (SNPORT),A
+MQB1:   LD      A,D
+        OR      A
+        JR      Z,MQB2
+        LD      A,E
+        AND     0FH
+        OR      0C0H
+        OUT     (SNPORT),A
+        LD      A,D
+        AND     3FH
+        OUT     (SNPORT),A
+        LD      A,E
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        AND     0FH
+        OR      0D0H
+        OUT     (SNPORT),A
+        RET
+MQB2:   LD      A,0DFH
+        OUT     (SNPORT),A
+        RET
+MQDRUM: LD      A,0DFH          ; tone 2 off, the noise on
+        OUT     (SNPORT),A
+        LD      A,(FXNOI)
+        OR      A
+        RET     NZ
+        LD      A,E
+        AND     7
+        OR      0E0H
+        OUT     (SNPORT),A
+        LD      A,E
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        AND     0FH
+        OR      0F0H
+        OUT     (SNPORT),A
+        RET
+MQCH2:  LD      A,D             ; the chatter: tone 0
+        OR      A
+        JR      Z,MQC2
+        LD      A,E
+        AND     0FH
+        OR      80H
+        OUT     (SNPORT),A
+        LD      A,D
+        AND     3FH
+        OUT     (SNPORT),A
+        LD      A,E
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        AND     0FH
+        OR      90H
+        OUT     (SNPORT),A
+        RET
+MQC2:   LD      A,9FH
+        OUT     (SNPORT),A
+        RET
+
+; MUSOFF: both slots off and quiet (the NMI locked out: VLOCK). Clobbers A, HL.
+MUSOFF: XOR     A
+        LD      (MUSV0),A
+        LD      (MUSV0+1),A
+        LD      (MUSV1),A
+        LD      (MUSV1+1),A
+        LD      A,0DFH          ; tone 2 off, and tone 0
+        OUT     (SNPORT),A
+        LD      A,9FH
+        OUT     (SNPORT),A
+        LD      A,(FXNOI)
+        OR      A
+        RET     NZ
+        LD      A,0FFH
+        OUT     (SNPORT),A
+        RET
+
+; SNDLOOP: A = 0 the loop off, else on: both slots from the top on the same
+; frame. Playing already (and no jingle), it plays on; muted, it stays off.
+; Preserves all but A.
+SNDLOOP: PUSH   HL
+        PUSH    DE
+        LD      E,A
+        LD      HL,FLAGS
+        LD      A,(HL)
+        AND     FL_MUTE+FL_NOLP
+        JR      Z,SL1
+        LD      E,0
+SL1:    LD      A,E
+        OR      A
+        JR      Z,SL2
+        LD      HL,(MUSV0)
+        LD      A,H
+        OR      L
+        JR      Z,SL2
+        LD      HL,(SNDV0)      ; (a jingle on tone 0 ends the loop)
+        LD      A,H
+        OR      L
+        JR      NZ,SL2
+        JR      SL9             ; going on: leave it
+SL2:    CALL    VLOCK
+        XOR     A
+        LD      (SNDV0),A
+        LD      (SNDV0+1),A
+        CALL    MUSOFF
+        LD      A,E
+        OR      A
+        JR      Z,SL3
+        LD      HL,MLOOP1
+        LD      (MUSV0),HL
+        LD      HL,MLOOP2
+        LD      (MUSV1),HL
+        XOR     A
+        LD      (MUSV0+2),A
+        LD      (MUSV0+3),A
+        LD      (MUSV1+2),A
+        LD      (MUSV1+3),A
+        INC     A
+        LD      (MUSV0+4),A
+        LD      (MUSV1+4),A
+SL3:    CALL    VFREE
+SL9:    POP     DE
+        POP     HL
+        RET
+
+        INCLUDE "music.inc"
         INCLUDE "snd.inc"

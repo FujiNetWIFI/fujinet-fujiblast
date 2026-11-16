@@ -27,6 +27,12 @@ SND     MACRO   id
         CALL    SNDQUE
         ENDM
 
+; LOOP: the round's music on (1) or off (0).
+LOOP    MACRO   on
+        LD      A,on
+        CALL    SNDLOOP
+        ENDM
+
 ; TXT: the string at adr, row rw, column cl, colour byte col (fg*16 + bg).
 TXT     MACRO   adr, rw, cl, col
         LD      HL,adr

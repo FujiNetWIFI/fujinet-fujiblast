@@ -98,7 +98,8 @@ MF_FIZZ  EQU    04H
 MF_MOVERS EQU   08H
 FL_ROOM  EQU    01H             ; FLAGS: key 0x10 holds our server and table
 FL_TEST  EQU    02H             ;   an offline test scene: the link is quiet
-FL_MUTE  EQU    04H
+FL_MUTE  EQU    04H             ;   no sound at all (with FL_NOLP: the loop only)
+FL_NOLP  EQU    08H             ;   no music loop
 
 ; ---- the screens at a table (src/main.c) ---------------------------------------------
 S_NONE  EQU     0
