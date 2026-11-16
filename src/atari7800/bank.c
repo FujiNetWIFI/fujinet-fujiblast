@@ -9,8 +9,13 @@
 
 #include <string.h>
 
+/* The bank the main thread has in: set before the store, so the frame's NMI
+ * (snd_frame) puts back the right one. */
+uint8_t bank_cur;
+
 void bank_set(uint8_t n)
 {
+    bank_cur = n;
     BANKSEL = n;
 }
 
@@ -18,8 +23,21 @@ void bank_set(uint8_t n)
  * the fixed bank, which the switch can't pull from under it */
 void bank_copy(uint16_t dst, uint8_t bank, const uint8_t *src, uint16_t n)
 {
+    bank_cur = bank;
     BANKSEL = bank;
     memcpy((void *)dst, src, n);
+    bank_cur = 0;
     BANKSEL = 0;
+}
+
+extern void snd_vbi(void);
+
+/* The frame NMI's sound step: the player and the music are in bank 1
+ * (SOUND). The NMI can come with any bank in; this one puts it back. */
+void snd_frame(void)
+{
+    BANKSEL = 1;
+    snd_vbi();
+    BANKSEL = bank_cur;
 }
 #endif

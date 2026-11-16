@@ -18,7 +18,8 @@ on the 64 kHz clock, never anything else.
   tune only while N + 1 shares no factor with 15
   noise ($80): the drums
 
-usage: mkmus_atari.py music/play.txt OUTDIR   (writes OUTDIR/music.s)"""
+usage: mkmus_atari.py music/play.txt OUTDIR [SEGMENT]   (writes OUTDIR/music.s;
+SEGMENT is where it goes, default RODATA: the 7800 passes SNDDATA, its bank 1)"""
 import math
 import os
 import sys
@@ -102,6 +103,7 @@ def steps(evs):
 
 def main():
     src, outdir = sys.argv[1], sys.argv[2]
+    segment = sys.argv[3] if len(sys.argv) > 3 else None
     song = mus.parse(src)
     subs = [{}, {}]                     # per channel: steps -> label
     order = [[], []]
@@ -121,7 +123,8 @@ def main():
              "; Steps AUDF, AUDC, jiffies; $FE call, $FD return, $FF jump (src/atari/snd.s).",
              "; NO_MUSIC (the 5200's scene builds: no room) leaves it out.",
              "        .ifndef NO_MUSIC",
-             "        .export _m_loop1, _m_loop2", "", "        .rodata"]
+             "        .export _m_loop1, _m_loop2", "",
+             '        .segment "%s"' % segment if segment else "        .rodata"]
     size = 0
     for ch in (0, 1):
         top = "_m_loop%d" % (ch + 1)

@@ -23,6 +23,10 @@ MARIA probe results: `tools/a78sim/probe160b` (all fits but 28-cell run + 2 pane
 - Console RAM (MARIA reads display lists in 2 cycles there): `$1800-$203F`, `$2200-$27FF`
   (`$2040-$20FF` and `$2140-$21FF` are zero-page/stack mirrors: never use). Zone display-list
   slots (2 x 64 B a zone), the DLL, the DLI tables.
+- Bank 1 (`$A000`, segments SOUND = the POKEY player, SNDDATA = effect steps + the round's music from
+  `music/play.txt`, ~2K): the frame NMI reaches it through `snd_frame` (bank.c): `BANKSEL = 1`, the player,
+  `BANKSEL = bank_cur` (the main thread's bank, set before each of its own switches). Voice 1 = jingle / music
+  ch1, voice 2 = effects, voice 3 = music ch2 (no netstream here, so it never yields to an effect).
 - Zero page `$40-$FF`. Nothing ever stores to `$00-$1F` (INPTCTRL).
 
 ## Character blocks

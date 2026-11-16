@@ -26,7 +26,7 @@
         .export _lv_cb, _lv_ca, _lv_cb2, _lv_bg, _lv_f, _dll_off, _mt_ntsc, _mt_top, _anim
         .export _zflip, _zfront, _mt_dll, _slot_lo, _slot_hi
         .export _dlslots_first, _mt_load0
-        .import _snd_vbi
+        .import _snd_frame
         .import __DLSLOTS_RUN__, __DLSLOTS2_RUN__
 
         .segment "ZEROPAGE"
@@ -202,7 +202,7 @@ frame:  tya
         pha
         jsr     load0
         jsr     clock
-        jsr     _snd_vbi
+        jsr     _snd_frame
         lda     _dsp_ready
         beq     @done
         ldy     #ZONES - 1      ; the zones just composed
