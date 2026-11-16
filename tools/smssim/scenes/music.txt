@@ -1,0 +1,13 @@
+# a live game with the music: the PSG's writes from the title on (psglog),
+# a round, then M (0 -> 2 -> 3 -> 0). Decode with tools/smssim/psgdec.py.
+wait 300
+psglog music.psg
+press
+wait 300
+wait 1800
+key M
+wait 1000
+key M
+wait 600
+key M
+wait 600

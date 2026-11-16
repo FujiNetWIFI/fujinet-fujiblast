@@ -412,12 +412,12 @@ ifeq ($(PLATFORM),sms)
   EXTRA_INCLUDE += build/fnlib-sms/include gen/sms src/tms9918
   LIBS += -Lbuild/fnlib-sms -lfujinet-sms
 endif
-CFLAGS_EXTRA_SMS += -compiler=sdcc -SO3 -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"\"PAUSE\""' \
+CFLAGS_EXTRA_SMS += -compiler=sdcc -SO3 -DPLAT_MUSIC -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"\"PAUSE\""' \
                     -DQUIT_HINT='"\"2+PAUSE: QUIT\""' -DTAGLINE='"\"BOMBS AND BLASTS FOR 2-4\""' \
                     -DHINT_LR='"\"(L/R)\""' -DNAME_HELP='"\"UP/DOWN: LETTER  1: ADD  >: DONE\""'
 LDFLAGS_EXTRA_SMS += -compiler=sdcc -m -pragma-define:CRT_ENABLE_STDIO=0 -pragma-define:CLIB_FOPEN_MAX=0 \
                      -pragma-define:CRT_INITIALIZE_BSS=1 -pragma-redirect:fputc_cons=l_ret
-EXECUTABLE_EXTRA_DEPS_SMS += build/fnlib-sms/fujinet-sms.lib src/sms/blast.asm
+EXECUTABLE_EXTRA_DEPS_SMS += build/fnlib-sms/fujinet-sms.lib src/sms/blast.asm gen/sms/music.asm
 ifneq ($(TEST_SCENE),)
   CFLAGS_EXTRA_SMS += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
 endif
@@ -432,7 +432,13 @@ build/fnlib-sms/fujinet-sms.lib: tools/z80/mkfnlib.sh $(wildcard $(FNLIB_SMS)/co
 	tools/z80/mkfnlib.sh $(FNLIB_SMS) build/fnlib-sms sms
 
 .PHONY: gen-sms
-gen-sms: gen/config.h gen/sms/gfxdata.c build/fnlib-sms/fujinet-sms.lib
+gen-sms: gen/config.h gen/sms/gfxdata.c gen/sms/music.asm build/fnlib-sms/fujinet-sms.lib
+
+# the round's music for the SN76489 (SMS_OCTAVES shifts the bass: tone 2 stops at 109 Hz, so 2 minimum)
+SMS_OCTAVES ?= 2
+gen/sms/music.asm: tools/mkmus_sms.py tools/mus.py music/play.txt
+	@mkdir -p gen/sms
+	$(PYTHON) tools/mkmus_sms.py music/play.txt gen/sms $(SMS_OCTAVES)
 
 gen/sms/gfxdata.c gen/sms/gfxdata.h gen/sms/gfxcodes.h gen/sms/gfxart1.c gen/sms/gfxart2.c&: tools/mkgfx_sms.py tools/drawart_sms.py tools/drawart_nes.py tools/artlayout.py tools/png.py gfx/namco.bin gfx/sms/tiles.png gfx/sms/sprites.png gfx/sms/bigwin.png gfx/sms/logo.png gfx/sms/cells.png gfx/sms/trophy.png
 	@mkdir -p gen/sms

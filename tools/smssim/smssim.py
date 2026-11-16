@@ -29,6 +29,8 @@ line; times are in frames of the game's clock:
     trace FILE | trace off      log every instruction to OUTDIR/FILE (slow)
     dump FROM TO FILE           save memory (hex addresses) to OUTDIR/FILE
     poke SYMBOL VALUE
+    psglog FILE                 log every write to the SN76489 (I/O 40h-7Fh) to
+                                OUTDIR/FILE from here on: "frame data"
 
 The input goes through the game's test hook (inp_hook in input.c), but
 for `pad`, which goes through port DCh as a player's would; the
@@ -107,6 +109,8 @@ def main():
             steps.append(("pc", int(w[1]) if len(w) > 1 else 1))
         elif c == "poke":
             steps.append(("poke", sym(w[1]), int(w[2], 0)))
+        elif c == "psglog":
+            steps.append(("psglog", w[1]))
         else:
             sys.exit("unknown command: " + line)
 
@@ -135,6 +139,8 @@ def main():
             lua.append('{"test", %d, %d, %d, %d},' % s[1:])
         elif s[0] == "pad":
             lua.append('{"pad", "%s"},' % s[1])
+        elif s[0] == "psglog":
+            lua.append('{"psglog", "%s"},' % os.path.join(out, s[1]))
     lua.append("}")
     lua.append("""
 local fc = %d
@@ -226,6 +232,13 @@ emu.register_frame_done(function()
       i = i + 1
     elseif s[1] == "pc" then
       pcdump = s[2]; i = i + 1; return
+    elseif s[1] == "psglog" then
+      local f = io.open(s[2], "w")
+      local io_ = manager.machine.devices[":maincpu"].spaces["io"]
+      psg_tap = io_:install_write_tap(0x40, 0x7F, "psgw", function(off, data, mask)
+        f:write(string.format("%%d %%02X\\n", mem:read_u16(fc), data))
+      end)
+      i = i + 1
     elseif s[1] == "peek" then
       local t = {}
       for k = 0, s[4] - 1 do t[#t + 1] = string.format("%%02X", mem:read_u8(s[3] + k)) end
