@@ -178,7 +178,8 @@ server/blastbot -addr localhost:9910 -table dev1 -n 3 -start 4
 ## The Apple II
 
 - **Machine:** a 128K //e (Rev B board or later), //c or IIgs.
-- **Keys:** the arrows or I/J/K/L walk. Space, Open-Apple or Solid-Apple is fire. ESC leaves the table; M turns the sound off and on.
+- **Keys:** the arrows or I/J/K/L walk. Space, Open-Apple or Solid-Apple is fire. ESC leaves the table; M cycles all the sound, effects only, none.
+- **Music:** the round's loop (`music/play.txt`, `tools/mkmus_dos.py` -> `gen/msdosmus/music.c`, ~370 bytes) plays ch1 only (the bass, the kick as a falling thump, snare and hat as noise) on the speaker's one voice, from the timer interrupt (`mus_step` in `src/msdos/sound.c`). An effect or a jingle takes the speaker over it and the loop goes on in time underneath; a jingle ends it. `make msdos DOS_OCTAVES=2` moves the bass up another octave (default 1: E1 is 41 Hz).
 - **Joystick:** read if one is centred at start-up.
 - **Sound:** a Mockingboard, if one is found in any slot, plays the Atari's effects and jingles. Without one, the speaker gives short blips.
 - **Speed:**

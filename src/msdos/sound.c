@@ -114,15 +114,72 @@ static uint8_t step(uint8_t v)
     return (cur_c[v] & 0x0F) != 0;
 }
 
+#ifdef PLAT_MUSIC
+/*
+ * The round's music (music/play.txt, tools/mkmus_dos.py): ch1 only, the
+ * speaker's one voice. Steps of a PIT divisor (bit 15 noise, 0 a rest) and
+ * jiffies, in arrays m_order lists; it plays under the effects and jingles
+ * and is heard when they are quiet.
+ */
+extern const MusStep *const m_order[];
+extern const uint8_t m_count, m_loopat;
+
+static const MusStep *volatile mp;      /* the next step; 0 = off */
+static uint8_t mi, ml;                  /* the array in m_order, jiffies left */
+static uint16_t mdiv;                   /* this jiffy's divisor, 0 a rest */
+
+static void mus_step(void)
+{
+    const MusStep *p = mp;
+    if (!p) {
+        mdiv = 0;
+        return;
+    }
+    if (ml <= 1) {
+        if (!p->n) {                    /* the array's end */
+            if (++mi >= m_count)
+                mi = m_loopat;
+            p = m_order[mi];
+        }
+        mdiv = p->d;
+        ml = p->n;
+        mp = p + 1;
+    } else {
+        --ml;
+    }
+}
+#endif
+
 /* From the timer interrupt, 60 times a second. */
 void snd_isr(void)
 {
     uint8_t m = step(0), e = step(1), v;
     uint16_t div;
+#ifdef PLAT_MUSIC
+    uint16_t md;
+    mus_step();
+    md = mdiv;
+    if (mute & 2)
+        md = 0;
+    if (mute == 3 || (!(m | e) && !md)) {
+        spk_off();
+        return;
+    }
+    if (!(m | e)) {                     /* the loop alone */
+        div = md & 0x7FFF;
+        if (md & 0x8000) {
+            rnd = rnd >> 1 ^ (-(rnd & 1) & 0xB400);
+            div = (div >> 1) + (uint16_t)(((uint32_t)rnd * div) >> 16);
+        }
+        spk_on(div);
+        return;
+    }
+#else
     if (mute || !(m | e)) {
         spk_off();
         return;
     }
+#endif
     v = e ? 1 : 0;
     div = (uint16_t)(cur_f[v] + 1) * 37;
     if ((cur_c[v] & 0xF0) == 0x80) {    /* noise: wander */
@@ -155,6 +212,11 @@ void snd_play(uint8_t id)
 
 void snd_music(uint8_t id)
 {
+#ifdef PLAT_MUSIC
+    _disable();
+    mp = 0;                     /* the jingle has the voice */
+    _enable();
+#endif
     start(0, mus[id]);
 }
 
@@ -163,13 +225,47 @@ void snd_stop(void)
     _disable();
     ptr[0] = ptr[1] = 0;
     left[0] = left[1] = 0;
+#ifdef PLAT_MUSIC
+    mp = 0;
+#endif
     _enable();
 }
 
+#ifdef PLAT_MUSIC
+/* The round's music from the top, or off. Already playing, it plays on. */
+void snd_loop(uint8_t on)
+{
+    if (mute)
+        on = 0;
+    if (on && mp && !ptr[0])
+        return;
+    _disable();
+    mp = 0;
+    if (on) {
+        ptr[0] = 0;
+        left[0] = 0;
+        mi = 0;
+        ml = 1;
+        mp = m_order[0];
+    }
+    _enable();
+}
+
+/* all, effects only (no music), none */
+void snd_toggle_mute(void)
+{
+    mute = mute == 0 ? 2 : mute == 2 ? 3 : 0;
+    if (mute == 3)
+        snd_stop();
+    else if (mute)
+        snd_loop(0);
+}
+#else
 void snd_toggle_mute(void)
 {
     mute ^= 1;
 }
+#endif
 
 void snd_off(void)
 {

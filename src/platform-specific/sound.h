@@ -21,6 +21,9 @@ void snd_stop(void);
 void snd_toggle_mute(void);     /* PLAT_MUSIC: all, effects only, none */
 
 #ifdef PLAT_MUSIC
+#ifdef __MSDOS__
+typedef struct { uint16_t d; uint8_t n; } MusStep;     /* gen/msdosmus/music.c */
+#endif
 void snd_loop(uint8_t on);      /* the round's music, from the top; or off */
 #else
 #define snd_loop(on) ((void)0)

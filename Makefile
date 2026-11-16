@@ -108,7 +108,7 @@ build/a2loader.bin: tools/a2loader/loader.s tools/a2loader/loader.cfg
 # product's to every platform's pass of that name.)
 ifeq ($(PLATFORM),msdos)
   PRODUCTS = fujiblst fujibvga
-  SRC_DIRS = src src/msdos
+  SRC_DIRS = src src/msdos gen/msdosmus
   CC_OW2 = $(CURDIR)/tools/dos/ow wcc
   AS_OW2 = $(CURDIR)/tools/dos/ow wasm
   AR_OW2 = $(CURDIR)/tools/dos/ow wlib
@@ -122,7 +122,7 @@ endif
 # (-ad names the object in the .d without its directory: -adt names it)
 OPT ?= -os -oi -ol
 CFLAGS_EXTRA_MSDOS += -zq -ms $(OPT) -s -zp1 -adt=$@ -DQUIT_HINT='"ESC: LOBBY"' -DKEY_END_NAME='"ENTER"' \
-                      -DPLAT_MAP_NEXT -DMOVE_EVERY=6
+                      -DPLAT_MAP_NEXT -DMOVE_EVERY=6 -DPLAT_MUSIC
 ifeq ($(STATS),1)               # plays by itself, writes A:\STATS.TXT (tools/dosrig/86box.sh)
   CFLAGS_EXTRA_MSDOS += -DSTATS
   ASFLAGS_EXTRA_MSDOS += -dSTATS
@@ -736,7 +736,13 @@ gen/apple2/gfxdata.s: tools/mkgfx_hgr.py tools/hgr.py tools/drawart_hgr.py tools
 	@mkdir -p gen/apple2
 	$(PYTHON) tools/mkgfx_hgr.py gen/apple2
 
-gen-msdos: gen/config.h gen/msdos/gfxdata.c gen/msdosvga/gfxdata.c
+gen-msdos: gen/config.h gen/msdos/gfxdata.c gen/msdosvga/gfxdata.c gen/msdosmus/music.c
+
+# the round's music for the PC speaker (ch1 only; E1 is 41 Hz: 1 octave up)
+DOS_OCTAVES ?= 1
+gen/msdosmus/music.c: tools/mkmus_dos.py tools/mus.py music/play.txt
+	@mkdir -p gen/msdosmus
+	$(PYTHON) tools/mkmus_dos.py music/play.txt gen/msdosmus $(DOS_OCTAVES)
 
 gen/msdos/gfxdata.c: tools/mkgfx_cga.py tools/artlayout.py tools/png.py gfx/cga/tiles.png gfx/cga/sprites.png gfx/cga/logo.png gfx/cga/cells.png gfx/namco.bin
 	@mkdir -p gen/msdos
