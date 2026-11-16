@@ -209,6 +209,7 @@ play_enter: PROCEDURE
     GOSUB hud
     in_arena = 1
     IF rb(ST + OFF_PHASE) = PH_COUNTDOWN THEN sid = MUS_ROUND : GOSUB snd_music
+    IF rb(ST + OFF_PHASE) = PH_PLAY THEN GOSUB snd_loop_on     ' (joined mid-round)
     #seen = #jiffy                      ' (the drawing's time isn't walked)
 END
 
@@ -267,7 +268,7 @@ play_state: PROCEDURE
     END IF
     pm = rb(ST + OFF_TIMER)
     IF pt = PH_COUNTDOWN AND hud_timer <> pm THEN sid = SND_BEEP : GOSUB snd_play
-    IF pt = PH_PLAY AND last_phase = PH_COUNTDOWN THEN sid = SND_GO : GOSUB snd_play
+    IF pt = PH_PLAY AND last_phase = PH_COUNTDOWN THEN sid = SND_GO : GOSUB snd_play : GOSUB snd_loop_on
     last_phase = pt
     ' the HUD: whole when someone fell, else the clock alone when it ticked
     ' (the trophies only change between rounds, when play_enter draws it)

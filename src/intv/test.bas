@@ -4,7 +4,8 @@
 ' network. A rig pokes $5A, $A5 into TEST_HOOK + 2 and + 3, the scene into
 ' + 4 and its argument into + 5 before the console starts:
 '   1  the arena, seat 0 walking (the disc through input.bas's hook), the
-'      argument its powers (bits 0-1 kick and glove, 4-7 speed)
+'      argument its powers (bits 0-1 kick and glove, 4-7 speed); the round's
+'      music plays (it is a PH_PLAY state), and bit 3 adds an effect every 20 jiffies
 '   2  the waiting room       3  a round's end       4  the game's end
 ' A blast goes off in the arena's top lane every 4 seconds.
 ' ===========================================================================
@@ -47,6 +48,9 @@ tp_a:
         FOR tst_k = 1 TO owed
             GOSUB jiffy_step
             #tst_t = #tst_t + 1
+            IF tst_a AND 8 THEN                 ' (bit 3: an effect every 20 jiffies, the music's rig)
+                IF #tst_t % 20 = 0 THEN sid = (#tst_t / 20) % 10 : GOSUB snd_play
+            END IF
             IF #tst_t % 240 = 0 THEN
                 FOR i = 2 TO 10
                     IF (#tst_t / 240) AND 1 THEN

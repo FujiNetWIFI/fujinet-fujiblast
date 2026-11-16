@@ -54,6 +54,7 @@ END
 ' ---- the waiting room ------------------------------------------------------------
 
 wait_enter: PROCEDURE
+    GOSUB snd_loop_off
     in_arena = 0
     arena_on = 0
     GOSUB gfx_begin
@@ -120,6 +121,7 @@ END
 
     DIM res_final, res_seat, res_timer, res_k, res_row(SEATS)
 results_enter: PROCEDURE
+    GOSUB snd_loop_off                  ' (a draw has no jingle)
     in_arena = 0
     arena_on = 0
     res_seat = rb(ST + OFF_RESULT)

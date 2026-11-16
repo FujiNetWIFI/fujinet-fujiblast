@@ -22,7 +22,8 @@ frame_isr: PROCEDURE
     IF ready = 0 THEN RETURN
     CALL READ_INPUT
     GOSUB snd_isr
-    IF isr_t = 2 THEN GOSUB snd_isr
+    GOSUB mus_isr
+    IF isr_t = 2 THEN GOSUB snd_isr : GOSUB mus_isr
     ' The arena's animation: its cards redefined, a page every 8 jiffies,
     ' a group a frame (bombs; flames; powerups), so the copy stays small.
     IF anim_on THEN

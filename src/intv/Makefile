@@ -27,7 +27,7 @@ TEST   ?= 1
 
 BAS  := $(wildcard *.bas)
 ASMS := $(wildcard *.asm)
-GENS := $(GEN)/proto.bas $(GEN)/config.bas $(GEN)/gfx.bas $(GEN)/snd.bas $(GEN)/opts.bas
+GENS := $(GEN)/proto.bas $(GEN)/config.bas $(GEN)/gfx.bas $(GEN)/snd.bas $(GEN)/music.bas $(GEN)/opts.bas
 ROM  := $(R2R)/fujiblst.rom
 
 all: $(ROM)
@@ -76,6 +76,11 @@ $(GEN)/gfx.bas: $(ROOT)/tools/mkgfx_intv.py $(ROOT)/tools/png.py $(wildcard $(RO
 $(GEN)/snd.bas: $(ROOT)/tools/mksnd_intv.py $(ROOT)/src/apple2/sndtab.s
 	@mkdir -p $(GEN)
 	$(PYTHON) $(ROOT)/tools/mksnd_intv.py $(ROOT)/src/apple2/sndtab.s $@
+
+# the round's music (music/play.txt), for the PSG
+$(GEN)/music.bas: $(ROOT)/tools/mkmus_intv.py $(ROOT)/tools/mus.py $(ROOT)/music/play.txt
+	@mkdir -p $(GEN)
+	$(PYTHON) $(ROOT)/tools/mkmus_intv.py $(ROOT)/music/play.txt $(GEN)
 
 # IntyBASIC looks for INCLUDEs in the folder it runs in: the sources and the
 # generated files are copied there

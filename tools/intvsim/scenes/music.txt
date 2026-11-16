@@ -1,0 +1,30 @@
+# live (tools/intvrig/rig.sh): the round's music starts at GO, stops at the
+# round's end, the 0 key cycles all -> effects only -> none
+wait 120
+btn T
+until ROOM 900
+vars mus_on snd_off
+until RD 1800
+vars mus_on snd_off
+wait 400
+vars mus_on snd_off
+psg music_live.wav
+wait 120
+key 0
+wait 20
+vars mus_on snd_off
+peek 1FB 3
+key 0
+wait 20
+vars mus_on snd_off
+peek 1FB 3
+key 0
+wait 20
+vars mus_on snd_off
+until WINS 7200
+wait 30
+vars mus_on snd_off
+until RD 1800
+wait 300
+vars mus_on snd_off
+stack

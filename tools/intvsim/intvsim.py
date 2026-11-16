@@ -27,6 +27,7 @@ Scenario lines ('#' starts a comment):
     untilnot TEXT [MAX]     until it doesn't
     untilvar NAME VAL [MAX] until IntyBASIC variable NAME (low byte) is VAL
     film PREFIX EVERY COUNT a picture every EVERY frames, COUNT times
+    psg NAME.wav            record the PSG's registers every frame from here; the WAV is written at the end
     vars NAME...            IntyBASIC variables
     trace N EVERY NAME...   them every EVERY frames, N times
     peek ADDR N             N words from ADDR (hex)
@@ -87,6 +88,7 @@ class Jz:
         self.frames = 0
         self.sp = self.low_sp = 0
         self.prof = None            # (pc A, pc B, [cycles at A or None], [pass costs])
+        self.psg = None             # (path, [the PSG's registers $1F0-$1FD each frame])
 
     def read_prompt(self):
         while True:
@@ -123,6 +125,8 @@ class Jz:
                     self.low_sp = max(self.low_sp, self.sp)
                 self.frames += 1
                 done += 1
+                if self.psg is not None:
+                    self.psg[1].append(self.mem(0x1F0, 14))
             if self.prof and cyc is not None:
                 a, b, start, costs, names = self.prof
                 if pc == a:
@@ -320,6 +324,8 @@ def main():
             for i in range(int(a[2])):
                 jz.run(int(a[1]))
                 jz.render(os.path.join(outdir, "%s_%03d.png" % (a[0], i)))
+        elif op == "psg":                   # record the PSG's registers each frame; written to OUTDIR/NAME.wav at the end
+            jz.psg = (os.path.join(outdir, arg), [])
         elif op == "vars":
             print("f%d vars" % jz.frames, " ".join("%s=%d" % (v, jz.var(v) & 0xFFFF) for v in a))
         elif op == "trace":
@@ -368,6 +374,14 @@ def main():
                 print("prof %s-%s: no passes" % (a[0], a[1]))
         else:
             raise SystemExit("unknown: " + ln)
+    if jz.psg is not None:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import psgwav
+        psgwav.write(jz.psg[0], jz.psg[1], os.environ.get("PAL") == "1")
+        with open(jz.psg[0][:-4] + ".regs", "w") as rf:      # (and the registers: a line a frame)
+            for r in jz.psg[1]:
+                rf.write(" ".join("%04X" % x for x in r) + "\n")
+        print("psg: %d frames -> %s" % (len(jz.psg[1]), jz.psg[0]))
     jz.p.stdin.write(b"q\n")
     jz.p.stdin.flush()
     jz.p.wait()

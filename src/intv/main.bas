@@ -29,6 +29,9 @@
     INCLUDE "snd.bas"
     INCLUDE "config.bas"
     ' $5000-$6FFF
+    ' the music (its constants first), $C040-$DFFF
+    SEGMENT 2
+    INCLUDE "music.bas"
     SEGMENT 0
     INCLUDE "fujinet.bas"
     INCLUDE "nstrans.bas"
@@ -130,6 +133,7 @@ pt_a:                                   ' (the pass, for intvsim's prof: pt_a-pt
         IF ev_key = KEY_MUTE THEN GOSUB snd_toggle_mute
         GOSUB net_poll
 pt_n:
+        IF net_r = NET_ERROR OR net_r = NET_LOST OR ev_key = KEY_ESC THEN GOSUB snd_loop_off
         IF net_r = NET_ERROR THEN
             GOSUB net_close
             GOSUB gfx_begin
