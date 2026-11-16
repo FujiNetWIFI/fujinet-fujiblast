@@ -71,6 +71,8 @@ static uint8_t play_table(void)
         if (ev_key == 'M')
             snd_toggle_mute();
         r = net_poll();
+        if (r == NET_ERROR || r == NET_LOST || ev_key == KEY_ESC)
+            snd_loop(0);                /* out of the round */
         if (r == NET_ERROR) {
             net_close();
             message(MSG_NO, net_err == ERR_VERSION ? "UPDATE FUJIBLAST" : "NO SUCH ROOM", 0);

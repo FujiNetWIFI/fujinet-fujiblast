@@ -119,6 +119,8 @@ void play_enter(void)
     gfx_show();
     if (st[OFF_PHASE] == PH_COUNTDOWN)
         snd_music(MUS_ROUND);
+    else if (st[OFF_PHASE] == PH_PLAY)
+        snd_loop(1);                    /* (joined mid-round) */
 }
 
 /* The tiles a bomb drawn at half-tile hx, hy covers: redraw them later. */
@@ -208,8 +210,10 @@ void play_state(void)
     }
     if (st[OFF_PHASE] == PH_COUNTDOWN && hud_timer != st[OFF_TIMER])
         snd_play(SND_BEEP);
-    if (st[OFF_PHASE] == PH_PLAY && last_phase == PH_COUNTDOWN)
+    if (st[OFF_PHASE] == PH_PLAY && last_phase == PH_COUNTDOWN) {
         snd_play(SND_GO);
+        snd_loop(1);
+    }
     last_phase = st[OFF_PHASE];
     for (s = 0; s < SEATS && hud_wins[s] == PL(s, P_WINS); ++s)
         ;

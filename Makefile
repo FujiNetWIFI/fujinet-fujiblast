@@ -29,6 +29,7 @@
 # src/ is platform neutral; src/platform-specific/*.h is what each platform
 # implements in src/<platform>/. Art: gfx/*.png (tools/drawart.py draws
 # them); tools/mkgfx_<platform>.py converts them into gen/ (gitignored).
+# Music: music/play.txt (tools/mus.py); tools/mkmus_<platform>.py likewise.
 
 PRODUCT = fujiblst
 PLATFORMS = atari apple2 msdos adam msxrom atari7800 atari5200 nes sms coco h89-cpm h89-hdos
@@ -49,9 +50,9 @@ PYTHON ?= python3
 # ---- Atari 400/800 (48K), XL/XE -------------------------------------------
 # cc65, no DOS: picoboot loads FUJIBLST.COM, whose first chunk (src/atari/
 # start.s) switches BASIC off. Memory: src/atari/fujiblst.cfg.
-CFLAGS_EXTRA_ATARI += -Os -Cl
+CFLAGS_EXTRA_ATARI += -Os -Cl -DPLAT_MUSIC
 LDFLAGS_EXTRA_ATARI += -C src/atari/fujiblst.cfg -m build/fujiblst-atari.map
-EXECUTABLE_EXTRA_DEPS_ATARI += src/atari/fujiblst.cfg
+EXECUTABLE_EXTRA_DEPS_ATARI += src/atari/fujiblst.cfg gen/atari/music.s
 ifeq ($(PLATFORM),atari)
   EXTRA_INCLUDE += gen/atari
 endif
@@ -594,9 +595,13 @@ CFLAGS_EXTRA_ATARI5200 += -Os -Cl -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAM
                           -DNAME_HELP='"UP/DOWN: LETTER  FIRE: ADD  >: DONE"'
 CFLAGS_EXTRA_ATARI5200 += $(DBG)
 LDFLAGS_EXTRA_ATARI5200 += -C src/atari5200/fujiblst-a52.cfg -m build/fujiblst-a52.map
-EXECUTABLE_EXTRA_DEPS_ATARI5200 += src/atari5200/fujiblst-a52.cfg build/fnlib-a52/fujinet-a52.lib gen/atari5200/gfxdata.s
+EXECUTABLE_EXTRA_DEPS_ATARI5200 += src/atari5200/fujiblst-a52.cfg build/fnlib-a52/fujinet-a52.lib gen/atari5200/gfxdata.s gen/atari5200/music.s
+# the round's music; a scene build has no room for it (ROM)
 ifneq ($(TEST_SCENE),)
   CFLAGS_EXTRA_ATARI5200 += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0)
+  ASFLAGS_EXTRA_ATARI5200 += --asm-define NO_MUSIC
+else
+  CFLAGS_EXTRA_ATARI5200 += -DPLAT_MUSIC
 endif
 
 # the checks, the .a52 (r2r/atari5200/fujiblst.a52)
@@ -606,12 +611,16 @@ atari5200/executable-post::
 build/fnlib-a52/fujinet-a52.lib: tools/atari5200/mkfnlib.sh $(wildcard $(FNLIB_5200)/common/*.c $(FNLIB_5200)/bus/atari5200/* $(FNLIB_5200)/include/*.h)
 	tools/atari5200/mkfnlib.sh $(FNLIB_5200) build/fnlib-a52
 
-gen-atari5200: gen/config.h gen/atari5200/gfxdata.s build/fnlib-a52/fujinet-a52.lib
+gen-atari5200: gen/config.h gen/atari5200/gfxdata.s gen/atari5200/music.s build/fnlib-a52/fujinet-a52.lib
 
 # the same art as the 800's
 gen/atari5200/gfxdata.s: tools/mkgfx_atari.py tools/artlayout.py tools/png.py gfx/tiles.png gfx/glyphs.png gfx/logo.png gfx/sprites.png
 	@mkdir -p gen/atari5200
 	$(PYTHON) tools/mkgfx_atari.py gen/atari5200
+
+# the same music as the 800's
+gen/atari5200/music.s: tools/mkmus_atari.py tools/mus.py music/play.txt
+	$(PYTHON) tools/mkmus_atari.py music/play.txt gen/atari5200
 
 # ---- NES (the FujiNet NES cartridge) -------------------------------------------
 # cc65, an MMC3 image (.nes) the NES CONFIG boots: 128K PRG, 16K CHR-RAM, 8K
@@ -690,7 +699,7 @@ r2r/msdos/$(PRODUCT): gen-msdos
 r2r/adam/$(PRODUCT): gen-adam
 r2r/msxrom/$(PRODUCT): gen-msxrom
 
-gen-atari: gen/config.h gen/atari/gfxdata.s
+gen-atari: gen/config.h gen/atari/gfxdata.s gen/atari/music.s
 
 gen/config.h: FORCE
 	@mkdir -p gen
@@ -733,6 +742,10 @@ gen/msxrom/gfxdata.c gen/msxrom/gfxart1.c gen/msxrom/gfxart2.c &: tools/mkgfx_tm
 gen/atari/gfxdata.s: tools/mkgfx_atari.py tools/artlayout.py tools/png.py gfx/tiles.png gfx/glyphs.png gfx/logo.png gfx/sprites.png
 	@mkdir -p gen/atari
 	$(PYTHON) tools/mkgfx_atari.py gen/atari
+
+# the round's music (music/play.txt) for POKEY's voices 1 and 2
+gen/atari/music.s: tools/mkmus_atari.py tools/mus.py music/play.txt
+	$(PYTHON) tools/mkmus_atari.py music/play.txt gen/atari
 
 server:
 	cd server && go build -o fujiblastd ./cmd/fujiblastd && go build -o blastbot ./cmd/blastbot

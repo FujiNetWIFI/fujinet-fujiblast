@@ -1,16 +1,22 @@
 /*
- * sound.c -- the effects (voice 2) and jingles (voice 1) as POKEY steps
- * (snd.s). AUDF at POKEY's 64 kHz clock: 63921 / (2 (N + 1)) Hz. AUDC: $A0
- * a pure tone, $80 noise, $C0 a buzz; the low nibble the volume.
+ * sound.c -- the effects (voice 2), the jingles (voice 1) and the in-play
+ * music (gen/atari/music.s from music/play.txt: ch1 on voice 1, ch2 on
+ * voice 2 between effects) as POKEY steps (snd.s). AUDF at POKEY's 64 kHz
+ * clock: 63921 / (2 (N + 1)) Hz. AUDC: $A0 a pure tone, $80 noise, $C0 a
+ * buzz; the low nibble the volume.
  */
 #if defined(__ATARI__) || defined(__ATARI5200__)
 
 #include "sound.h"
+#include "atari.h"
 
-extern uint8_t snd_ptr[4];
+extern uint8_t snd_ptr[6];
 #pragma zpsym("snd_ptr")
-extern uint8_t snd_left[4];
+extern uint8_t snd_left[6];
 extern uint8_t snd_mute;
+extern uint8_t snd_hold;
+extern uint8_t snd_loopon;
+extern uint8_t snd_pal;
 
 /* notes */
 #define G4 81
@@ -54,7 +60,7 @@ static const uint8_t *const fx[SND_COUNT] = {
 };
 static const uint8_t *const mus[MUS_COUNT] = { m_title, m_round, m_win, m_game };
 
-/* The VBI reads a voice's pointer only while its high byte is set: that
+/* The VBI reads a slot's pointer only while its high byte is set: that
  * goes last. */
 static void start(uint8_t v, const uint8_t *s)
 {
@@ -64,9 +70,19 @@ static void start(uint8_t v, const uint8_t *s)
     snd_ptr[v + 1] = (uint16_t)s >> 8;
 }
 
+/* slots 0 and 4 quiet (the VBI's hold keeps it off them meanwhile) */
+static void music_off(void)
+{
+    snd_hold = 1;
+    snd_ptr[1] = snd_ptr[5] = 0;
+    snd_left[0] = snd_left[4] = 0;
+    snd_loopon = 0;
+}
+
 void snd_init(void)
 {
-    snd_ptr[1] = snd_ptr[3] = 0;
+    snd_ptr[1] = snd_ptr[3] = snd_ptr[5] = 0;
+    snd_pal = (GTIA_PAL & 0x0E) == 0;   /* GTIA: 1 on NTSC, 0 on PAL */
 }
 
 void snd_play(uint8_t id)
@@ -76,18 +92,42 @@ void snd_play(uint8_t id)
 
 void snd_music(uint8_t id)
 {
+    music_off();
     start(0, mus[id]);
+    snd_hold = 0;
 }
+
+#ifdef PLAT_MUSIC
+extern const uint8_t m_loop1[], m_loop2[];
+
+/* The round's music, both channels from the top on the same frame; or off.
+ * Already playing, it plays on. */
+void snd_loop(uint8_t on)
+{
+    if (on && snd_loopon)
+        return;
+    music_off();
+    if (on) {
+        start(0, m_loop1);
+        start(4, m_loop2);
+        snd_loopon = 2;
+    }
+    snd_hold = 0;
+}
+#endif
 
 void snd_stop(void)
 {
-    snd_ptr[1] = snd_ptr[3] = 0;
-    snd_left[0] = snd_left[2] = 0;
+    music_off();
+    snd_ptr[3] = 0;
+    snd_left[2] = 0;
+    snd_hold = 0;
 }
 
+/* all, the effects (no music), none */
 void snd_toggle_mute(void)
 {
-    snd_mute ^= 1;
+    snd_mute = snd_mute == 0 ? 2 : snd_mute == 2 ? 3 : 0;
 }
 
 #endif

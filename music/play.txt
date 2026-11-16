@@ -1,0 +1,210 @@
+# play.txt -- FujiBlast's in-play loop: a bunch of whacko robots running
+# around tossing bombs at each other. Every port converts it for its chip
+# (tools/mus.py has the format; tools/mkmus_atari.py the Atari's).
+#
+# ch1 is the whole tune on one voice: kick on 1 and 3, snare on 2 and 4,
+# hats in the rests, a bouncing octave bass in E minor with a B-flat that
+# shouldn't be there. ch2 is the robots chattering over it.
+# Form: E E E E-fill | C C D D | E E E E-fill | C D E power-up, and again.
+
+tempo 6                 # 16ths at 150 BPM
+
+# ---- E: the riff ------------------------------------------------------------
+
+pattern e_ask           # "beep boop?"
+    K E1    | -
+    .       | -
+    E2      | b E5
+    E1      | b G5
+    S       | -
+    E1      | -
+    G1      | -
+    .       | b B5
+    K E1    | -
+    H       | -
+    Bb1     | a E5
+    A1      | .
+    S       | -
+    D2      | -
+    E2      | b D6
+    H       | -
+end
+
+pattern e_answer        # "boop beep."
+    K E1    | -
+    .       | -
+    E2      | b B5
+    E1      | b G5
+    S       | -
+    E1      | -
+    G1      | -
+    .       | b E5
+    K E1    | -
+    H       | -
+    Bb1     | w B4
+    A1      | .
+    S       | -
+    D2      | -
+    E2      | z E6
+    H       | .
+end
+
+pattern e_count         # thinking hard
+    K E1    | -
+    .       | -
+    E2      | b E5
+    E1      | b G5
+    S       | -
+    E1      | -
+    G1      | a E5
+    .       | .
+    K E1    | .
+    H       | -
+    Bb1     | -
+    A1      | -
+    S       | -
+    D2      | -
+    E2      | b B5
+    H       | b Bb5
+end
+
+pattern e_fill          # drum roll; something falls over
+    K E1    | a E5
+    .       | .
+    E2      | .
+    E1      | .
+    S       | -
+    E1      | -
+    G1      | -
+    .       | -
+    K Bb1   | w G5
+    .       | .
+    A1      | -
+    .       | -
+    S       | z B5
+    S       | .
+    S E2    | .
+    S       | .
+end
+
+pattern e_fall          # the fill with a longer fall
+    K E1    | b E5
+    .       | -
+    E2      | b G5
+    E1      | b B5
+    S       | -
+    E1      | -
+    G1      | -
+    .       | -
+    K Bb1   | z E6
+    .       | .
+    A1      | .
+    .       | .
+    S       | .
+    S       | .
+    S E2    | .
+    S       | .
+end
+
+pattern e_rise          # powering up: a chromatic run back to the top
+    K E1    | -
+    .       | -
+    E2      | b E5
+    E1      | b G5
+    S       | -
+    E1      | -
+    G1      | -
+    .       | -
+    K D1    | u E5
+    Eb1     | .
+    E1      | .
+    F1      | .
+    F#1     | .
+    G1      | .
+    G#1     | .
+    S A1    | .
+end
+
+# ---- C and D: up the ladder -------------------------------------------------
+
+pattern c_ask
+    K C1    | -
+    .       | -
+    G1      | b G5
+    C1      | b E5
+    S       | -
+    C1      | -
+    E1      | A C5
+    .       | .
+    K C1    | -
+    H       | -
+    G1      | b G5
+    E1      | b C6
+    S       | -
+    C1      | -
+    G1      | b E6
+    H       | -
+end
+
+pattern c_answer
+    K C1    | -
+    .       | -
+    G1      | b C6
+    C1      | b G5
+    S       | -
+    C1      | -
+    E1      | -
+    .       | b E5
+    K C1    | -
+    H       | -
+    G1      | w G5
+    E1      | .
+    S       | -
+    C1      | -
+    G1      | b C5
+    H       | -
+end
+
+pattern d_ask
+    K D1    | -
+    .       | -
+    D2      | b A5
+    D1      | b F#5
+    S       | -
+    D1      | -
+    F#1     | A D5
+    .       | .
+    K D1    | -
+    H       | -
+    A1      | b A5
+    F#1     | b D6
+    S       | -
+    D2      | -
+    A1      | w F#5
+    H       | .
+end
+
+pattern d_answer
+    K D1    | -
+    .       | -
+    D2      | b D6
+    D1      | b A5
+    S       | -
+    D1      | -
+    F#1     | -
+    .       | b F#5
+    K D1    | -
+    H       | -
+    A1      | A D5
+    F#1     | .
+    S       | z A5
+    D2      | .
+    A1      | .
+    H       | .
+end
+
+song e_ask e_answer e_count e_fill
+song c_ask c_answer d_ask d_answer
+song e_count e_answer e_ask e_fall
+song c_ask d_ask e_ask e_rise
+loop 0

@@ -64,6 +64,7 @@ void message(const char *a, const char *b, uint8_t frames)
 void wait_enter(void)
 {
     uint8_t s;
+    snd_loop(0);
     gfx_begin();
     gfx_row(1, ROW_BIG, PAL_MENU);
     for (s = 0; s < SEATS; ++s)
@@ -135,6 +136,7 @@ void results_enter(uint8_t final)
 {
     static char b[21];
     uint8_t s, k = 0, w, r;
+    snd_loop(0);                        /* (a draw has no jingle) */
     res_final = final;
     res_seat = st[OFF_RESULT];
     res_timer = NONE;
