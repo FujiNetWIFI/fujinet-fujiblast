@@ -1439,7 +1439,7 @@ PNICON: DB      IM_FIRE0, IM_BOMBUP0, IM_SPEED0, IM_KICK0, IM_GLOVE0
 ;   beeps and GO, a blast's shake and sound, a dud's fizzle, the HUD; our
 ;   pending bomb let go once the server has the tile.
 ; ---------------------------------------------------------------------------
-        RFIT    178
+        RFIT    184
 arena_state:
         GETV    PEND                    ; our bomb: the server's now?
         XRI     NONE
@@ -1449,7 +1449,11 @@ arena_state:
         PLO     RB
         LDN     RB
         BZ      ast1
+        LDN     RA                      ; (the tile, redrawn as the server has it)
+        PHI     R9
         SETV    PEND, NONE
+        GHI     R9
+        FCALL   dq_push
 ast1:   GETS    OFF_PHASE               ; deaths, in play
         XRI     PH_PLAY
         BNZ     ast3

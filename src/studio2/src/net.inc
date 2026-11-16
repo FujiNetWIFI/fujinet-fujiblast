@@ -955,13 +955,13 @@ fp1:    GETV    DREM                    ; a run needs two
         POKEST
 fp2:    GLO     R9                      ; (ST is page-aligned: RB.0 = offset)
         PLO     RB
+        LDN     RB                      ; the old byte, read BEFORE the poke (the
+        STR     R2                      ;  cart applies a poke on its own read)
         LDA     R8                      ; the new byte, poked
         PHI     RD
         PLO     RF
         LDN     RF
-        LDN     RB                      ; changed?
-        STR     R2
-        GHI     RD
+        GHI     RD                      ; changed?
         XOR
         BZ      fp4
         GLO     R9                      ; a map byte: its tile
@@ -971,7 +971,7 @@ fp2:    GLO     R9                      ; (ST is page-aligned: RB.0 = offset)
         BDF     fpmv
         GHI     RD
         PUTV    T0                      ; (new, old: mapmark's)
-        LDN     RB
+        LDN     R2                      ; the old byte (M(R2) untouched since)
         PUTV    T1
         GLO     R9
         SMI     OFF_MAP
