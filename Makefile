@@ -47,6 +47,12 @@ FUJINET_LIB = 5.1.0
 SERVER ?=
 PYTHON ?= python3
 
+# z88dk's dependency files leave out headers found through -I, so a new
+# SERVER would not rebuild the one file that takes it
+ifneq ($(PLATFORM),)
+build/$(PRODUCT)/$(PLATFORM)/src/appkey.o: gen/config.h
+endif
+
 # ---- Atari 400/800 (48K), XL/XE -------------------------------------------
 # cc65, no DOS: picoboot loads FUJIBLST.COM, whose first chunk (src/atari/
 # start.s) switches BASIC off. Memory: src/atari/fujiblst.cfg.
