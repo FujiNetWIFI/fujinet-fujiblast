@@ -10,6 +10,8 @@
 #include "input.h"
 #include "sound.h"
 #include "msx.h"
+#include "fujinet-fuji.h"
+#include "fujinet-unapi-msx.h"
 
 uint16_t frame_count;
 uint8_t vdp_seen, gfx_fast;
@@ -30,11 +32,18 @@ void plat_quit(void)
     msx_quit();
 }
 
-/* The FujiNet's status register shows it has a user ROM ready (us); where
- * there is no FujiNet the ROM itself is there, and its last bytes are 0. */
+/* A FujiNet is there if its UNAPI ROM is (found through EXTBIO, or
+ * started by the library if the BIOS never got to it: we're in the
+ * subslot before it, and never return). */
 uint8_t plat_net_probe(void)
 {
-    return (FB_STATUS & 0x40) != 0;
+    return fuji_unapi_entry() != 0;
+}
+
+/* msxint.asm's msx_quit: the cartridge back as at power-on (CONFIG). */
+void msx_reset_cart(void)
+{
+    fuji_reset();
 }
 
 /* One pass of the game is a jiffy of logic (the walking, the timers), so a
