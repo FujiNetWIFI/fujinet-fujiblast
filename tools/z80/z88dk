@@ -4,6 +4,11 @@
 # defoogi container, which mounts only the repository: paths given to the
 # tool must stay inside it (they do: the build is all under clients/).
 if command -v zcc >/dev/null 2>&1; then
+    # (newer z88dk names its assembler z88dk-z80asm)
+    if [ "$1" = z80asm ] && ! command -v z80asm >/dev/null 2>&1; then
+        shift
+        exec z88dk-z80asm "$@"
+    fi
     exec "$@"
 fi
 here=$(pwd -P)

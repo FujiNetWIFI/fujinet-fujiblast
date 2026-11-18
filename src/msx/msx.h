@@ -17,6 +17,7 @@
 /* msxint.asm */
 void msx_hook_init(void);
 void msx_quit(void);            /* back to the FujiNet's CONFIG */
+void msx_reset_cart(void);      /* plat.c, for msx_quit */
 
 /* msxbios.asm (one argument in L: __z88dk_fastcall) */
 uint8_t msx_snsmat(uint8_t row) __z88dk_fastcall;
@@ -27,10 +28,6 @@ uint8_t msx_chget(void);
 
 /* sound.c: a frame of the sound (from the interrupt) */
 void snd_nmi(void);
-
-#define FB_GETC   (*(volatile uint8_t *)0xBFFC)
-#define FB_STATUS (*(volatile uint8_t *)0xBFFD)
-#define FB_PUTC   (*(volatile uint8_t *)0xBFFE)
 
 uint8_t plat_net_probe(void);
 

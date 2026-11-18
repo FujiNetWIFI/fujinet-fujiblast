@@ -10,18 +10,21 @@
 ; on PAL. Otherwise main.c's clock_sync put ten a second back, in a lurch
 ; at every reply.
 ;
-; msx_quit: back to the FujiNet's own ROM. Its user ROM (us) is switched
-; off by the write to its control register, so that is done from RAM, then
-; the machine restarts.
+; msx_quit: back to the FujiNet's CONFIG. A user ROM can't write the
+; cartridge's control register (the firmware locks it once a user ROM
+; runs, and its window isn't in our subslot): FUJICMD_RESET through
+; UNAPI (fuji_reset) puts the cartridge back as at power-on, CONFIG where
+; we were. That may take the ROM away under us, so the wait for it (two
+; seconds, the FujiNet restarting) is run from RAM, then the machine
+; restarts.
 
         SECTION code_user
 
         PUBLIC  _msx_hook_init, _msx_quit
-        EXTERN  _frame_count, _vdp_seen, _snd_nmi
+        EXTERN  _frame_count, _vdp_seen, _snd_nmi, _msx_reset_cart
 
         defc    H_TIMI = $FD9F
         defc    MSXID1 = $002B          ; bit 7: 50 Hz
-        defc    IO_CONTROL = $BFFF
 
 _msx_hook_init:
         di
@@ -81,6 +84,9 @@ _msx_quit:
         ld      hl,old_hook
         ld      bc,5
         ldir
+        ei
+        call    _msx_reset_cart ; plat.c: fuji_reset()
+        di
         ld      hl,quit_stub
         ld      de,quit_ram
         ld      bc,quit_end - quit_stub
@@ -88,8 +94,12 @@ _msx_quit:
         jp      quit_ram
 
 quit_stub:
-        ld      a,$06           ; ROM mode: the FujiNet's ROM on, the user ROM off
-        ld      (IO_CONTROL),a
+        ld      b,120           ; two seconds of the BIOS's interrupts
+quit_wait:
+        ei
+        halt
+        djnz    quit_wait
+        di
         rst     0
 quit_end:
 

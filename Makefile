@@ -366,9 +366,11 @@ coleco-rig:
 # The Adam's screen and game on the MSX's TMS9918A (src/tms9918 is shared),
 # zcc with zsdcc as above. An ASCII8 megaROM (src/msx/blast.asm,
 # tools/msx/mkrom.py): the program fixed at 4000h-9FFFh, the art in two
-# banks of the window at A000h. fujinet-lib is fujinet-lib-experimental built
-# with zsdcc (tools/z80/fnlib_msx.sh); the link to the server is the
-# cartridge's registers, driven by hand (src/msx/nstrans.c).
+# banks of the window at A000h. fujinet-lib is FujiNetWIFI/fujinet-lib's main
+# built with zsdcc (tools/z80/fnlib_msx.sh); everything reaches the FujiNet
+# through its MSX-UNAPI ROM (the cartridge's registers are not ours to see).
+FNLIB_MSX ?= $(CURDIR)/../fujinet-lib
+FNLIB_MSX_COMMIT ?= a2c56e4
 ifeq ($(PLATFORM),msxrom)
   FUJINET_LIB := __UNDEFINED__
   CC_Z88DK = $(CURDIR)/tools/z80/z88dk zcc
@@ -389,8 +391,8 @@ endif
 msxrom/r2r-post::
 	@python3 tools/msx/mkrom.py r2r/msxrom $(PRODUCT)
 
-build/fnlib-msx/fujinet-msx.lib: tools/z80/fnlib_msx.sh tools/z80/msx-portio.c
-	tools/z80/fnlib_msx.sh $(FNLIB_EXP) $(FNLIB_COMMIT) build/fnlib-msx
+build/fnlib-msx/fujinet-msx.lib: tools/z80/fnlib_msx.sh
+	tools/z80/fnlib_msx.sh $(FNLIB_MSX) $(FNLIB_MSX_COMMIT) build/fnlib-msx
 
 # ---- Sega Master System (the FujiNet SMS cartridge) ----------------------------
 # z88dk +sms with zsdcc, from defoogi unless installed (tools/z80/z88dk). A
