@@ -27,6 +27,10 @@ MARIA probe results: `tools/a78sim/probe160b` (all fits but 28-cell run + 2 pane
   `music/play.txt`, ~2K): the frame NMI reaches it through `snd_frame` (bank.c): `BANKSEL = 1`, the player,
   `BANKSEL = bank_cur` (the main thread's bank, set before each of its own switches). Voice 1 = jingle / music
   ch1, voice 2 = effects, voice 3 = music ch2 (no netstream here, so it never yields to an effect).
+- Bank 2 (`$A000`, OVERLAY2 + OVL2RO): the lobby's appkeys, `appkey.c` (built with each `appkey_*` named
+  `b2_appkey_*`) and fujinet-lib's `fuji_appkey` + `appkey_atari7800` (`tools/atari7800/mkfnlib.sh`). Their code
+  calls only the fixed bank's; `bank.c`'s `appkey_*` switch to bank 2, call, and put bank 0 back. `main.c` is
+  bank 0's (OVERLAY1), so `crt0.s` selects bank 0 before `main`.
 - Zero page `$40-$FF`. Nothing ever stores to `$00-$1F` (INPTCTRL).
 
 ## Character blocks
@@ -92,3 +96,19 @@ Cycle budget 426: trim the last run's right-hand cells before ever dropping a bo
   appkeys (`NO_APPKEYS`); a production build leaves out `test.c` (`PLAT_NO_TEST`).
 - The results screen draws the big bomber at the normal size; the title's fourth bomber walks off
   screen at times (x up to 167, as on the Atari).
+
+## Speed (2026-11-17)
+In the arena MARIA leaves the 6502 about 5,600 instructions a frame. The loop was at 0.70 passes a
+frame live (a quarter of the jiffies dropped: the bombers walked slow) and drew ~9 times a second.
+Now it makes one pass a frame and draws on ~95% of them:
+- `compose.s`: `zdirty` bit 0 = the row's chars changed, bit 1 = only the bombers (`dirty_span`).
+  Each slot remembers its runs (`rval`, `rend`, `rcyc`, `rn` | $80 cut short); a bomber-only zone
+  keeps a slot's runs and writes only the bombers' headers. A char change composes each slot once.
+- `_cmp_busy`: the frame NMI flips nothing while `compose_dirty` writes (frame_wait may return
+  without waiting, so a pass could recompose a zone the NMI was flipping).
+- `spr_arena` is `gfx.h`'s macro (no call of five arguments a seat a jiffy).
+- `PLAT_COMMIT_SPAN` (the commit copied all 247 bytes), `PLAT_FAST_SEAT`, `PLAT_MAP_NEXT`
+  (`mapnext.s`; play.c follows the row up with no division), a row-address table in `gfx.c`.
+- `nstrans.c`: byte indexes (reads of 255 at most), `memcpy` from the mailbox, the Fletcher sum inline.
+Measure: `tools/a78sim/rig.sh` with `wcount 300 inp_dir` (passes) and `wcount 300 cmp_busy` (2 a
+drawn pass); profile: build with `DBG=-g` and `-Ln`, the scene's `trace`, PCs bucketed by label.

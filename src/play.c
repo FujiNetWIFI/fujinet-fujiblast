@@ -141,6 +141,9 @@ static void dirty(uint8_t hx, uint8_t hy)
 void play_state(void)
 {
     uint8_t t, c, r, want, m, boom = 0, s;
+#ifdef PLAT_MAP_NEXT
+    uint8_t rb;                         /* r * ARENA_W */
+#endif
     const uint8_t *mv;
 
     /* our own position, when the server says so */
@@ -170,11 +173,15 @@ void play_state(void)
                 gfx_tile(c, r, want); \
             }
 #ifdef PLAT_MAP_NEXT
-    /* the platform finds the tiles that differ (an 8088's repe cmpsb) */
+    /* the platform finds the tiles that differ (an 8088's repe cmpsb); the
+     * row follows t up, with no division (a 6502's is slow) */
     if (scan || net_map || pend_tile != NONE)
-        for (t = 0; (t = map_next(st + OFF_MAP, drawn, t)) < TILES; ++t) {
-            r = t / ARENA_W;
-            c = t - r * ARENA_W;
+        for (t = r = rb = 0; (t = map_next(st + OFF_MAP, drawn, t)) < TILES; ++t) {
+            while (t >= (uint8_t)(rb + ARENA_W)) {
+                rb += ARENA_W;
+                ++r;
+            }
+            c = t - rb;
             TILE_CHECK
         }
 #else

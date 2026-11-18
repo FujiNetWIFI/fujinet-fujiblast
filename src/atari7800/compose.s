@@ -7,6 +7,10 @@
 ; BIG (160A, two bytes a char), GFX / ARENA (160B cells). Its objects:
 ;   a run of chars (a 5-byte header: the chars' address, the mode, the
 ;   palette and width, where it goes), then the bombers' two layers.
+; zdirty bit 0: the row's chars changed; bit 1: only the bombers did. Each
+; slot remembers where its runs end (and their DMA): when only the bombers
+; moved, a slot whose runs still match the row keeps them and only its
+; bombers' headers are written again (a few bytes, not the row's scan).
 ; A run goes from a char to the last one before two blanks (blank = 0:
 ; nothing to draw), splits at a change of palette and at 32 chars (a
 ; header's width), and is cut short when the line's DMA (426 cycles: 16 to
@@ -17,7 +21,7 @@
         .include "a78.inc"
         .export _compose_dirty
         .export _rk, _rp, _zdirty, _hud_pal, _o_on, _o_x, _o_y, _o_fr, _o_seat
-        .import _zflip, _zfront, _slot_lo, _slot_hi, _dsp_ready
+        .import _zflip, _zfront, _slot_lo, _slot_hi, _dsp_ready, _cmp_busy
 
         .segment "ZEROPAGE"
 zz:     .res 1          ; the zone
@@ -41,6 +45,9 @@ tmp:    .res 1
 sp_t:   .res 1          ; the zone's top line
 sp_n:   .res 1
 en:     .res 1          ; chars in the header being made
+zd:     .res 1          ; the zone's zdirty bits
+si:     .res 1          ; its back slot: zone * 2 + slot
+trim:   .res 1          ; $80: the runs were cut short (no room)
 
         .bss
 _rk:     .res ZONES
@@ -53,6 +60,13 @@ _o_x:    .res 4
 _o_y:    .res 4
 _o_fr:   .res 4
 _o_seat: .res 4
+; a slot's runs (by zone * 2 + slot): still the row's (1), where they end,
+; their DMA, and the bombers they left room for (| $80: cut short)
+rval:    .res ZONES * 2
+rend:    .res ZONES * 2
+rcyl:    .res ZONES * 2
+rcyh:    .res ZONES * 2
+rn:      .res ZONES * 2
 
         .segment "OVL1RO"       ; (read by the main thread only)
 ; the screen's rows
@@ -85,10 +99,13 @@ bigtab: .byte   3, 0, 0, 3
 
 ; the dirty zones composed; the frame NMI will show them
 .proc   _compose_dirty
+        lda     #1
+        sta     _cmp_busy       ; (the frame NMI flips nothing meanwhile)
         ldx     #0
         stx     tmp
 @z:     lda     _zdirty,x
         beq     @n
+        sta     zd
         lda     #0
         sta     _zdirty,x
         stx     zz
@@ -102,7 +119,9 @@ bigtab: .byte   3, 0, 0, 3
         beq     @r
         lda     #1
         sta     _dsp_ready
-@r:     rts
+@r:     lda     #0
+        sta     _cmp_busy
+        rts
 .endproc
 
 ; zone zz
@@ -117,13 +136,21 @@ bigtab: .byte   3, 0, 0, 3
         sta     tmp
         txa
         asl     a
+        tay                     ; (zone * 2: slot 0)
         ora     tmp
         tax
+        stx     si
         lda     _slot_lo,x
         sta     dlp
         lda     _slot_hi,x
         sta     dlp+1
-        lda     #0
+        lda     zd
+        lsr     a
+        bcc     @kept
+        lda     #0              ; the row changed: neither slot's runs hold
+        sta     rval,y
+        sta     rval+1,y
+@kept:  lda     #0
         sta     di
         ; the zone's top line, and the bombers on it: 32 cycles each
         lda     zz
@@ -156,7 +183,27 @@ bigtab: .byte   3, 0, 0, 3
         lda     #>420
         sbc     #0
         sta     lim+1
-        lda     #<16
+        ; the slot's runs, if they still hold and leave the bombers room
+        ldx     si
+        lda     rval,x
+        beq     @full
+        lda     rn,x
+        and     #$7F
+        cmp     sp_n
+        beq     @keep
+        bcc     @more
+        lda     rn,x            ; fewer bombers: unless the runs were cut short
+        bmi     @full
+        bpl     @keep
+@more:  lda     lim             ; more: if the runs' DMA is within lim
+        cmp     rcyl,x
+        lda     lim+1
+        sbc     rcyh,x
+        bcc     @full
+@keep:  lda     rend,x
+        sta     di
+        jmp     @bomb
+@full:  lda     #<16
         sta     cyc
         lda     #0
         sta     cyc+1
@@ -249,9 +296,23 @@ bigtab: .byte   3, 0, 0, 3
         sta     pbuf,y
         dey
         bpl     @bp
-@go:    jsr     runs
+@go:    lda     #0
+        sta     trim
+        jsr     runs
+        ldx     si              ; what this slot's runs are now
+        lda     #1
+        sta     rval,x
+        lda     di
+        sta     rend,x
+        lda     cyc
+        sta     rcyl,x
+        lda     cyc+1
+        sta     rcyh,x
+        lda     sp_n
+        ora     trim
+        sta     rn,x
         ; the bombers: the body, then the visor and boots
-        ldx     #0
+@bomb:  ldx     #0
 @b:     lda     _o_on,x
         beq     @bn
         stx     rs
@@ -401,12 +462,14 @@ visible:
         adc     #1
         sta     rl              ; the run's length
         jsr     emit
-        bcs     @done           ; no room: no more
+        bcs     @cut            ; no room: no more
         lda     re
         clc
         adc     #1
         sta     rs
         jmp     @top
+@cut:   lda     #$80
+        sta     trim
 @done:  rts
 .endproc
 

@@ -1,5 +1,5 @@
 /* bank.h -- the SuperGame window at $8000-$BFFF (fujiblst-a78.cfg): bank 0
- * is the code that doesn't fit below, 1 the sound, 5 and 6 the art. Only bank.c stores
+ * is the code that doesn't fit below, 1 the sound, 2 the appkeys, 5 and 6 the art. Only bank.c stores
  * to the window (tools/atari7800/mkrom.py checks). */
 #ifndef BANK_H
 #define BANK_H

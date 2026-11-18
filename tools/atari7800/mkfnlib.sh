@@ -18,12 +18,14 @@ for c in "$src"/common/*.c "$src"/bus/atari7800/*.c "$src"/bus/atari7800/*.s; do
     b=$(basename "$c")
     [ "$b" = crt0.s ] && continue
     o="$out/obj/${b%.*}.o"
-    # what only the game's boot calls (the appkeys, finding the cartridge)
-    # goes in its boot overlay's bank (src/atari7800 linker config OVERLAY1): the fixed
-    # bank is full
+    # what only the game's boot calls goes in a switched bank (src/atari7800
+    # linker config): the appkeys in bank 2 with the game's appkey.c
+    # (OVERLAY2, reached through bank.c), finding the cartridge in bank 0
+    # (OVERLAY1). The fixed bank is full
     seg=
     case "${b%.*}" in
-        appkey_atari7800|fuji_appkey|fuji_atari7800) seg="--code-name OVERLAY1 --rodata-name OVL1RO" ;;
+        appkey_atari7800|fuji_appkey) seg="--code-name OVERLAY2 --rodata-name OVL2RO" ;;
+        fuji_atari7800) seg="--code-name OVERLAY1 --rodata-name OVL1RO" ;;
     esac
     case "$c" in
         *.s) ca65 -t atari7800 -o "$o" "$c" ;;

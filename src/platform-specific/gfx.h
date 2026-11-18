@@ -80,6 +80,14 @@ extern uint8_t w_on[4], w_x[4], w_y[4], w_fr[4], w_seat[4], w_big[4];
 extern uint8_t w_on[4], w_x[4], w_y[4], w_fr[4], w_seat[4];
 #define spr_arena(n, x, y, frame, seat) \
     (w_on[n] = 1, w_x[n] = (x), w_y[n] = (y), w_fr[n] = (frame), w_seat[n] = (seat))
+#elif defined(__ATARI7800__)
+/* The 7800's sets the bomber's wants itself too (src/atari7800/gfx.c): in
+ * the arena MARIA leaves the 6502 too little time for a call of five
+ * arguments for each seat every jiffy. 28, 16: the arena's first pixel and
+ * line (cell column 7, zone 2). */
+extern uint8_t s_on[4], s_x[4], s_y[4], s_fr[4], s_seat[4];
+#define spr_arena(n, x, y, frame, seat) \
+    (s_on[n] = 1, s_x[n] = 28 + ((x) >> 1), s_y[n] = 16 + (y), s_fr[n] = (frame), s_seat[n] = (seat) & 3)
 #else
 void spr_arena(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat);
 #endif

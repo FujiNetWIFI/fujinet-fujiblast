@@ -58,7 +58,8 @@
 #define WAIT_MAX   330          /* frames for a reply (the cart's own is 5 s) */
 #define DOWN_AFTER 60           /* statuses saying the socket is shut */
 #define WRITE_TRIES 10
-#define RMAX 256                /* a read, at most (the server keeps < 192 unacknowledged) */
+#define RMAX 255                /* a read, at most (the server keeps < 192 unacknowledged;
+                                 * 255: the indexes are bytes) */
 #define FMAX 136                /* an encoded frame, at most */
 #define OMAX 64                 /* a frame we send, at most */
 #define QMAX 96                 /* frames flushed, not yet written */
@@ -71,7 +72,8 @@ uint8_t nst_taken;
 static char dev[64];
 static uint8_t state, down, wtries, seq, hold, is_open, lost, garbled;
 static uint8_t rbuf[RMAX];
-static uint16_t rlen, rpos, polled, started, want;
+static uint8_t rlen, rpos;
+static uint16_t polled, started, want;
 static uint8_t dlen, drem, dzero, dbad;     /* the frame being decoded */
 static uint8_t obuf[OMAX], olen, oover;     /* the frame being put */
 static uint8_t qbuf[QMAX], qlen;            /* frames flushed, not yet written */
@@ -121,7 +123,6 @@ static void step(void)
 {
     uint8_t r;
     uint16_t k;
-    volatile uint8_t *s;
 
     if (state != T_IDLE) {
         r = collect();
@@ -151,9 +152,8 @@ static void step(void)
                 k = MB_RXLEN_LO | (uint16_t)MB_RXLEN_HI << 8;
                 if (k > RMAX)
                     k = RMAX;
-                s = MB_REPLY;
-                for (rlen = 0; rlen < k; ++rlen)
-                    rbuf[rlen] = s[rlen];
+                memcpy(rbuf, (const uint8_t *)MB_REPLY, k);
+                rlen = (uint8_t)k;
                 rpos = 0;
             } else {
                 garbled = 1;                /* the bytes are gone: the credit goes short */
@@ -262,25 +262,21 @@ void __fastcall__ nst_put(uint8_t c)
     olen = oover = 0;
 }
 
-/* a + b, mod 255, with no division (256 is 1, mod 255) */
-static uint8_t add255(uint8_t a, uint8_t b)
-{
-    a += b;
-    if (a < b)
-        ++a;
-    return a == 255 ? 0 : a;
-}
+/* a += b, mod 255, with no division (256 is 1, mod 255); inline: a call a
+ * byte, twice, was a good part of the link's time */
+#define ADD255(a, b) do { a += (b); if (a < (b)) ++a; if (a == 255) a = 0; } while (0)
 
 /* The frame's end: its Fletcher sum checked; its length, or 255. */
 static uint8_t frame_end(void)
 {
-    uint8_t i, o = dlen, s1 = 0, s2 = 0;
+    uint8_t i, o = dlen, s1 = 0, s2 = 0, c;
     if (dbad || drem || o < 3)
         return 255;
     o -= 2;
     for (i = 0; i < o; ++i) {
-        s1 = add255(s1, nst_buf[i]);
-        s2 = add255(s2, s1);
+        c = nst_buf[i];
+        ADD255(s1, c);
+        ADD255(s2, s1);
     }
     if (s1 != nst_buf[o] || s2 != nst_buf[o + 1])
         return 255;

@@ -14,7 +14,7 @@
         .import         __CSTACK_START__, __CSTACK_SIZE__
         .import         __BLOCKS_START__
         .import         initlib, donelib, zerobss, copydata
-        .import         push0, _main, _nmi, _irq
+        .import         push0, _main, _nmi, _irq, _bank_set
 
         .include        "zeropage.inc"
 
@@ -58,6 +58,8 @@ start:  sei
         jsr     zerobss
         jsr     copydata
         jsr     initlib
+        lda     #0              ; bank 0: main's (OVERLAY1); the console may
+        jsr     _bank_set       ; start with any bank in the window
         jsr     push0           ; argc
         jsr     push0           ; argv
         ldy     #4

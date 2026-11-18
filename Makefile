@@ -551,7 +551,7 @@ ifeq ($(PLATFORM),atari7800)
   LIBS += build/fnlib-a78/fujinet-a78.lib
   EXTRA_INCLUDE += gen/atari7800 src/atari7800 build/fnlib-a78/include
 endif
-CFLAGS_EXTRA_ATARI7800 += -Os -Cl -DPLAT_MUSIC -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"PAUSE"' -DQUIT_HINT='"SELECT: LOBBY"' \
+CFLAGS_EXTRA_ATARI7800 += -Os -Cl -DPLAT_MUSIC -DPLAT_COMMIT_SPAN -DPLAT_FAST_SEAT -DPLAT_MAP_NEXT -DPLAT_NO_TEST -DPLAT_NAME_WHEEL -DKEY_END_NAME='"PAUSE"' -DQUIT_HINT='"SELECT: LOBBY"' \
                           -DTAGLINE='"BOMBS AND BLASTS FOR 2-4"' -DHINT_LR='"(L/R)"' \
                           -DNAME_HELP='"UP/DOWN: LETTER  FIRE: ADD  >: DONE"'
 CFLAGS_EXTRA_ATARI7800 += $(DBG)
@@ -561,9 +561,12 @@ endif
 LDFLAGS_EXTRA_ATARI7800 += -C src/atari7800/fujiblst-a78.cfg -m build/fujiblst-a78.map
 # the phases' code that doesn't run every frame: bank 0 (always the one in the window)
 A7OBJ = build/$(PRODUCT)/atari7800
-$(A7OBJ)/src/menus.o $(A7OBJ)/src/screens.o $(A7OBJ)/src/appkey.o $(A7OBJ)/src/test.o $(A7OBJ)/src/atari7800/gfxsetup.o: CFLAGS += --code-name OVERLAY1 --rodata-name OVL1RO
+$(A7OBJ)/src/menus.o $(A7OBJ)/src/screens.o $(A7OBJ)/src/main.o $(A7OBJ)/src/test.o $(A7OBJ)/src/atari7800/gfxsetup.o: CFLAGS += --code-name OVERLAY1 --rodata-name OVL1RO
+# the lobby's appkeys: bank 2, reached through bank.c (each name gets a b2_ for bank.c's own)
+$(A7OBJ)/src/appkey.o: CFLAGS += --code-name OVERLAY2 --rodata-name OVL2RO -Dappkey_load=b2_appkey_load \
+    -Dappkey_save_name=b2_appkey_save_name -Dappkey_save_room=b2_appkey_save_room -Dappkey_clear_room=b2_appkey_clear_room
 # constants only the main thread reads (never the NMI, which may run with the art's bank in)
-$(A7OBJ)/gen/atari7800/gfxdata.o $(A7OBJ)/src/main.o $(A7OBJ)/src/play.o: CFLAGS += --rodata-name OVL1RO
+$(A7OBJ)/gen/atari7800/gfxdata.o $(A7OBJ)/src/play.o: CFLAGS += --rodata-name OVL1RO
 EXECUTABLE_EXTRA_DEPS_ATARI7800 += src/atari7800/fujiblst-a78.cfg build/fnlib-a78/fujinet-a78.lib gen/atari7800/gfxdata.c gen/atari7800/music.s
 ifneq ($(TEST_SCENE),)
   CFLAGS_EXTRA_ATARI7800 += -DTEST_SCENE=$(TEST_SCENE) -DTEST_ARG=$(or $(TEST_ARG),0) -DNO_APPKEYS -DNO_MENUS

@@ -22,7 +22,7 @@
 ; six for five frames and one more every 523.
 ;
         .include "a78.inc"
-        .export _nmi, _irq, _frame_count, _mt_start, _dsp_ready
+        .export _nmi, _irq, _frame_count, _mt_start, _dsp_ready, _cmp_busy
         .export _lv_cb, _lv_ca, _lv_cb2, _lv_bg, _lv_f, _dll_off, _mt_ntsc, _mt_top, _anim
         .export _zflip, _zfront, _mt_dll, _slot_lo, _slot_hi
         .export _dlslots_first, _mt_load0
@@ -63,6 +63,7 @@ nlog:   .res 128
 .endif
 _frame_count: .res 2
 _dsp_ready: .res 1      ; gfx.c: the zones are composed, flip them
+_cmp_busy: .res 1       ; compose.s is writing a back slot: no flip now
 _mt_ntsc: .res 1
 _mt_top:  .res 1        ; the DLL's blank entries above the zones
 _anim:    .res 1
@@ -205,6 +206,8 @@ frame:  tya
         jsr     _snd_frame
         lda     _dsp_ready
         beq     @done
+        lda     _cmp_busy       ; (a slot half written: they wait a frame)
+        bne     @done
         ldy     #ZONES - 1      ; the zones just composed
 @f:     lda     _zflip,y
         beq     @nf

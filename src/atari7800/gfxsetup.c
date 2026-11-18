@@ -276,7 +276,7 @@ void tables_check(void)
 {
     uint8_t z, stale = 0;
     for (z = 0; z < ROWS; ++z)
-        if (zdirty[z] && rk[z] == RK_TEXT && was160[z] != blank_row(z))
+        if ((zdirty[z] & 1) && rk[z] == RK_TEXT && was160[z] != blank_row(z))
             stale = 1;
     if (!stale)
         return;

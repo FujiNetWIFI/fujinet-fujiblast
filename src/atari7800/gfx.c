@@ -31,10 +31,12 @@ void compose_dirty(void);
 /* the bombers wanted (gfxsetup.c's gfx_show starts with them) */
 uint8_t s_on[4], s_x[4], s_y[4], s_fr[4], s_seat[4];
 
-static uint8_t *line(uint8_t row)
-{
-    return SCREEN + row * 40;
-}
+/* row * 40 by table: cc65 multiplies in 16 bits, a good part of a tile's
+ * cost when a blast redraws a dozen at once */
+#define R5(i) (uint16_t)SCREEN + (i) * 40, (uint16_t)SCREEN + (i) * 40 + 40, \
+    (uint16_t)SCREEN + (i) * 40 + 80, (uint16_t)SCREEN + (i) * 40 + 120, (uint16_t)SCREEN + (i) * 40 + 160
+static const uint16_t row_adr[ROWS] = { R5(0), R5(5), R5(10), R5(15), R5(20) };
+#define line(row) ((uint8_t *)row_adr[row])
 
 /* ---- building a screen --------------------------------------------------------- */
 
@@ -185,14 +187,7 @@ void spr_at(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat, uint8_
     s_seat[n] = seat & 3;
 }
 
-void spr_arena(uint8_t n, uint8_t x, uint8_t y, uint8_t frame, uint8_t seat)
-{
-    s_on[n] = 1;
-    s_x[n] = AR_COL * 4 + (x >> 1);
-    s_y[n] = AR_ROW * 8 + y;
-    s_fr[n] = frame;
-    s_seat[n] = seat & 3;
-}
+/* (spr_arena is gfx.h's macro: x AR_COL * 4 + units / 2, y AR_ROW * 8 + units) */
 
 void spr_hide(uint8_t n)
 {
@@ -208,7 +203,7 @@ static void dirty_span(uint8_t y)
 {
     uint8_t a = y >> 3, b = (uint8_t)(y + 15) >> 3;
     while (a <= b && a < ROWS)
-        zdirty[a++] = 1;
+        zdirty[a++] |= 2;       /* only the bombers: compose.s keeps the runs */
 }
 
 /* what changed: its zones, old and new, composed */

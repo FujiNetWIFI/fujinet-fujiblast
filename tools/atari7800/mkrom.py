@@ -48,7 +48,8 @@ for op in (0x6D, 0x2D, 0x0E, 0x2C, 0xCD, 0xEC, 0xCC, 0xCE, 0x4D, 0xEE, 0x4C,
     LEN[op] = 3
 
 # code segments and where they live: (bank, or None = the fixed bank)
-CODE_SEGS = {"STARTUP": None, "LOWCODE": None, "ONCE": None, "CODE": None, "OVERLAY1": 0, "SOUND": 1}
+CODE_SEGS = {"STARTUP": None, "LOWCODE": None, "ONCE": None, "CODE": None, "OVERLAY1": 0, "SOUND": 1,
+             "OVERLAY2": 2}
 
 
 def in_tia(a):
@@ -136,7 +137,7 @@ def main():
     if bad:
         sys.exit(1)
     # the usage of each bank's part
-    for name in ("REPL", "OVERLAY1", "SOUND", "SNDDATA", "ART5", "ART6"):
+    for name in ("REPL", "OVERLAY1", "SOUND", "SNDDATA", "OVERLAY2", "ART5", "ART6"):
         if name in segs:
             s, e = segs[name]
             print("mkrom: %-8s $%04X-$%04X %5d bytes" % (name, s, e, e + 1 - s))
