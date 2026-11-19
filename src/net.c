@@ -11,6 +11,9 @@
 #include "game.h"
 #include "nstrans.h"
 #include "plat.h"
+#ifdef AMIGA_ASYNC
+#include "amiga/worker.h"
+#endif
 
 #define PING_EVERY 300          /* frames between keepalives (each is answered) */
 #define DEAD_AFTER 900          /* frames without a frame: the link is gone */
@@ -214,6 +217,9 @@ uint8_t net_poll(void)
             hello_frame();
     }
     if (quiet > DEAD_AFTER) {
+#ifdef AMIGA_ASYNC
+        amiga_tcp_note(FB_NET_IDLE);
+#endif
         drop();
         return NET_LOST;
     }

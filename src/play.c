@@ -13,6 +13,12 @@
 #include "input.h"
 #include "plat.h"
 #include "sound.h"
+#ifdef __AMIGA__
+#include "amiga/controls.h"
+#include "amiga/perf.h"
+static uint16_t move_clock;
+static uint8_t turn_stick, turn_priority;
+#endif
 
 #define HALF_W (ARENA_W * 2)
 #define HALF_H (ARENA_H * 2)
@@ -41,6 +47,37 @@ static uint8_t is_flame(uint8_t t)
 
 static void hud(void)
 {
+#ifdef __AMIGA__
+    /* Forty narrow glyphs keep names, wins and clock in separate fields. */
+    static const uint8_t col[SEATS] = { 0, 9, 23, 32 };
+    char b[40];
+    uint8_t c[40];
+    uint8_t s, i, t = st[OFF_TIMER];
+    memset(b, ' ', sizeof b);
+    memset(c, 0, sizeof c);
+    for (s = 0; s < SEATS; ++s) {
+        for (i = 0; i < 8; ++i)
+            c[col[s] + i] = s;
+        if (!INPLAY(s))
+            continue;
+        if (ALIVE(s) || st[OFF_PHASE] != PH_PLAY) {
+            for (i = 0; i < 6 && NAME(s)[i]; ++i)
+                b[col[s] + i] = NAME(s)[i];
+        } else {
+            memcpy(b + col[s], "------", 6);
+        }
+        b[col[s] + 7] = '0' + PL(s, P_WINS) % 10;
+    }
+    if (st[OFF_PHASE] == PH_COUNTDOWN) {
+        b[19] = '0' + t % 10;
+    } else {
+        b[18] = '0' + t / 60;
+        b[19] = ':';
+        b[20] = '0' + (t % 60) / 10;
+        b[21] = '0' + t % 10;
+    }
+    gfx_hud_line(b, c);
+#else
     static const uint8_t col[SEATS] = { 0, 4, 12, 16 };
     static char b[21];
     static uint8_t c[20];
@@ -64,6 +101,7 @@ static void hud(void)
         b[11] = '0' + t % 10;
     }
     gfx_big_line(0, b, c);
+#endif
     hud_timer = t;
     hud_alive = st[OFF_ALIVE];
     for (s = 0; s < SEATS; ++s)
@@ -95,6 +133,10 @@ static void stats_draw(uint8_t force)
 void play_enter(void)
 {
     uint8_t s;
+#ifdef __AMIGA__
+    move_clock = frame_count;
+    turn_stick = 0;
+#endif
     gfx_begin();
     gfx_arena();
     memset(drawn, NONE, sizeof(drawn));
@@ -243,9 +285,25 @@ static uint8_t try_dirs(uint8_t lv)
         h = DIR_LEFT;
     else if (s & IN_RIGHT)
         h = DIR_RIGHT;
-    if (h == NONE || v == NONE)
+    if (h == NONE || v == NONE) {
+#ifdef __AMIGA__
+        turn_stick = s;
+#endif
         return mv_step(h == NONE ? v : h, lv);
+    }
+#ifdef __AMIGA__
+    /* A diagonal expresses one turn. Re-choosing from mv_dir every tick
+     * reverses the lane-alignment slide as soon as that turn starts. Keep
+     * its priority until the stick changes; a blocked turn may still fall
+     * back to the old axis while approaching the entrance. */
+    if (s != turn_stick) {
+        turn_stick = s;
+        turn_priority = (mv_dir == DIR_LEFT || mv_dir == DIR_RIGHT) ? v : h;
+    }
+    a = turn_priority;
+#else
     a = (mv_dir == DIR_LEFT || mv_dir == DIR_RIGHT) ? v : h;
+#endif
     b = a == v ? h : v;
     x = mv_x;
     y = mv_y;
@@ -283,10 +341,21 @@ void play_frame(void)
 {
     uint8_t s, moved = 0, t, me, d;
     const uint8_t *pl;
+#ifdef __AMIGA__
+    uint16_t requested = (uint16_t)(frame_count - move_clock);
+    uint8_t steps = amiga_elapsed_ticks(frame_count, &move_clock);
+#endif
 
     me = my_seat != NONE && ALIVE(my_seat) && st[OFF_PHASE] == PH_PLAY;
     if (me) {
+#ifdef __AMIGA__
+        amiga_perf_steps(requested, steps);
+        /* NIO calls can span display frames; walk in logical 60Hz steps. */
+        while (steps--)
+            moved |= try_dirs(PL(my_seat, P_SPEED));
+#else
         moved = try_dirs(PL(my_seat, P_SPEED));
+#endif
         if (mv_bump != NONE && frame_count - bump_t >= 30 &&
             ((PL(my_seat, P_FLAGS) & PF_KICK) || MAPT(mv_bump) == T_DUD)) {
             bump_t = frame_count;

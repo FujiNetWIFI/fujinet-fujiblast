@@ -26,6 +26,11 @@ void tick(void)
     frame_wait();
     input_poll();
     input_take();
+#ifdef __AMIGA__
+    /* Menus and messages use tick(); the arena handles ESC as leave. */
+    if (ev_key == KEY_ESC)
+        plat_quit();
+#endif
     if (ev_key == 'M')
         snd_toggle_mute();
 }
@@ -38,6 +43,16 @@ uint8_t pressed(uint8_t bit)
 
 void centre(uint8_t row, const char *s, uint8_t colour, uint8_t width)
 {
+#ifdef __AMIGA__
+    /* Long configured hostnames must not underflow the centring column. */
+    if (strlen(s) > width) {
+        char clipped[41];
+        memcpy(clipped, s, width);
+        clipped[width] = 0;
+        gfx_text(row, 0, clipped, colour);
+        return;
+    }
+#endif
     gfx_text(row, (width - strlen(s)) / 2, s, colour);
 }
 
@@ -60,6 +75,15 @@ void message(const char *a, const char *b, uint8_t frames)
 /* ---- the waiting room ------------------------------------------------------ */
 
 #define SEAT_ROW(s) (4 + (s) * 4)
+
+#ifdef __AMIGA__
+static void wait_sound_hint(void)
+{
+    gfx_clear_row(24);
+    centre(24, snd_is_muted() ? "ESC: LEAVE    M: SOUND (OFF)"
+                              : "ESC: LEAVE    M: SOUND (ON)", 0, 40);
+}
+#endif
 
 void wait_enter(void)
 {
@@ -110,13 +134,22 @@ void wait_state(void)
         centre(22, "WAITING FOR PLAYERS", 0, 40);
     else
         centre(22, "PRESS FIRE TO START", 1, 40);
+#ifdef __AMIGA__
+    wait_sound_hint();
+#else
     gfx_clear_row(24);
     centre(24, "ESC: LEAVE    M: SOUND", 0, 40);
+#endif
 }
 
 void wait_frame(void)
 {
     uint8_t r = st[OFF_ROUNDS];
+#ifdef __AMIGA__
+    /* main has already toggled the sound; refresh even without a server update. */
+    if (ev_key == 'M')
+        wait_sound_hint();
+#endif
     if (my_seat != NONE && my_seat == st[OFF_HOST]) {
         if (pressed(IN_LEFT) && r > 1)
             net_act(ACT_ROUNDS, r - 1, 0);

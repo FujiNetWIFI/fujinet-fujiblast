@@ -125,6 +125,10 @@ static void walkers(uint8_t snd)
     memset(st + OFF_MAP + 10 * ARENA_W, T_FLOOR, ARENA_W);
     memset(st + OFF_MAP + 2 * ARENA_W, T_FLOOR, ARENA_W);
     st[OFF_ALIVE] = 0x0F;
+#ifdef __AMIGA__
+    /* Exercise distinct bot suffixes and a full-width name in the narrow HUD. */
+    memcpy(st + OFF_NAMES, "BOT1\0\0\0\0BOT2\0\0\0\0BOT3\0\0\0\0PLAYER\0\0", SEATS * NAME_LEN);
+#endif
     my_seat = 0;
     play_enter();
     for (;;) {

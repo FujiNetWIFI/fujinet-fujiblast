@@ -24,7 +24,16 @@ extern const uint8_t seat_off[SEATS], seat_bit[SEATS];     /* net.c */
 #define INPLAY(s) (st[OFF_INPLAY] & seat_bit[s])
 
 extern char my_name[NAME_LEN + 1];
-extern char srv_host[61];
+#if defined(__AMIGA__) || defined(FB_NIO)
+#ifndef FB_NIO
+#define FB_NIO 1
+#endif
+#include "nio/settings.h"
+#define FB_HOST_MAX FB_NIO_HOST_MAX
+#else
+#define FB_HOST_MAX 60
+#endif
+extern char srv_host[FB_HOST_MAX + 1];
 extern uint16_t srv_port;
 extern char srv_table[TABLE_LEN + 1];
 extern uint8_t my_seat;             /* NONE: watching */
@@ -57,6 +66,12 @@ void play_frame(void);
 
 /* menus.c */
 void title(void);
+#ifdef __AMIGA__
+void amiga_setup(void);
+#endif
+#ifdef FB_NIO
+uint8_t fb_nio_save_setup(const char *name, const char *address);
+#endif
 void name_entry(void);
 uint8_t table_list(void);           /* 1: srv_table picked */
 

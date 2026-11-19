@@ -44,11 +44,19 @@ void title(void)
 {
     uint8_t n, x;
     uint16_t t = 0;
+#ifdef __AMIGA__
+redraw:
+#endif
     gfx_begin();
     gfx_logo(3);
     gfx_row(8, ROW_BIG, PAL_MENU);
     centre(8, "FOR FUJINET", 0, 20);
+#ifdef __AMIGA__
+    centre(17, "PRESS FIRE TO START", 0, 40);
+    centre(19, "PRESS F1 TO SETUP", 0, 40);
+#else
     centre(18, "PRESS FIRE", 0, 40);
+#endif
     centre(21, TAGLINE, 0, 40);
 #ifdef QUIT_HINT
     centre(23, QUIT_HINT, 0, 40);       /* (a platform that can quit) */
@@ -62,6 +70,14 @@ void title(void)
             x = (uint8_t)((t >> 1) + n * 40) % 168;
             spr_at(n, x, TITLE_Y(n), FR_RIGHT0 + ((t >> 3) & 1 ? (n & 1) + 1 : 0), n, 0);
         }
+#ifdef __AMIGA__
+        if (ev_key == KEY_SETUP) {
+            snd_stop();
+            spr_hide_all();
+            amiga_setup();
+            goto redraw;
+        }
+#endif
         if (ev_btn || ev_key == KEY_RETURN)
             break;
 #ifdef QUIT_HINT
@@ -181,13 +197,25 @@ uint8_t table_list(void)
         gfx_text(5 + i * 2, 0, b, 0);
     }
     centre(22, "STICK: CHOOSE    FIRE: JOIN", 0, 40);
+#ifdef __AMIGA__
+    centre(24, "ESC: TITLE", 0, 40);
+#endif
     gfx_show();
     sel = 0;
     for (;;) {
         for (i = 0; i < n; ++i)
             gfx_text(5 + i * 2, 2, i == sel ? ">" : " ", 0);
         prev_dir = inp_dir;
+#ifdef __AMIGA__
+        frame_wait(); input_poll(); input_take();
+        if (ev_key == KEY_ESC || ev_key == KEY_SETUP) {
+            net_close();
+            return 0;
+        }
+        if (ev_key == 'M') snd_toggle_mute();
+#else
         tick();
+#endif
         net_poll();
         if (pressed(IN_UP) && sel) {
             --sel;

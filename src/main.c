@@ -137,15 +137,21 @@ int main(void)
 {
     plat_init();
     test_check();
+#ifndef __AMIGA__
     appkey_load();
+#endif
     title();
     if (!my_name[0]) {
         name_entry();
         appkey_save_name();
     }
     for (;;) {
-        if (!srv_table[0] && !table_list())
+        if (!srv_table[0] && !table_list()) {
+#ifdef __AMIGA__
+            title();
+#endif
             continue;
+        }
         if (!play_table())
             appkey_clear_room();
     }

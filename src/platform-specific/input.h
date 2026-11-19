@@ -14,6 +14,9 @@
 #define KEY_RETURN 13
 #define KEY_ESC    27
 #define KEY_BACK   8
+#ifdef __AMIGA__
+#define KEY_SETUP  0x80
+#endif
 
 extern uint8_t inp_dir;     /* held */
 extern uint8_t inp_btn;     /* held */

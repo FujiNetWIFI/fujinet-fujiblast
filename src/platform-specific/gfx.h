@@ -28,6 +28,10 @@ void gfx_clear_row(uint8_t row);
 /* A row's text all at once (a BIG row: 20 characters, colours 0-3 per
  * character), so it never shows half rewritten. */
 void gfx_big_line(uint8_t row, const char *s, const uint8_t *colour);
+#ifdef __AMIGA__
+/* Forty narrow, seat-coloured characters on the arena HUD row. */
+void gfx_hud_line(const char *s, const uint8_t *colour);
+#endif
 /* Text: on a BIG row colour (0-3) picks the row's colour. */
 void gfx_text(uint8_t row, uint8_t col, const char *s, uint8_t colour);
 void gfx_number(uint8_t row, uint8_t col, uint8_t n, uint8_t colour);
