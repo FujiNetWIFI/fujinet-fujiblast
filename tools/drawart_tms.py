@@ -68,9 +68,35 @@ def paint(rows, m):
 
 ICON_ACCENT = {"fire": (11, 10), "bombup": (7, 5), "speed": (15, 14), "kick": (3, 2), "glove": (13, 6)}
 
+# The trophy drawn for the 2-colour runs: drawart_cga's has a shade down the
+# bowl's right and an outline round the handles, which with a handle's hole
+# makes 3 colours in a run; squeezed, the right handle lost its hole and the
+# left got stray dots (a lopsided cup). Here the handles match, the bowl is
+# plain and the shade is only on the stem; the base's middle stripe is
+# yellow, as the squeeze made it.
+TROPHY = [
+    "................",
+    "..wwwwwwwwwwww..",
+    "wwwwwwwwwwwwwwww",
+    "w..wwwwwwwwww..w",
+    "w..wwwwwwwwww..w",
+    ".w.wwwwwwwwww.w.",
+    "..wwwwwwwwwwww..",
+    "....wwwwwwww....",
+    "......wwcc......",
+    "......wwcc......",
+    "......wwcc......",
+    ".....wwwccc.....",
+    "....rrrrrrrr....",
+    "....wwwwwwww....",
+    "....rrrrrrrr....",
+    "................",
+]
+
 
 def tile_sheet():
     src = C.tile_frames()
+    src["trophy"] = [TROPHY]
     out = {}
     plain = {
         "floor": {".": FLOOR},
