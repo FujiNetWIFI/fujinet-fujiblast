@@ -797,3 +797,10 @@ proto:
 	cd server && go run ./cmd/fujiblastd -cheader > ../src/proto.h
 
 include mekkogx/toplevel-rules.mk
+
+# Amiga is NIO-only; bypass the legacy FujiNet library resolver.
+.PHONY: amiga test-amiga
+amiga:
+	$(MAKE) -f tools/amiga/amiga.mk all
+test-amiga:
+	$(MAKE) -f tools/amiga/amiga.mk test

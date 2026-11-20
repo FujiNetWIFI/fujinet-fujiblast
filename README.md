@@ -2,6 +2,7 @@
 
 FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 
+- the Amiga (68000, OCS/ECS, 1 MB) using FujiNet NIO — [build and run](docs/amiga.md);
 - the Atari 400/800/XL/XE with 48K;
 - the Apple II in high-res (a 128K //e, //c or IIgs: the art lives in aux RAM);
 - MS-DOS on an IBM PC, XT or PCjr (or compatible) with CGA and 128K, down to a 4.77 MHz 8088; and on a VGA or MCGA (the PS/2 Model 25/30 and up) in 256 colours;
@@ -22,7 +23,7 @@ FujiBlast is a bomb-maze game for two to four players over FujiNet. It runs on:
 - the Heathkit H89, under CP/M or HDOS;
 - the RCA Studio II, with the FujiNet cartridge (protocol 2).
 
-All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the Channel F's hand controller, the ColecoVision's stick, the 7800's, the 5200's; the Studio II's keypads); the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
+All are played with a joystick (the Intellivision's hand controller, the Arcadia's disc, the Astrocade's handle, the Channel F's hand controller, the ColecoVision's stick, the 7800's, the 5200's; the Studio II's keypads); the Amiga, the Apple, the PC, the Adam and the MSX take the keyboard too, and the Odyssey 2's keyboard types a name.
 
 ## How to play
 
@@ -45,6 +46,7 @@ All the art and music are original. `gfx/*.png` is the master sheet that every p
 | `server/` | `fujiblastd`, the game server (Go). `blastbot` runs bots for tests and rigs. |
 | `src/*.c` | The client, platform neutral. |
 | `src/platform-specific/*.h` | The API each platform implements. |
+| `src/amiga/` | The NIO-only Amiga client: OS-managed OCS graphics, keyboard/joystick, Paula audio and released NIO 0.2.0. |
 | `src/atari/` | The Atari implementation: cc65, ANTIC mode 4, players and missiles, netstream. |
 | `src/apple2/` | The Apple II implementation: cc65, high-res (the menus on both pages, the arena on one), a blitter in the language card, SmartPort, the Mockingboard. |
 | `src/msdos/` | The MS-DOS implementation: Open Watcom, FUJINET.SYS's serial port driven by interrupt, the PC speaker; the screen in `cga/` (CGA's 320x200 4-colour mode, FUJIBLST.EXE) or `vga/` (mode 13h, 256 colours, FUJIBVGA.EXE). |

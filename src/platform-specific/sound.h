@@ -19,6 +19,9 @@ void snd_play(uint8_t id);      /* an effect */
 void snd_music(uint8_t id);     /* a jingle */
 void snd_stop(void);
 void snd_toggle_mute(void);     /* PLAT_MUSIC: all, effects only, none */
+#ifdef __AMIGA__
+uint8_t snd_is_muted(void);
+#endif
 
 #ifdef PLAT_MUSIC
 #ifdef __MSDOS__
