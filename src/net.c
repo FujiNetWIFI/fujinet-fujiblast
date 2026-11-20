@@ -35,6 +35,10 @@ static uint8_t span_lo, span_hi = STATE_SIZE;
 
 static uint8_t link, joined, seq, credited, resync_hold, resync_owed;
 static uint8_t table_n, table_have;
+#ifdef __AMIGA__
+static uint8_t table_refreshing;
+static uint8_t table_stage[MAX_TABLES][TABLE_REC];
+#endif
 static uint16_t quiet;          /* passes since a frame came */
 static uint16_t q_ping;         /* the same, mod PING_EVERY and ASK_AGAIN (no */
 static uint8_t q_ask;           /* division in a pass: cc65's is slow) */
@@ -57,6 +61,9 @@ static void send(uint8_t type, const uint8_t *p, uint8_t n)
 {
     uint8_t s1 = 0, s2 = 0, i, from = 0;
     raw[0] = type;
+#ifdef __AMIGA__
+    if (n) /* Empty control frames carry no payload pointer. */
+#endif
     memcpy(raw + 1, p, n);
     ++n;
     for (i = 0; i < n; ++i) {
@@ -115,6 +122,9 @@ static void hello_frame(void)
 
 void net_hello(void)
 {
+#ifdef __AMIGA__
+    table_refreshing = 0;
+#endif
     joined = 1;
     net_heard = 0;
     net_err = 0;
@@ -132,6 +142,9 @@ static void drop(void)
 {
     nst_close();
     link = joined = 0;
+#ifdef __AMIGA__
+    table_refreshing = 0;
+#endif
 }
 
 uint8_t net_poll(void)
@@ -189,6 +202,22 @@ uint8_t net_poll(void)
             }
             break;
         case CS_TABLE:
+#ifdef __AMIGA__
+            if (table_refreshing) {
+                uint8_t count;
+                if (n < 3) break;
+                count = nst_buf[2] > MAX_TABLES ? MAX_TABLES : nst_buf[2];
+                if (count && (n < 3 + TABLE_REC || nst_buf[1] >= count)) break;
+                /* A complete response replaces the published list atomically. */
+                if (table_n != count) table_have = 0;
+                table_n = count;
+                if (count) {
+                    memcpy(table_stage[nst_buf[1]], nst_buf + 3, TABLE_REC);
+                    table_have |= 1 << nst_buf[1];
+                }
+                break;
+            }
+#endif
             if (n >= 3 + TABLE_REC && nst_buf[1] < MAX_TABLES) {
                 memcpy(tables[nst_buf[1]], nst_buf + 3, TABLE_REC);
                 table_have |= 1 << nst_buf[1];
@@ -225,6 +254,29 @@ uint8_t net_poll(void)
     }
     return r;
 }
+
+#ifdef __AMIGA__
+/* Use the established stream; never reconnect or wait in the menu loop. */
+void net_tables_request(void)
+{
+    table_refreshing = 1;
+    table_n = 0xFF;
+    table_have = 0;
+    memset(table_stage, 0, sizeof table_stage);
+    send(SC_TABLES, 0, 0);
+}
+uint8_t net_tables_ready(uint8_t *count)
+{
+    uint8_t want;
+    if (!table_refreshing || table_n == 0xFF) return 0;
+    want = (uint8_t)((1u << table_n) - 1);
+    if ((table_have & want) != want) return 0;
+    memcpy(tables, table_stage, sizeof tables);
+    *count = table_n;
+    table_refreshing = 0;
+    return 1;
+}
+#endif
 
 /* The table list (blocking): asked again until it comes. */
 uint8_t net_tables(void)

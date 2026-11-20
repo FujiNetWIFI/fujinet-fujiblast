@@ -51,6 +51,9 @@ class AmigaTests(unittest.TestCase):
     def test_stream_recovery(self):
         self.compile_run("stream", ["tests/amiga/stream.c", "src/amiga/stream.c"])
 
+    def test_rooms(self):
+        self.compile_run("rooms", ["-fno-sanitize-recover=all", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections", "tests/amiga/rooms.c", "src/amiga/rooms.c", "src/net.c"])
+
     def test_queue(self):
         self.compile_run("queue", ["tests/amiga/queue.c"])
 

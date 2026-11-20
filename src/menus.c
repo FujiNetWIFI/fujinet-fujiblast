@@ -164,13 +164,18 @@ void name_entry(void)
 }
 #endif
 
+#ifndef __AMIGA__
 static void phase_name(char *b, uint8_t ph)
 {
     strcpy(b, ph == PH_WAIT ? "WAITING" : "PLAYING");
 }
 
+#endif
 uint8_t table_list(void)
 {
+#ifdef __AMIGA__
+    return amiga_table_list();
+#else
     static char b[41];
     uint8_t n, i, sel = 0, *t;
     message("CONNECTING", srv_host, 1);
@@ -231,5 +236,6 @@ uint8_t table_list(void)
     memcpy(srv_table, tables[sel], TABLE_LEN);
     srv_table[TABLE_LEN] = 0;
     return 1;
+#endif
 }
 #endif
