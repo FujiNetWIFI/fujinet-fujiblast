@@ -81,7 +81,7 @@ runtime acceptance on the non-Amiga targets.
 
 ## Amiga validation
 
-The production 68000 build uses the released NIO 0.2.0 archive. Fourteen host
+The production 68000 build uses the released NIO 0.2.0 archive. Fifteen host
 test groups cover transport, queues, input, AppStore, setup, audio and assets,
 including a portable `FB_NIO` build without Amiga defines. Amiberry live checks
 cover name entry with empty history, large settings, chunked history, join,

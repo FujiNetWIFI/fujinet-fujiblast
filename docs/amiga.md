@@ -86,8 +86,8 @@ See [playing and diagnostics](amiga-playing.md),
 make test-amiga
 ```
 
-Fourteen host test groups cover transport framing and recovery, queues,
-movement, settings, large AppStore values, setup interaction, sound sequencing,
+Fifteen host test groups cover transport framing and recovery, queues,
+movement, live room-list refresh, settings, large AppStore values, setup interaction, sound sequencing,
 palette selection and release-cache verification. C tests use AddressSanitizer
 and UBSan. A portable NIO configuration is tested without Amiga defines.
 

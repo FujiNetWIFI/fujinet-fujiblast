@@ -47,6 +47,11 @@ extern uint8_t net_map;             /* the map changed since play_state looked *
 uint8_t net_open(void);
 void net_hello(void);
 uint8_t net_poll(void);
+#ifdef __AMIGA__
+void net_tables_request(void);
+uint8_t net_tables_ready(uint8_t *count);
+uint8_t amiga_table_list(void);
+#endif
 uint8_t net_tables(void);           /* count, 0: none or no answer */
 void net_move(uint8_t x, uint8_t y, uint8_t dir, uint8_t warp);
 uint8_t net_act(uint8_t act, uint8_t a1, uint8_t a2);

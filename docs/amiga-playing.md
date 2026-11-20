@@ -155,6 +155,18 @@ artwork, catching masking, overlap, clipping, and restoration errors.
 
 See [performance testing](amiga-performance.md) for interpretation and limits.
 
+## Live room list
+
+“Pick a room” refreshes player counts and WAITING/PLAYING status automatically,
+five seconds after each completed list. The displayed list remains usable while
+the next response arrives; arrow/joystick selection, joining, mute and Escape
+stay active. A complete response replaces the displayed rows together.
+
+Selection follows the room ID if the server reorders rooms. If the selected room
+is removed, selection falls back to an available row. An empty list disables
+joining and continues refreshing. A disconnected stream, server error or refresh
+that takes ten seconds returns to the title after an explanatory message.
+
 ## Arena scoreboard
 
 The Amiga HUD uses forty normal-width glyphs across the top: four separately

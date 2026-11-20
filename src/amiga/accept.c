@@ -164,6 +164,23 @@ void amiga_live_test(void)
             my_seat = i;
     check(my_seat != NONE, "join seat");
     check(st[OFF_HOST] == my_seat, "human host");
+    {
+        uint8_t count = 0, ready = 0, found = 0, seats = 0;
+        for (i = 0; i < SEATS; ++i) if (SEATED(i)) ++seats;
+        net_tables_request();
+        for (i = 0; i < 600 && !ready; ++i) {
+            frame_wait();
+            check(net_poll() != NET_LOST, "refresh keeps established stream");
+            ready = net_tables_ready(&count);
+        }
+        check(ready, "asynchronous room list response");
+        for (i = 0; i < count; ++i)
+            if (!memcmp(tables[i], srv_table, TABLE_LEN)) {
+                check(tables[i][20] == seats, "room refresh includes joined players");
+                found = 1;
+            }
+        check(found, "joined room remains listed");
+    }
     wait_enter();
     frame_wait();
     gfx_dump("FB:live-room.bin");
